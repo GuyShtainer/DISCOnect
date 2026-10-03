@@ -14,12 +14,20 @@ import pytest
 from disconect import cli, storage
 from disconect.storage import keys, migrate_home
 
+REAL_RUNNING_PROGRAMS = migrate_home.running_programs      # the autouse fixture stubs the module attribute
 LEGACY = ".hearthbeat"
 NEW = ".disconect"
 
 
+@pytest.fixture(autouse=True)
+def _no_product_running(monkeypatch):
+    """The real process table may hold the real app; tests that care use ``test_process_check``'s own spawn."""
+    monkeypatch.setattr(migrate_home, "running_programs", lambda own_pid=None: [])
+
+
 def _store(folder: pathlib.Path, name: str) -> pathlib.Path:
     """A real (plaintext, WAL) store with one marker row, closed cleanly."""
+    folder.mkdir(parents=True, exist_ok=True)       # a writer never creates a missing legacy folder
     db = folder / name
     with storage.open_for_write(db, "test") as conn:
         conn.execute("CREATE TABLE IF NOT EXISTS marker (v TEXT)")
@@ -262,3 +270,116 @@ def test_the_migrated_store_opens_through_the_default_path(tmp_path, capsys):
     assert _run(capsys)[0] == 0
     assert cli.main(["status"]) == 0
     assert "using legacy data folder" not in capsys.readouterr().err
+
+
+# ---- review fixes (F1a, F3, nit) ----
+
+def _named_sleeper(tmp_path, name: str) -> subprocess.Popen:
+    """A real idle process whose argv[0] is ``<tmp>/bin/<name>`` (``exec -a``), as the app or serve would be."""
+    import time
+    argv0 = str(tmp_path / "bin" / name)
+    proc = subprocess.Popen(["bash", "-c", 'exec -a "$0" sleep 60', argv0])
+    for _ in range(100):                      # until pgrep can see it under its new name
+        if subprocess.run(["pgrep", "-f", "--", name], capture_output=True).returncode == 0:
+            break
+        time.sleep(0.05)
+    return proc
+
+
+def _stop(*procs):
+    for proc in procs:
+        proc.kill()
+        proc.wait()
+
+
+@pytest.mark.parametrize("name", list(migrate_home.RUNNING_NAMES))
+def test_an_idle_running_program_refuses_the_move_and_touches_nothing(tmp_path, capsys, monkeypatch, name):
+    """The reviewer's F1: an idle app or MCP server holds no file open, so lsof sees nothing."""
+    monkeypatch.setattr(migrate_home, "running_programs", REAL_RUNNING_PROGRAMS)
+    db = _old_style(tmp_path)
+    before = _names(db.parent)
+    proc = _named_sleeper(tmp_path, name)
+    try:
+        code, _, err = _run(capsys)
+    finally:
+        _stop(proc)
+    assert code == cli.EXIT_USAGE
+    assert f"migrate-home: {name} (pid {proc.pid}) is running; quit the app and Claude Desktop, then retry" in err
+    _assert_untouched(tmp_path, before)
+
+
+def test_the_check_matches_a_full_bundle_path_but_not_a_longer_name(tmp_path):
+    bundle = tmp_path / "disconect-app.app" / "Contents" / "MacOS"
+    proc = _named_sleeper(bundle, "disconect-app")
+    longer = _named_sleeper(tmp_path, "disconect-serve-helper")
+    try:
+        found = REAL_RUNNING_PROGRAMS()
+    finally:
+        _stop(proc, longer)
+    assert ("disconect-app", proc.pid) in found
+    assert all(pid != longer.pid for _, pid in found)
+
+
+def test_this_process_and_its_parents_are_never_reported():
+    assert os.getpid() in migrate_home._ancestors(os.getpid())
+    assert all(pid != os.getpid() for _, pid in REAL_RUNNING_PROGRAMS())
+
+
+def test_nothing_running_lets_the_move_through(tmp_path, capsys):
+    _old_style(tmp_path)
+    assert _run(capsys)[0] == 0 and (tmp_path / NEW / "disconect.db").is_file()
+
+
+def test_a_half_done_state_resolves_and_finishes_through_the_default_path(tmp_path, capsys):
+    """F2 end to end: siblings renamed, folder not yet; the CLI reads it, a rerun finishes it."""
+    db = _old_style(tmp_path)
+    for name in _names(db.parent):
+        if name.startswith("hearthbeat.db"):
+            (db.parent / name).rename(db.parent / ("disconect.db" + name[len("hearthbeat.db"):]))
+    assert storage.default_db_path() == db.parent / "disconect.db"
+    assert cli.main(["status"]) == 0
+    assert "using legacy data folder" in capsys.readouterr().err
+    assert _run(capsys)[0] == 0
+    assert _marker(tmp_path / NEW / "disconect.db") == ["survived"] and not db.parent.exists()
+
+
+def test_a_symlinked_legacy_folder_merges_into_an_existing_db_less_new_folder(tmp_path, capsys):
+    """F3 (the reviewer's case D2): ~/.hearthbeat -> a real directory, ~/.disconect already exists."""
+    target = tmp_path / "elsewhere" / "data"
+    _store(target, "hearthbeat.db")
+    (target / "relay.json").write_text('{"folder": "/r"}')
+    (tmp_path / LEGACY).symlink_to(target, target_is_directory=True)
+    (tmp_path / NEW).mkdir()
+    code, _, err = _run(capsys)
+    assert code == 0, err
+    assert not (tmp_path / LEGACY).exists() and not (tmp_path / LEGACY).is_symlink()
+    assert target.is_dir() and _names(target) == [], "the target directory itself is left, emptied of what moved"
+    assert {"disconect.db", "relay.json"} <= set(_names(tmp_path / NEW))
+    assert _marker(tmp_path / NEW / "disconect.db") == ["survived"]
+
+
+def test_a_symlink_whose_target_keeps_entries_is_left_and_reported(tmp_path, monkeypatch):
+    target = tmp_path / "data"
+    target.mkdir()
+    (target / "stays").write_text("x")
+    link = tmp_path / LEGACY
+    link.symlink_to(target, target_is_directory=True)
+    assert migrate_home._remove_legacy(link) == ["stays"]
+    assert link.is_symlink() and (target / "stays").read_text() == "x"
+
+
+def test_a_keyed_store_that_cannot_be_unlocked_says_nothing_was_moved(tmp_path, capsys):
+    legacy = tmp_path / LEGACY
+    legacy.mkdir()
+    db = legacy / "hearthbeat.db"
+    code = ("import os, sys\nfrom disconect.storage import sqlite as s\n"
+            "c = s.connect(sys.argv[1], isolation_level=None)\n"
+            "c.execute('PRAGMA journal_mode=WAL'); c.execute('PRAGMA wal_autocheckpoint=0')\n"
+            "c.execute('CREATE TABLE marker (v TEXT)')\nos._exit(0)\n")
+    subprocess.run([sys.executable, "-c", code, str(db)], check=True)
+    (legacy / "hearthbeat.db.keys.json").write_text("{}")    # keyed, but nothing can unlock it
+    before = _names(legacy)
+    code, _, err = _run(capsys)
+    assert code == cli.EXIT_LOCKED and err.startswith("locked: ") and err.rstrip().endswith("nothing was moved")
+    # taking the write lock leaves its own (empty) file; no database file was renamed, no folder appeared
+    assert set(_names(legacy)) - {"hearthbeat.db.write-lock"} == set(before) and not (tmp_path / NEW).exists()

@@ -104,7 +104,7 @@ def _relay_for(args: argparse.Namespace) -> FolderRelay:
     if not folder:
         raise FileNotFoundError(f"no relay folder: pass --relay <folder> or write {{\"folder\": ...}} to {config}")
     if getattr(args, "relay", None) and getattr(args, "remember", False):
-        config.parent.mkdir(parents=True, exist_ok=True)
+        home.ensure_parent_dir(config)
         config.write_text(json.dumps({"folder": str(folder)}) + "\n")
     return FolderRelay(pathlib.Path(folder).expanduser())
 
@@ -557,6 +557,7 @@ def cmd_key_rotate_recovery(args: argparse.Namespace) -> int:
     if keys.keychain_get(keys.key_id_for(old_master)) is not None:
         keys.keychain_delete(keys.key_id_for(old_master))
         keys.keychain_set(keys.key_id_for(new_master), new_master)
+    keys.keychain_delete_legacy(keys.key_id_for(old_master))      # an earlier build's item for the old key
     shown = _show_words_once(new_master)
     _emit({"rotated": True, "words_shown": shown, "relay_cleared": relay_cleared, **result}, args.json,
           f"master key rotated: database, {len(result['snapshots'])} snapshot(s) and {len(result['copies'])} "
@@ -571,6 +572,7 @@ def cmd_key_cache(args: argparse.Namespace) -> int:
     key_id = keys.key_id_for(master)
     if args.remove:
         removed = keys.keychain_delete(key_id)
+        removed = keys.keychain_delete_legacy(key_id) or removed
         _emit({"cached": False, "removed": removed}, args.json, "keychain item removed" if removed else "nothing was cached")
         return EXIT_OK
     keys.keychain_set(key_id, master)
@@ -597,6 +599,9 @@ def cmd_migrate_home(args: argparse.Namespace) -> int:
     except migrate_home.MigrateRefused as exc:
         print(f"migrate-home: {exc}", file=sys.stderr)
         return EXIT_USAGE
+    except (storage.Encrypted, storage.NotEncrypted, keys.KeyError_) as exc:
+        print(f"locked: {exc}; nothing was moved", file=sys.stderr)
+        return EXIT_LOCKED
     lines = [report["message"]]
     if report["moved"]:
         lines += [f"before {report['from']}:", *(f"  {name}" for name in report["before"]),
@@ -730,6 +735,9 @@ def main(argv: list[str] | None = None) -> int:
         encrypt_module.cleanup_stray(pathlib.Path(args.db))
     try:
         return int(args.func(args))
+    except storage.HomeMoved as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_NOT_CONFIGURED
     except (storage.Encrypted, storage.NotEncrypted, keys.KeyError_) as exc:
         print(f"locked: {exc}", file=sys.stderr)
         return EXIT_LOCKED
