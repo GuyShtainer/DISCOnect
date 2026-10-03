@@ -14,6 +14,8 @@ from typing import Any
 
 PRODUCT = "DISCOnect"
 NOTICE = "Not affiliated with or endorsed by any watch manufacturer."
+#: The one sentence every coaching session shows (``CLAIMS-POLICY.md``); mirrored in ``identity.ts`` and ``identity.rs``.
+DISCLAIMER = "This describes patterns in your own data. It is not medical advice, a diagnosis or a treatment plan."
 
 DATA_DIR = ".disconect"
 DB_FILENAME = "disconect.db"

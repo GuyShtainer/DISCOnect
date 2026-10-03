@@ -14,7 +14,7 @@ decode failures; import takes about five seconds):
 
 - **Ingest** of wellness FIT files (all-day monitoring, sleep, HRV, skin temperature, training
   metrics, activities) with `fitdecode` (MIT), plus the JSON layer of a Garmin Connect
-  *Export Your Data* archive: daily spine, sleep, training readiness, VO2max, training load,
+  *Export Your Data* archive: daily spine, sleep, the vendor's readiness figure, VO2max, training load,
   endurance score, fitness age, weight, hydration, active minutes.
 - **Store**: SQLite in WAL mode, append-only migrations, raw bytes retained with every canonical
   row pointing back to its raw record, an OS-held cross-process write lock that readers never
@@ -26,7 +26,7 @@ decode failures; import takes about five seconds):
   outlet (`disconect contract`).
 - **Facts engine**: the last N days versus the person's own baseline, per metric and source
   scope, with delta, z-score, a confidence band that says "insufficient" below three baseline
-  days, and evidence dates. No population norms, no diagnosis.
+  days, and evidence dates. No population norms: it describes your own history only.
 - **CLI**: `import`, `reparse`, `status` (data health incl. cross-source agreement), `facts`,
   `export` (CSV), `backup` / `backups` / `restore` (verified snapshots), `contract`.
 - **MCP server** (`disconect-mcp`, stdio, read-only): `get_data_health`, `get_metric_series`,
@@ -41,8 +41,8 @@ and REM; daily steps match on 20 of 21 days (the other differs by under a hundre
 source Connect merged in); distance within a metre.
 
 Not done yet: the USB/MTP pull off the watch (Phase 0 was deliberately skipped on 2026-09-10; the
-same decoder ingests a `GARMIN/` tree once `tools/mtp-pull.sh` exists), body battery and
-training readiness from device data (cloud JSON only so far; both are recompute targets), naps,
+same decoder ingests a `GARMIN/` tree once `tools/mtp-pull.sh` exists), the vendor's energy and
+readiness figures from device data (cloud JSON only so far; both are recompute targets), naps,
 per-second activity records and routes (not stored, by design for now), a web UI.
 
 ## Run it

@@ -24,7 +24,7 @@ def _rs_const(name: str) -> str:
 
 
 def test_product_and_notice_agree_across_python_typescript_and_rust():
-    for name in ("PRODUCT", "NOTICE"):
+    for name in ("PRODUCT", "NOTICE", "DISCLAIMER"):
         python = getattr(identity, name)
         assert _ts_const(name) == python, f"identity.ts {name} drifted from identity.py"
         assert _rs_const(name) == python, f"identity.rs {name} drifted from identity.py"
@@ -115,3 +115,10 @@ def test_mcp_instructions_carry_the_product_name_and_no_manufacturer():
     assert mcp_server.INSTRUCTIONS.startswith(f"{identity.PRODUCT} serves one person's watch health data")
     assert mcp_server.server.name == identity.MCP_SERVER_NAME
     assert not identity.MANUFACTURER.search(mcp_server.INSTRUCTIONS.split("\n")[0]), "ADR 0001: no vendor name"
+
+
+def test_the_disclaimer_is_the_claims_policys_first_allowed_sentence():
+    """The policy file, the three identity modules and the lint's allowlist carry one sentence (Bet 15)."""
+    policy = (ROOT / "disconect" / "CLAIMS-POLICY.md").read_text()
+    allow = re.search(r"^```allow\n(.*?)^```", policy, re.S | re.M).group(1).splitlines()
+    assert allow[0] == identity.DISCLAIMER == _ts_const("DISCLAIMER") == _rs_const("DISCLAIMER")
