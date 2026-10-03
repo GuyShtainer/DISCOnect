@@ -3,6 +3,7 @@
 
     python tests/gen_serve_fixtures.py            # rewrite synthetic.hbdb, synthetic-v1.hbdb, empty.hbdb and the generated script entries
     python tests/gen_serve_fixtures.py --oracle   # also rewrite oracle-synthetic*.jsonl.gz (the Python responses)
+    python tests/gen_serve_fixtures.py --keep-stores --oracle   # rewrite the script and the oracles only
 
 The store is entirely synthetic (the privacy test's seed rows plus the synthetic Connect export the
 import tests build: serial and e-mail shapes are fake, plus the rows ``_extend_for_facts`` adds so that
@@ -408,6 +409,26 @@ def _import_entries() -> list[dict]:
     return entries
 
 
+def _sync_entries() -> list[dict]:
+    """``sync.status`` and ``sync.run`` on the plaintext oracle stores: no ``relay.json`` exists beside them, so
+    ``sync.run`` answers ``not_found`` on both passes and ``sync.status`` is read-only. Everything that needs a
+    relay (a bundle to pull, a push, events, a held write lock) runs in the harness's sync leg on encrypted
+    copies, because these stores cannot sync and the oracle replay has no hook between entries."""
+    entries = [
+        {"name": "gen: sync.status plain", "send": {"id": 16000, "method": "sync.status"}},
+        {"name": "gen: sync.status ignores params", "send": {"id": 16001, "method": "sync.status",
+                                                              "params": {"limit": 1, "x": [1]}}},
+        {"name": "gen: sync.status params null", "raw": '{"id":16002,"method":"sync.status","params":null}'},
+        {"name": "gen: sync.status params array", "raw": '{"id":16003,"method":"sync.status","params":[]}'},
+        {"name": "gen: sync.run plain (no relay configured)", "send": {"id": 16100, "method": "sync.run"}},
+        {"name": "gen: sync.run ignores params", "send": {"id": 16101, "method": "sync.run",
+                                                           "params": {"relay": "x", "n": [1]}}},
+        {"name": "gen: sync.run params null", "raw": '{"id":16102,"method":"sync.run","params":null}'},
+        {"name": "gen: sync.run params array", "raw": '{"id":16103,"method":"sync.run","params":[]}'},
+    ]
+    return entries
+
+
 def _metric_entries() -> list[dict]:
     """Every contract metric and scope, the window edges, ``last_day`` forms and every bad parameter."""
     from disconect import contract
@@ -515,13 +536,16 @@ def build_script(anchors: dict[str, str]) -> None:
               {"name": "gen: data.today while locked", "send": {"id": 12101, "method": "data.today"}},
               {"name": "gen: data.health while locked", "send": {"id": 12102, "method": "data.health"}},
               {"name": "gen: import.last while locked", "send": {"id": 12103, "method": "import.last"}},
+              # locked on an encrypted store; plaintext stores are open, so these answer as unlocked ones do
+              {"name": "gen: sync.status while locked", "send": {"id": 12105, "method": "sync.status"}},
+              {"name": "gen: sync.run while locked", "send": {"id": 12106, "method": "sync.run"}},
               # locked on an encrypted store; bad_params (never opened for writing) on a plaintext one
               {"name": "gen: import.run while locked",
                "send": {"id": 12104, "method": "import.run", "params": {"path": "x", "transport": "carrier pigeon"}}}]
     entries: list[dict] = []
     for entry in kept:
         if entry["name"] == "import.last":
-            entries += _metric_entries() + _today_entries() + _health_entries() + _import_entries()
+            entries += _metric_entries() + _today_entries() + _health_entries() + _import_entries() + _sync_entries()
         entries.append(entry)
         if entry["name"] == "data.facts while locked":
             entries += locked
@@ -565,18 +589,23 @@ def build_ledger(store: pathlib.Path, target: pathlib.Path, anchors: dict[str, s
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--oracle", action="store_true", help="also rewrite the Python oracle responses")
+    parser.add_argument("--keep-stores", action="store_true",
+                        help="leave the committed .hbdb stores (and the ledgers built from them) as they are: SQLite "
+                             "files are not byte-reproducible, the script and the oracles are")
     args = parser.parse_args()
     FIXTURES.mkdir(parents=True, exist_ok=True)
-    build(STORE)
-    build_v1(STORE, STORE_V1)
-    build_empty(STORE_EMPTY)
+    if not args.keep_stores:
+        build(STORE)
+        build_v1(STORE, STORE_V1)
+        build_empty(STORE_EMPTY)
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
     import serve_diff
     anchors = serve_diff.anchors_for(STORE)
     assert anchors == serve_diff.anchors_for(STORE_V1)
     build_script(anchors)
-    build_ledger(STORE, FIXTURES / "ledger-synthetic.json.gz", anchors)
-    build_ledger(STORE_V1, FIXTURES / "ledger-synthetic-v1.json.gz", anchors)
+    if not args.keep_stores:
+        build_ledger(STORE, FIXTURES / "ledger-synthetic.json.gz", anchors)
+        build_ledger(STORE_V1, FIXTURES / "ledger-synthetic-v1.json.gz", anchors)
     for store in (STORE, STORE_V1, STORE_EMPTY):
         print(f"wrote {store.name}: {store.stat().st_size} bytes")
     print(f"wrote {SCRIPT.name}: {len(json.loads(SCRIPT.read_text())['entries'])} entries")

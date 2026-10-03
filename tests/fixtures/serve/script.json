@@ -197,6 +197,20 @@
    }
   },
   {
+   "name": "gen: sync.status while locked",
+   "send": {
+    "id": 12105,
+    "method": "sync.status"
+   }
+  },
+  {
+   "name": "gen: sync.run while locked",
+   "send": {
+    "id": 12106,
+    "method": "sync.run"
+   }
+  },
+  {
    "name": "gen: import.run while locked",
    "send": {
     "id": 12104,
@@ -18604,6 +18618,62 @@
   {
    "name": "gen: import.run duplicate transport keeps the last",
    "raw": "{\"id\":14302,\"method\":\"import.run\",\"params\":{\"path\":\"x\",\"transport\":\"usb\",\"transport\":\"nope\"}}"
+  },
+  {
+   "name": "gen: sync.status plain",
+   "send": {
+    "id": 16000,
+    "method": "sync.status"
+   }
+  },
+  {
+   "name": "gen: sync.status ignores params",
+   "send": {
+    "id": 16001,
+    "method": "sync.status",
+    "params": {
+     "limit": 1,
+     "x": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: sync.status params null",
+   "raw": "{\"id\":16002,\"method\":\"sync.status\",\"params\":null}"
+  },
+  {
+   "name": "gen: sync.status params array",
+   "raw": "{\"id\":16003,\"method\":\"sync.status\",\"params\":[]}"
+  },
+  {
+   "name": "gen: sync.run plain (no relay configured)",
+   "send": {
+    "id": 16100,
+    "method": "sync.run"
+   }
+  },
+  {
+   "name": "gen: sync.run ignores params",
+   "send": {
+    "id": 16101,
+    "method": "sync.run",
+    "params": {
+     "relay": "x",
+     "n": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: sync.run params null",
+   "raw": "{\"id\":16102,\"method\":\"sync.run\",\"params\":null}"
+  },
+  {
+   "name": "gen: sync.run params array",
+   "raw": "{\"id\":16103,\"method\":\"sync.run\",\"params\":[]}"
   },
   {
    "name": "import.last",
