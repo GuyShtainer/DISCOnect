@@ -22,6 +22,7 @@ class Relay(Protocol):
     def put(self, name: str, data: bytes) -> None: ...
     def get(self, name: str) -> bytes: ...
     def list(self, account: str) -> list[str]: ...
+    def delete(self, name: str) -> None: ...
 
 
 class FolderRelay:
@@ -51,6 +52,13 @@ class FolderRelay:
         if path.stat().st_size > MAX_OBJECT:
             raise TooLarge("object larger than any bundle can be")
         return path.read_bytes()
+
+    def delete(self, name: str) -> None:
+        """Remove one object (``FileNotFoundError`` when it is not there). Nothing in a push or pull
+        deletes; pairing and tests do."""
+        if not NAME.fullmatch(name):
+            raise ValueError("bad object name")
+        (self.root / name).unlink()
 
     def list(self, account: str) -> list[str]:
         folder = self.root / account

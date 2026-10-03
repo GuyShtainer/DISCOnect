@@ -118,6 +118,21 @@ def test_folder_relay_ignores_strangers_and_temp_files(tmp_path):
 
 
 # ---------------------------------------------------------------- push / pull
+def test_folder_relay_delete_removes_one_object_and_validates_the_name(tmp_path):
+    relay = FolderRelay(tmp_path / "relay")
+    account = "ab" * 32
+    one, two = f"{account}/{'a' * 32}", f"{account}/{'b' * 32}"
+    relay.put(one, b"1")
+    relay.put(two, b"2")
+    relay.delete(one)
+    assert relay.list(account) == [two] and relay.get(two) == b"2"
+    with pytest.raises(FileNotFoundError):
+        relay.delete(one)
+    with pytest.raises(ValueError, match="bad object name"):
+        relay.delete("../escape")
+    assert relay.get(two) == b"2", "a refused name touches nothing"
+
+
 def test_two_desktops_with_split_data_converge_and_nothing_echoes(tmp_path):
     export = tmp_path / "export"
     export.mkdir()

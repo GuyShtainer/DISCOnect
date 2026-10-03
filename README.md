@@ -108,6 +108,26 @@ What encryption does not cover: Time Machine / APFS snapshots and freed SSD bloc
 copies made before `encrypt`; FileVault is the protection for those. Backup manifests stay plaintext
 metadata (row counts, sizes, your note). Python cannot wipe key material from memory.
 
+### Sync between your devices (optional; needs a key)
+
+```sh
+.venv/bin/disconect sync push --relay ~/Syncthing/disconect-relay --remember   # encrypted bundles into a folder you carry
+.venv/bin/disconect sync pull                                                  # another device applies them
+.venv/bin/disconect sync status                                                # counts only
+disconect-core --db ~/.disconect/disconect.db relay-serve --relay ~/Syncthing/disconect-relay --listen 127.0.0.1:8484
+disconect-core --db <phone's copy> sync pull --relay http://127.0.0.1:8484      # the LAN relay (Rust core only)
+```
+
+The relay sees only ciphertext (`docs/relay-protocol.md`). `relay-serve` is the Mac serving that same
+folder over HTTP on your own network so a phone can reach it without a cloud: it binds `127.0.0.1` unless
+you say `--listen 0.0.0.0:<port>`, needs the unlocked key only to derive the account and a request token,
+never opens a bundle, and logs only method and status. A request carries an HMAC over method, path, time and
+body hash made with a key derived from the master key, so only a device holding the same master can use it.
+Plain HTTP (no TLS): the bodies are encrypted, the sizes and timing are visible to the local network. The
+Python CLI reads folders only and answers a LAN address with a usage error; `sync.status` and `sync.run` are
+also methods of `disconect serve` (see `docs/serve-protocol.md`). `disconect-core sync` exits 5 when a LAN
+relay is unreachable (retry later; nothing was marked).
+
 ## Layout
 
 ```

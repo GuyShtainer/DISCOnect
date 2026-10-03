@@ -1,7 +1,8 @@
 # Relay protocol v1 — encrypted raw-record bundles over a blind store
 
-Status: Bet 10 (2026-10-02). Implements ADR 0005 with ADR 0004's key model. Code:
-`src/disconect/relay/{bundle,folder,sync}.py`.
+Status: Bet 10 (2026-10-02); LAN relay added by Bet 12 slice B (2026-10-03). Implements ADR 0005 with
+ADR 0004's key model. Code: `src/disconect/relay/{bundle,folder,sync,config}.py` and
+`disconect-core/src/relay/{bundle,folder,sync,config,lan,lan_server}.rs`.
 
 ## What travels
 - `raw_records` rows (every column but `id`; `payload` is the stored zlib bytes, base64 in
@@ -90,4 +91,64 @@ and therefore the relay, unchanged.
 `FolderRelay(root)`: objects are files `<root>/<account>/<32 hex>`; writes go to a temp file in
 the same directory and are renamed into place; names outside the pattern are ignored. Any folder
 that WebDAV, rsync or Syncthing carries is the self-host story. Networked buckets (S3/GCS) are
-Bet 12's shaping (phones cannot mount folders).
+a later bet (phones hold the credentials, the user pays); the LAN relay below is Bet 12's answer for
+a phone at home. Every adapter implements `put`, `get`, `list(account)` and `delete(name)`; nothing
+in a push or a pull deletes (pairing and tests do). `delete` of a missing object is
+`FileNotFoundError`, as `get` is.
+
+
+## LAN relay (Bet 12 slice B): the user's own Mac serves its relay folder
+ADR 0005's "self-hosted" adapter with a network face. `disconect-core relay-serve --relay <folder>
+[--listen <addr:port>]` (default `127.0.0.1:0`, the bound address is printed as `listening
+http://<addr>`; `--listen 0.0.0.0:<port>` is an explicit choice) serves the folder of the one
+account its master key derives. A `LanRelay` client (Rust core only; the Python core refuses a
+`lan` address: `unsupported_transport`) implements the same four operations over HTTP/1.1. No
+server is run by the project: it is the user's machine, on the user's network, started by the user.
+
+**What it never does.** It never opens, decrypts, parses or indexes a bundle (it needs the master
+key only to derive the account name and the token key). It never serves another account's objects
+(403), never lists anything but the account's object names, never logs anything but the method and
+the status (no path, no object name, no peer address), never answers a refusal with a reason, and
+is never started by the app on its own. It does not do TLS: the bodies are AEAD output, and the
+token proves possession of the master key; an eavesdropper on the Wi-Fi sees the (Padmé-rounded)
+object sizes and when they move, which a folder carried by Syncthing shows too.
+
+**Routes** (`/v1`; any other path is 404, a query string is 404, a wrong method 405):
+| request | answer |
+|---|---|
+| `GET /v1/health` (no token) | `200 {"product":"DISCOnect","relay":"lan","v":1}`: no host name, no path |
+| `GET /v1/objects` | `200` JSON array of the account's object names, sorted |
+| `GET /v1/objects/<account>/<32 hex>` | `200` the object's bytes; `404` when absent |
+| `PUT /v1/objects/<account>/<32 hex>` | `204`; the folder relay's own atomic write (temp file, rename); an existing object is replaced, as `FolderRelay.put` does |
+| `DELETE /v1/objects/<account>/<32 hex>` | `204`; `404` when absent |
+
+Refusals carry an empty body: `401` (no token, malformed, stale, wrong), `400` (a name that is not
+`^[0-9a-f]{64}/[0-9a-f]{32}$`), `403` (a well-formed name under another account), `413` (a body
+over one bundle: `MAX_OBJECT` = 64 MiB + 4096, declared or not), `500` (an I/O error).
+
+**Auth.** Every route but health carries
+`X-Disconect-Auth: v1.<unix seconds>.<hex HMAC-SHA256(token_key, message)>` with
+`message = METHOD ‖ "\n" ‖ path ‖ "\n" ‖ <unix seconds, decimal> ‖ "\n" ‖ hex(sha256(body))` (method upper
+case, `path` as sent: `/v1/objects/<account>/<name>`, empty body for GET and DELETE) and
+`token_key = HKDF-SHA256(ikm = master, salt = the 64 hex characters of the account as ASCII, info =
+"disconect/lan/v1/token")`, 32 bytes. The label is frozen from now on (`docs/kb/24-wire-constants.md`,
+which holds the known-answer vectors). The server checks, in this order and with a bare `401` for
+every failure: header shape, `|now - timestamp| <= 300 s` (a timestamp from the future is as stale as
+one from the past), then reads the body (capped) and compares the tag in constant time. Two
+devices that hold the same master (a paired phone and the Mac) therefore derive the same key with
+no exchange. Limits, stated: a request captured on the LAN can be replayed for 300 s (a replayed
+`PUT` rewrites the same bytes, a replayed `DELETE` removes an object the owner can re-push; a
+replayed `GET` shows ciphertext the sniffer already has); the body is read before the tag can be
+checked (the tag covers its hash), so an unauthenticated peer can make the server read up to one
+bundle per connection: bind to the LAN only on a network you trust. Time-skewed phones fail with
+`authentication_failed` until their clock is right.
+
+**Client errors** (`RelayError`): unreachable (connect, name lookup, time-out, broken answer) is
+`Unreachable`, retryable; `401` is `Unauthorized`, reason and text `authentication_failed`; `404` on
+a read or delete is `FileNotFoundError`; `400` `bad object name`; `413` `too_large`; any other status
+is `Status(n)` (only the number is kept). A pull stops at the first of the transient ones (unreachable,
+unauthorized, a status) without booking the bundle `rejected`: nothing is marked, the next pull
+retries (a bundle whose records had begun to land is `applying`, which the next pull repairs as it
+does after a crash). The CLI exits 5 for an unreachable relay. `relay.json` is `{"folder": path}` or
+`{"lan": "http://host:port"}` (a non-empty `lan` wins); `--relay http://host:port` selects LAN, and
+`https://` or a URL with a path is a usage error.

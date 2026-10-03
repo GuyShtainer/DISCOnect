@@ -23,6 +23,7 @@ import sys
 from disconect import __version__, chart, contract, health, identity, insight, serve, storage
 from disconect import export as export_module
 from disconect.ingest import sources
+from disconect.relay import config as relay_config
 from disconect.relay import sync as sync_module
 from disconect.relay.folder import FolderRelay
 from disconect.storage import backup as backup_module
@@ -93,20 +94,21 @@ def cmd_import(args: argparse.Namespace) -> int:
 
 
 def _relay_for(args: argparse.Namespace) -> FolderRelay:
-    """The relay folder from --relay or ``relay.json`` in the data folder ({"folder": path}); no secrets live there."""
+    """The relay folder from --relay or ``relay.json`` in the data folder ({"folder": path}); no secrets live there.
+    A LAN relay (``http://host:port``, ``{"lan": url}``) is the Rust core's: this core refuses it."""
     config = home.relay_config_path()
-    folder = getattr(args, "relay", None)
-    if not folder and config.exists():
-        try:
-            folder = json.loads(config.read_text()).get("folder")
-        except (OSError, ValueError):
-            folder = None
-    if not folder:
+    given = getattr(args, "relay", None)
+    if given:
+        kind, value = ("lan" if relay_config.is_lan_address(given) else "folder"), given
+    else:
+        found = relay_config.read(config) if config.exists() else None
+        kind, value = found if found else ("folder", None)
+    if not value:
         raise FileNotFoundError(f"no relay folder: pass --relay <folder> or write {{\"folder\": ...}} to {config}")
-    if getattr(args, "relay", None) and getattr(args, "remember", False):
+    if given and getattr(args, "remember", False):
         home.ensure_parent_dir(config)
-        config.write_text(json.dumps({"folder": str(folder)}) + "\n")
-    return FolderRelay(pathlib.Path(folder).expanduser())
+        config.write_text(json.dumps({kind: str(value)}) + "\n")
+    return relay_config.open_relay(kind, value)
 
 
 def cmd_sync(args: argparse.Namespace) -> int:
@@ -149,7 +151,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
     except storage.WriteLockBusy as exc:
         print(f"busy: {exc}", file=sys.stderr)
         return EXIT_BUSY
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, relay_config.UnsupportedTransport) as exc:
         print(f"usage: {exc}", file=sys.stderr)
         return EXIT_USAGE
     except (sqlite.Error, sync_module.RecordWriteFailed) as exc:
