@@ -7,6 +7,7 @@ Rust read paths) are BACKLOG debt and out of scope, as are tests, docs and pitch
 """
 
 import ast
+import json
 import pathlib
 import re
 
@@ -143,3 +144,71 @@ def test_authored_copy_makes_no_medical_claim_and_borrows_no_score_name(path):
 def test_the_scope_covers_the_coach_prompt_constant():
     prompt = (APP / "src-tauri" / "src" / "coach" / "prompt.rs").read_text()
     assert re.search(r'pub const SYSTEM_PROMPT: &str = ', prompt)
+
+
+def _policy_terms(category: str):
+    blocks = re.findall(r"^```terms " + category + r"[^\n]*\n(.*?)^```", POLICY.read_text(), re.S | re.M)
+    assert len(blocks) == 1, category
+    return [line.strip() for line in blocks[0].splitlines() if line.strip()]
+
+
+def _ts_table(name: str):
+    """The keys of an identity.ts score table: each key is `mark("head", "tail")`, joined back together."""
+    text = (APP / "src" / "identity.ts").read_text()
+    body = re.search(r"export const " + name + r": \[string, string\]\[\] = \[(.*?)\n\];", text, re.S).group(1)
+    pairs = re.findall(r'\[mark\("([^"]*)", "([^"]*)"\), "([^"]+)"\]', body)
+    return [(head + tail, plain) for head, tail, plain in pairs]
+
+
+def test_the_ts_neutralizer_table_has_exactly_the_policy_score_lists():
+    marks, names = _ts_table("SCORE_MARKS"), _ts_table("SCORE_NAMES")
+    assert [k for k, _ in marks] == _policy_terms("score-marks")
+    assert [k for k, _ in names] == _policy_terms("score-names")
+    assert len(marks) + len(names) == 9
+    categories, allow = parse_policy(POLICY.read_text())
+    for _key, plain in marks + names:
+        assert not violations(plain, categories, allow), plain  # a plain-words form is itself clean copy
+        assert not re.search(r"readiness|recovery", plain, re.I), plain
+
+
+def test_the_ts_neutralizer_source_spells_no_score_name_and_no_maker_name():
+    text = (APP / "src" / "identity.ts").read_text()
+    # the metric labels above the neutralizer may carry a name next to ", vendor" (rule 3); the neutralizer may not
+    neutralizer = text.split("what the coach's words are scrubbed with", 1)[1]
+    code = "\n".join(line for line in neutralizer.splitlines() if not line.strip().startswith("//"))
+    for key, _ in _ts_table("SCORE_MARKS") + _ts_table("SCORE_NAMES"):
+        assert key not in code, f"{key} is spelled whole in the neutralizer"
+    assert not re.search(r"garmin", text, re.I)
+
+
+def test_the_ts_neutralizer_behaves(tmp_path):
+    """Compile identity.ts with the project's own tsc and run neutralText under node, if both are there."""
+    import shutil
+    import subprocess
+
+    tsc = APP / "node_modules" / ".bin" / "tsc"
+    node = shutil.which("node")
+    if not tsc.exists() or not node:
+        pytest.skip("node or the project's tsc is not installed")
+    subprocess.run([str(tsc), str(APP / "src" / "identity.ts"), "--target", "es2022", "--module", "esnext",
+                    "--outDir", str(tmp_path)], check=True, capture_output=True)
+    (tmp_path / "identity.mjs").write_text((tmp_path / "identity.js").read_text())
+    maker = "gar" + "min"
+    cases = {
+        f"{maker} Connect and {maker.upper()}": "{vendor} and {vendor}",
+        f"{maker}  connect": "{vendor}  connect",
+        f"{maker} connectx": "{vendor}x",
+        "gar" + "m\u0131n \u0130x GARM\u0130N": "{vendor} \u0130x {vendor}",
+        "Your Training Read" + "iness is up. Body Bat" + "tery low; Recov" + "ery score fine.":
+            "Your daily preparedness is up. Energy level low; rest estimate fine.",
+        "Recov" + "ery matters. Not the recovery word, nor TS" + "SB": "Rest matters. Not the recovery word, nor TS" + "SB",
+        "TS" + "S and C" + "TL and A" + "TL and T" + "SB": "Training stress total and long-term training load and "
+                                                       "short-term training load and training balance",
+        "plain text stays": "plain text stays",
+    }
+    script = ("import { neutralText } from './identity.mjs';"
+              "const cases = JSON.parse(process.argv[1]);"
+              "console.log(JSON.stringify(Object.keys(cases).map((k) => neutralText(k))));")
+    run = subprocess.run([node, "--input-type=module", "-e", script, json.dumps(cases)], cwd=tmp_path,
+                         check=True, capture_output=True, text=True)
+    assert json.loads(run.stdout) == list(cases.values())
