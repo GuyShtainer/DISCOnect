@@ -32,6 +32,11 @@ LEGACY_DB_FILENAME = "hearthbeat.db"
 LEGACY_ENV_PREFIX = "HEARTHBEAT_"
 BACKUP_PREFIX = "disconect"
 LEGACY_BACKUP_PREFIXES = ["hearthbeat"]
+#: What the desktop app calls the screen where a person manages the key, and the switch on it that stores the
+#: key in the OS keychain. The Rust MCP's messages quote both (mirrored in ``identity.ts`` and ``identity.rs``;
+#: ``tests/test_identity_drift.py`` also pins them to the words ``app.ts`` shows).
+KEY_SCREEN = "Your key"
+KEYCHAIN_SWITCH = "Keep the key in this device's keychain"
 #: Reported as ``serverInfo.version`` by the MCP server; the Rust crate's ``version`` (``Cargo.toml``) is the
 #: same string, pinned by ``tests/test_identity_drift.py``. (The package's ``0.1.0.dev0`` is the Python wheel's.)
 VERSION = "0.1.0"

@@ -63,6 +63,20 @@ def test_the_keychain_service_names_differ_on_purpose():
     assert _rs_const("KEYCHAIN_SERVICE") != keys.KEYCHAIN_SERVICE
 
 
+APP_TS = ROOT / "disconect-app" / "src" / "app.ts"
+
+
+def test_the_key_screen_words_the_core_quotes_are_the_words_the_app_shows():
+    """The MCP's locked-store messages send a person to a screen and a switch by name: the app is the source."""
+    for name in ("KEY_SCREEN", "KEYCHAIN_SWITCH"):
+        python = getattr(identity, name)
+        assert _ts_const(name) == python, f"identity.ts {name} drifted from identity.py"
+        assert _rs_const(name) == python, f"identity.rs {name} drifted from identity.py"
+    app = APP_TS.read_text()
+    assert f'title: "{identity.KEY_SCREEN}"' in app and f'header(out, "{identity.KEY_SCREEN}"' in app
+    assert f'el("span", "", "{identity.KEYCHAIN_SWITCH}")' in app, "app.ts words the switch differently"
+
+
 STRING_NAMES = ("DATA_DIR", "DB_FILENAME", "ENV_PREFIX", "CLI_KEYCHAIN_SERVICE", "MCP_SERVER_NAME", "COMMAND",
                 "BACKUP_PREFIX", "LEGACY_DB_FILENAME", "LEGACY_ENV_PREFIX")
 LIST_NAMES = ("LEGACY_HOMES", "LEGACY_BACKUP_PREFIXES", "LEGACY_CLI_KEYCHAIN_SERVICES")
