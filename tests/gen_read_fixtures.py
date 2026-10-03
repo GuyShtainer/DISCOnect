@@ -17,7 +17,7 @@ A call that raises ``ValueError`` or ``OverflowError`` is ``result = {"error": <
 Pins, as for the MCP transcripts: ``DISCONECT_NOW`` (``tools/mcp_diff.NOW``) and ``TZ=Pacific/Chatham`` for the
 block only. Stores: the committed serve stores (current schema, schema v1, never imported), the privacy-test seed
 store, and ``wide.hbdb`` (synthetic too: 25 activities, sleep nights with absent columns, a float in an INTEGER
-column, a retro night, a long stage timeline, 14 months of a daily metric and a sample metric), which exists so
+column, a retro night, a long stage timeline, 14 months of a daily metric and a sample metric, a daily metric of tiny floats), which exists so
 the clamps, the per-cadence caps and the key order have something to bite on.
 """
 
@@ -152,6 +152,18 @@ def build_wide_store(target: pathlib.Path) -> None:
                              ("2025-06-20|device|", stage, moment.strftime("%Y-%m-%dT%H:%M:%SZ"),
                               end.strftime("%Y-%m-%dT%H:%M:%SZ")))
                 moment = end
+            # a daily metric of tiny stored values (some below 1e-4, one below 1e-6, two signed zeros): the floats
+            # that pydantic and json.dumps spell differently (``0.00003`` / ``3e-05``, ``1.5e-7`` / ``1.5e-07``)
+            tiny = (3e-05, -4.5e-05, 1.5e-07, 9.9e-06, 0.000123, 2.5e-05, 0.0, 6.5e-06, -1.25e-05, -0.0)
+            for offset in range(45):
+                day = (datetime.date(2025, 5, 17) + datetime.timedelta(days=offset)).isoformat()
+                conn.execute("INSERT INTO daily_metrics(date, metric, value, source_scope) VALUES (?,?,?,?)",
+                             (day, "skin_temp_deviation", tiny[offset % len(tiny)], "device"))
+            # and one metric whose values cross the other threshold (>= 1e16 is exponent form in both libraries)
+            for offset, value in enumerate((52.5, 1.5e22, 52.25, 9999999999999998.0, 1e16, 52.0, 2.5e17)):
+                day = (datetime.date(2025, 6, 24) + datetime.timedelta(days=offset)).isoformat()
+                conn.execute("INSERT INTO daily_metrics(date, metric, value, source_scope) VALUES (?,?,?,?)",
+                             (day, "vo2max", value, "local"))
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         for leftover in path.parent.glob("wide.hbdb-*"):
             assert leftover.stat().st_size == 0, f"{leftover.name} still holds data"
