@@ -216,3 +216,29 @@ def test_the_gate_passes_on_the_committed_synthetic_stores(capsys, store, label,
     assert "import leg: " in report and ", differing 0" in report and "import leg events: python " in report
     assert "post-import core_diff: 0 differing rows" in report and "import leg run_id equal: 8/8" in report
     assert "booked (named allowance, Rust bad_params): 8 " in report
+
+
+INPROC = serve_diff.default_rust_bin(release=False, inproc=True)
+
+
+def test_inproc_excludes_the_other_binary_switches(capsys):
+    assert serve_diff.main(["--db", str(STORE), "--inproc", "--release"]) == 2
+    assert serve_diff.main(["--db", str(STORE), "--inproc", "--rust-bin", "x"]) == 2
+    assert "--inproc excludes" in capsys.readouterr().err
+    assert INPROC.name == "inproc_serve" and "examples" in INPROC.parts
+
+
+@pytest.mark.skipif(not INPROC.exists(), reason="build the app's example first (cargo build --example inproc_serve in src-tauri)")
+@pytest.mark.parametrize("store, label", [
+    (STORE, "synthetic"),
+    (STORE_V1, "synthetic-v1"),
+    (STORE_EMPTY, "synthetic-never-imported"),
+])
+def test_the_gate_passes_through_the_apps_in_process_core(capsys, store, label):
+    """Bet 12a: the app's in-process thread (examples/inproc_serve.rs) is byte-for-byte the sidecar's protocol."""
+    status = serve_diff.main(["--db", str(store), "--label", label, "--anchors-from", str(STORE), "--inproc"])
+    report = capsys.readouterr().out
+    assert status == 0, report
+    assert "binary: in-process" in report and "differing: 0" in report and "RESULT: 0 differences" in report
+    assert "import leg: " in report and ", differing 0" in report
+    assert "post-import core_diff: 0 differing rows" in report
