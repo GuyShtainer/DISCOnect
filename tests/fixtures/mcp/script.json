@@ -1,0 +1,4451 @@
+{
+ "sessions": [
+  {
+   "name": "version 2024-11-05",
+   "entries": [
+    {
+     "name": "initialize 2024-11-05",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2024-11-05",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "ping",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "ping"
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "list_activities",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "empty metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": []
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "version 2025-03-26",
+   "entries": [
+    {
+     "name": "initialize 2025-03-26",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-03-26",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "ping",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "ping"
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "list_activities",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "empty metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": []
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "version 2025-06-18",
+   "entries": [
+    {
+     "name": "initialize 2025-06-18",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-06-18",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "ping",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "ping"
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "list_activities",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "empty metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": []
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "version 2025-11-25",
+   "entries": [
+    {
+     "name": "initialize 2025-11-25",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "ping",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "ping"
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "list_activities",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "empty metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": []
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "version 2026-07-28",
+   "entries": [
+    {
+     "name": "initialize 2026-07-28",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2026-07-28",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "ping",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "ping"
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "list_activities",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "empty metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": []
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "version 1999-01-01",
+   "entries": [
+    {
+     "name": "initialize 1999-01-01",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "1999-01-01",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "ping",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "ping"
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "list_activities",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "empty metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": []
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "no initialized notification",
+   "entries": [
+    {
+     "name": "initialize",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "get_contract",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+       "name": "get_contract",
+       "arguments": {}
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "pre-initialize",
+   "entries": [
+    {
+     "name": "ping",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "ping"
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "tools/call",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+       "name": "get_contract",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "initialize with empty params",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "initialize",
+      "params": {}
+     }
+    },
+    {
+     "name": "initialize without params",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "initialize"
+     }
+    },
+    {
+     "name": "tools/list after the failed initializes",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "initialize",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "tools/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "method": "tools/list"
+     }
+    },
+    {
+     "name": "initialize again",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-06-18",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "methods",
+   "entries": [
+    {
+     "name": "initialize 2025-11-25",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "ping",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "ping"
+     }
+    },
+    {
+     "name": "resources/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "resources/list"
+     }
+    },
+    {
+     "name": "resources/templates/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "resources/templates/list"
+     }
+    },
+    {
+     "name": "prompts/list",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "prompts/list"
+     }
+    },
+    {
+     "name": "logging/setLevel {\"level\": \"debug\"}",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "method": "logging/setLevel",
+      "params": {
+       "level": "debug"
+      }
+     }
+    },
+    {
+     "name": "completion/complete {}",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "method": "completion/complete",
+      "params": {}
+     }
+    },
+    {
+     "name": "server/discover",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "method": "server/discover"
+     }
+    },
+    {
+     "name": "no/such/method",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "method": "no/such/method"
+     }
+    },
+    {
+     "name": "resources/read {\"uri\": \"file:///x\"}",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "method": "resources/read",
+      "params": {
+       "uri": "file:///x"
+      }
+     }
+    },
+    {
+     "name": "prompts/get {\"name\": \"x\"}",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "method": "prompts/get",
+      "params": {
+       "name": "x"
+      }
+     }
+    },
+    {
+     "name": "resources/subscribe {\"uri\": \"file:///x\"}",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "method": "resources/subscribe",
+      "params": {
+       "uri": "file:///x"
+      }
+     }
+    },
+    {
+     "name": "tools/list with a cursor",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 30,
+      "method": "tools/list",
+      "params": {
+       "cursor": "x"
+      }
+     }
+    },
+    {
+     "name": "tools/list with a null cursor",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 31,
+      "method": "tools/list",
+      "params": {
+       "cursor": null
+      }
+     }
+    },
+    {
+     "name": "tools/list with extra params",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 32,
+      "method": "tools/list",
+      "params": {
+       "x": 1
+      }
+     }
+    },
+    {
+     "name": "ping with params",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 33,
+      "method": "ping",
+      "params": {
+       "x": 1
+      }
+     }
+    },
+    {
+     "name": "initialize with a missing protocolVersion",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 34,
+      "method": "initialize",
+      "params": {
+       "capabilities": {},
+       "clientInfo": {
+        "name": "x",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "initialize with a number as protocolVersion",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 35,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": 3,
+       "capabilities": {},
+       "clientInfo": {
+        "name": "x",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "initialize without clientInfo",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 36,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {}
+      }
+     }
+    },
+    {
+     "name": "notifications/cancelled",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/cancelled",
+      "params": {
+       "requestId": 99
+      }
+     }
+    },
+    {
+     "name": "notifications/progress",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/progress",
+      "params": {
+       "progressToken": "t",
+       "progress": 1
+      }
+     }
+    },
+    {
+     "name": "notifications/roots/list_changed",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/roots/list_changed"
+     }
+    },
+    {
+     "name": "unknown notification",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/unknown"
+     }
+    },
+    {
+     "name": "unknown notification with an id",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 37,
+      "method": "notifications/unknown"
+     }
+    },
+    {
+     "name": "ping after the notifications",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 38,
+      "method": "ping"
+     }
+    }
+   ]
+  },
+  {
+   "name": "malformed lines",
+   "entries": [
+    {
+     "name": "initialize 2025-11-25",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "not JSON",
+     "raw": "not json at all"
+    },
+    {
+     "name": "truncated JSON",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\""
+    },
+    {
+     "name": "empty line",
+     "raw": ""
+    },
+    {
+     "name": "blank line",
+     "raw": "   "
+    },
+    {
+     "name": "JSON number",
+     "raw": "3"
+    },
+    {
+     "name": "JSON string",
+     "raw": "\"ping\""
+    },
+    {
+     "name": "JSON null",
+     "raw": "null"
+    },
+    {
+     "name": "empty object",
+     "raw": "{}"
+    },
+    {
+     "name": "empty array",
+     "raw": "[]"
+    },
+    {
+     "name": "batch of one",
+     "raw": "[{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"ping\"}]"
+    },
+    {
+     "name": "batch of two",
+     "raw": "[{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"ping\"},{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"ping\"}]"
+    },
+    {
+     "name": "jsonrpc missing",
+     "raw": "{\"id\":6,\"method\":\"ping\"}"
+    },
+    {
+     "name": "jsonrpc 1.0",
+     "raw": "{\"jsonrpc\":\"1.0\",\"id\":7,\"method\":\"ping\"}"
+    },
+    {
+     "name": "jsonrpc a number",
+     "raw": "{\"jsonrpc\":2,\"id\":8,\"method\":\"ping\"}"
+    },
+    {
+     "name": "method missing",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":9}"
+    },
+    {
+     "name": "method a number",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":3}"
+    },
+    {
+     "name": "id a float",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":11.5,\"method\":\"ping\"}"
+    },
+    {
+     "name": "id a float with a zero fraction",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":12.0,\"method\":\"ping\"}"
+    },
+    {
+     "name": "id null",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"ping\"}"
+    },
+    {
+     "name": "id a bool",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":true,\"method\":\"ping\"}"
+    },
+    {
+     "name": "id an array",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":[1],\"method\":\"ping\"}"
+    },
+    {
+     "name": "id an object",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":{\"a\":1},\"method\":\"ping\"}"
+    },
+    {
+     "name": "id a string",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":\"abc\",\"method\":\"ping\"}"
+    },
+    {
+     "name": "id an empty string",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":\"\",\"method\":\"ping\"}"
+    },
+    {
+     "name": "id a numeric string",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":\"13\",\"method\":\"ping\"}"
+    },
+    {
+     "name": "id negative",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":-14,\"method\":\"ping\"}"
+    },
+    {
+     "name": "id zero",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"ping\"}"
+    },
+    {
+     "name": "id beyond i64",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":99999999999999999999,\"method\":\"ping\"}"
+    },
+    {
+     "name": "id a unicode string",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":\"\\u00e9\\ud83d\\ude00\",\"method\":\"ping\"}"
+    },
+    {
+     "name": "id a long string",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"method\":\"ping\"}"
+    },
+    {
+     "name": "duplicate id keys",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":15,\"id\":16,\"method\":\"ping\"}"
+    },
+    {
+     "name": "params a string",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"ping\",\"params\":\"x\"}"
+    },
+    {
+     "name": "params an array",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"tools/list\",\"params\":[]}"
+    },
+    {
+     "name": "params null",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"tools/list\",\"params\":null}"
+    },
+    {
+     "name": "tools/call params a string",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"tools/call\",\"params\":\"x\"}"
+    },
+    {
+     "name": "tools/call params empty",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"tools/call\",\"params\":{}}"
+    },
+    {
+     "name": "tools/call name a number",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":22,\"method\":\"tools/call\",\"params\":{\"name\":3}}"
+    },
+    {
+     "name": "tools/call name null",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":23,\"method\":\"tools/call\",\"params\":{\"name\":null}}"
+    },
+    {
+     "name": "tools/call unknown tool",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 24,
+      "method": "tools/call",
+      "params": {
+       "name": "no_such_tool",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "tools/call empty tool name",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 25,
+      "method": "tools/call",
+      "params": {
+       "name": "",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "tools/call a tool name in other case",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 26,
+      "method": "tools/call",
+      "params": {
+       "name": "GET_CONTRACT",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "tools/call with _meta",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":27,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":1},\"_meta\":{\"progressToken\":\"p\"}}}"
+    },
+    {
+     "name": "tools/call with a task field",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":28,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":1},\"task\":{\"ttl\":1000}}}"
+    },
+    {
+     "name": "request with an unknown top-level key",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":29,\"method\":\"ping\",\"extra\":1}"
+    },
+    {
+     "name": "method with a unicode name",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 30,
+      "method": "h\u00e9llo/\u4e16\u754c"
+     }
+    },
+    {
+     "name": "method empty",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 31,
+      "method": ""
+     }
+    },
+    {
+     "name": "method with a quote and a backslash",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 32,
+      "method": "a\"b\\c"
+     }
+    },
+    {
+     "name": "NaN in params",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":33,\"method\":\"ping\",\"params\":{\"x\":NaN}}"
+    },
+    {
+     "name": "response-shaped line",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":34,\"result\":{}}"
+    },
+    {
+     "name": "error-shaped line",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":35,\"error\":{\"code\":-1,\"message\":\"x\"}}"
+    },
+    {
+     "name": "line with a CR before the newline",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":36,\"method\":\"ping\"}\r"
+    },
+    {
+     "name": "line with a leading BOM",
+     "raw": "\ufeff{\"jsonrpc\":\"2.0\",\"id\":37,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line with leading spaces",
+     "raw": "   {\"jsonrpc\":\"2.0\",\"id\":38,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line with trailing garbage",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":39,\"method\":\"ping\"} x"
+    },
+    {
+     "name": "two objects on one line",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":40,\"method\":\"ping\"}{\"jsonrpc\":\"2.0\",\"id\":41,\"method\":\"ping\"}"
+    },
+    {
+     "name": "invalid UTF-8 in a string",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":42,\"method\":\"ping\",\"params\":{\"x\":\"\\ud800\"}}"
+    },
+    {
+     "name": "deep nesting",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":43,\"method\":\"ping\",\"params\":{\"x\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}}"
+    },
+    {
+     "name": "ping afterwards",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 99,
+      "method": "ping"
+     }
+    }
+   ]
+  },
+  {
+   "name": "tools default",
+   "entries": [
+    {
+     "name": "initialize 2025-11-25",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "default get_data_health",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "default get_metric_series",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "default get_sleep_detail",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "default list_activities",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "default get_period_facts",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "default get_contract",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "method": "tools/call",
+      "params": {
+       "name": "get_contract",
+       "arguments": {}
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "tool results",
+   "entries": [
+    {
+     "name": "initialize 2025-11-25",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "get_metric_series every metric",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate",
+         "stress",
+         "respiration_rate",
+         "spo2",
+         "hrv_rmssd",
+         "energy_reserve",
+         "steps",
+         "distance",
+         "resting_heart_rate",
+         "resting_heart_rate_current_day",
+         "heart_rate_min",
+         "heart_rate_max",
+         "stress_avg",
+         "energy_reserve_high",
+         "energy_reserve_low",
+         "energy_reserve_charged",
+         "energy_reserve_drained",
+         "spo2_avg",
+         "spo2_lowest",
+         "respiration_avg_waking",
+         "respiration_lowest",
+         "respiration_highest",
+         "intensity_minutes_moderate",
+         "intensity_minutes_vigorous",
+         "calories_total",
+         "calories_active",
+         "calories_bmr",
+         "resting_metabolic_rate",
+         "sleep_score",
+         "sleep_duration",
+         "hrv_weekly_average",
+         "hrv_last_night_average",
+         "hrv_last_night_5min_high",
+         "hrv_baseline_low_upper",
+         "hrv_baseline_balanced_lower",
+         "hrv_baseline_balanced_upper",
+         "skin_temp_nightly",
+         "skin_temp_deviation",
+         "skin_temp_7day_deviation",
+         "vo2max",
+         "body_battery_high",
+         "body_battery_low",
+         "body_battery_charged",
+         "body_battery_drained",
+         "training_readiness",
+         "readiness_factor_sleep",
+         "readiness_factor_recovery_time",
+         "readiness_factor_load_ratio",
+         "readiness_factor_stress_history",
+         "readiness_factor_hrv",
+         "readiness_factor_sleep_history",
+         "recovery_time",
+         "training_load_acute",
+         "training_load_chronic",
+         "training_load_ratio",
+         "endurance_score",
+         "fitness_age",
+         "weight_kg",
+         "active_minutes",
+         "highly_active_minutes",
+         "hydration_ml",
+         "sweat_loss_ml",
+         "hrv_status",
+         "training_readiness_level",
+         "training_readiness_context",
+         "vo2max_sport",
+         "training_load_status"
+        ],
+        "days": 30,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series 'steps' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series 'heart_rate' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series 'sleep_score' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "sleep_score"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series 'hrv_status' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "hrv_status"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series 'stress' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "stress"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series 'spo2' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "spo2"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series 'vo2max' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "vo2max"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series 'nope' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "nope"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series '' default window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         ""
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series duplicates",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate",
+         "steps",
+         "heart_rate"
+        ],
+        "days": 10,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series a label twice",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 13,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "hrv_status",
+         "hrv_status"
+        ],
+        "days": 40,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series a label and a metric",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 14,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "hrv_status",
+         "steps",
+         "zzz"
+        ],
+        "days": 40,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series empty metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 15,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": []
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series only unknown names, bad end_date",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 16,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "nope"
+        ],
+        "end_date": "20250630"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series only a label, bad end_date",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 17,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "hrv_status"
+        ],
+        "end_date": "x"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series a daily metric, bad end_date",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 18,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "end_date": "x"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=0",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 19,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": 0,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=0",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 20,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": 0,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=1",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 21,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": 1,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=1",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 22,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": 1,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=-5",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 23,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": -5,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=-5",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 24,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": -5,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=365",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 25,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": 365,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=365",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 26,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": 365,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=366",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 27,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": 366,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=366",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 28,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": 366,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=367",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 29,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": 367,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=367",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 30,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": 367,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=1825",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 31,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": 1825,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=1825",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 32,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": 1825,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=1826",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 33,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": 1826,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=1826",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 34,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": 1826,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series steps days=100000",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 35,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "days": 100000,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series heart_rate days=100000",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 36,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "heart_rate"
+        ],
+        "days": 100000,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series source_scope='device'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 37,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "sleep_score",
+         "stress",
+         "hrv_status"
+        ],
+        "days": 30,
+        "end_date": "2025-06-30",
+        "source_scope": "device"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series source_scope='vendor_cloud'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 38,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "sleep_score",
+         "stress",
+         "hrv_status"
+        ],
+        "days": 30,
+        "end_date": "2025-06-30",
+        "source_scope": "vendor_cloud"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series source_scope='local'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 39,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "sleep_score",
+         "stress",
+         "hrv_status"
+        ],
+        "days": 30,
+        "end_date": "2025-06-30",
+        "source_scope": "local"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series source_scope='bogus'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 40,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "sleep_score",
+         "stress",
+         "hrv_status"
+        ],
+        "days": 30,
+        "end_date": "2025-06-30",
+        "source_scope": "bogus"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series source_scope=''",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 41,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "sleep_score",
+         "stress",
+         "hrv_status"
+        ],
+        "days": 30,
+        "end_date": "2025-06-30",
+        "source_scope": ""
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series source_scope=None",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 42,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "sleep_score",
+         "stress",
+         "hrv_status"
+        ],
+        "days": 30,
+        "end_date": "2025-06-30",
+        "source_scope": null
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date=''",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 43,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": ""
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date=''",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 44,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date=''",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 45,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": ""
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date=None",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 46,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": null
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date=None",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 47,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": null,
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date=None",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 48,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": null
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2025-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 49,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2025-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 50,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-06-30",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2025-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 51,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2025-06-15'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 52,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2025-06-15"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2025-06-15'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 53,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-06-15",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2025-06-15'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 54,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-06-15"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='1999-01-01'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 55,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "1999-01-01"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='1999-01-01'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 56,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "1999-01-01",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='1999-01-01'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 57,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "1999-01-01"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2099-12-31'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 58,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2099-12-31"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2099-12-31'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 59,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2099-12-31",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2099-12-31'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 60,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2099-12-31"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2025-02-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 61,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2025-02-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2025-02-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 62,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-02-30",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2025-02-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 63,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-02-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2025-6-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 64,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2025-6-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2025-6-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 65,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-6-30",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2025-6-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 66,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-6-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='20250630'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 67,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "20250630"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='20250630'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 68,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "20250630",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='20250630'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 69,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "20250630"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2025-W26-1'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 70,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2025-W26-1"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2025-W26-1'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 71,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-W26-1",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2025-W26-1'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 72,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-W26-1"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date=' 2025-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 73,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": " 2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date=' 2025-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 74,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": " 2025-06-30",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date=' 2025-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 75,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": " 2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2025-06-30 '",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 76,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2025-06-30 "
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2025-06-30 '",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 77,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-06-30 ",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2025-06-30 '",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 78,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-06-30 "
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2025-06-30T00:00:00Z'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 79,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2025-06-30T00:00:00Z"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2025-06-30T00:00:00Z'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 80,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-06-30T00:00:00Z",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2025-06-30T00:00:00Z'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 81,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-06-30T00:00:00Z"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='9999-12-31'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 82,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "9999-12-31"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='9999-12-31'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 83,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "9999-12-31",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='9999-12-31'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 84,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "9999-12-31"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='0001-01-01'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 85,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "0001-01-01"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='0001-01-01'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 86,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "0001-01-01",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='0001-01-01'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 87,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "0001-01-01"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='\u0662\u0660\u0662\u0665-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 88,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "\u0662\u0660\u0662\u0665-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='\u0662\u0660\u0662\u0665-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 89,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "\u0662\u0660\u0662\u0665-06-30",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='\u0662\u0660\u0662\u0665-06-30'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 90,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "\u0662\u0660\u0662\u0665-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series end_date='2025-06-30\\n'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 91,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "heart_rate"
+        ],
+        "days": 5,
+        "end_date": "2025-06-30\n"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts end_date='2025-06-30\\n'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 92,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-06-30\n",
+        "window_days": 3,
+        "baseline_days": 5
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail date='2025-06-30\\n'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 93,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-06-30\n"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail no date",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 94,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail the night of the seed",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 95,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail a night without sleep",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 96,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "2025-06-01"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail a night far away",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 97,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "1999-01-01"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=0",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 98,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 0
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=1",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 99,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=2",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 100,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 2
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=3",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 101,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 3
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=20",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 102,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 20
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=199",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 103,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 199
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=200",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 104,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 200
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=201",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 105,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 201
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=-1",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 106,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": -1
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities limit=100000",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 107,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 100000
+       }
+      }
+     }
+    },
+    {
+     "name": "list_activities default",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 108,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "get_data_health default",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 109,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "get_data_health window_days=0",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 110,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": 0
+       }
+      }
+     }
+    },
+    {
+     "name": "get_data_health window_days=1",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 111,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "get_data_health window_days=7",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 112,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": 7
+       }
+      }
+     }
+    },
+    {
+     "name": "get_data_health window_days=30",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 113,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": 30
+       }
+      }
+     }
+    },
+    {
+     "name": "get_data_health window_days=365",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 114,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": 365
+       }
+      }
+     }
+    },
+    {
+     "name": "get_data_health window_days=3650",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 115,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": 3650
+       }
+      }
+     }
+    },
+    {
+     "name": "get_data_health window_days=3651",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 116,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": 3651
+       }
+      }
+     }
+    },
+    {
+     "name": "get_data_health window_days=-1",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 117,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": -1
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts default",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 118,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "get_period_facts include_points",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 119,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts include_points, end_date",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 120,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "include_points": true,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts source_scope='device'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 121,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "source_scope": "device",
+        "end_date": "2025-06-30",
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts source_scope='vendor_cloud'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 122,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "source_scope": "vendor_cloud",
+        "end_date": "2025-06-30",
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts source_scope='local'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 123,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "source_scope": "local",
+        "end_date": "2025-06-30",
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts source_scope='bogus'",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 124,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "source_scope": "bogus",
+        "end_date": "2025-06-30",
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts source_scope=''",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 125,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "source_scope": "",
+        "end_date": "2025-06-30",
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts source_scope=None",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 126,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "source_scope": null,
+        "end_date": "2025-06-30",
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts unknown metric names",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 127,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "nope",
+         "steps",
+         "nope",
+         ""
+        ],
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts only unknown metric names",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 128,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "nope"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts empty metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 129,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": []
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts metrics null",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 130,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": null
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts duplicate metrics",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 131,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "steps",
+         "steps",
+         "sleep_score"
+        ],
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts a label metric",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 132,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "hrv_status"
+        ],
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts every metric, points",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 133,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "heart_rate",
+         "stress",
+         "respiration_rate",
+         "spo2",
+         "hrv_rmssd",
+         "energy_reserve",
+         "steps",
+         "distance",
+         "resting_heart_rate",
+         "resting_heart_rate_current_day",
+         "heart_rate_min",
+         "heart_rate_max",
+         "stress_avg",
+         "energy_reserve_high",
+         "energy_reserve_low",
+         "energy_reserve_charged",
+         "energy_reserve_drained",
+         "spo2_avg",
+         "spo2_lowest",
+         "respiration_avg_waking",
+         "respiration_lowest",
+         "respiration_highest",
+         "intensity_minutes_moderate",
+         "intensity_minutes_vigorous",
+         "calories_total",
+         "calories_active",
+         "calories_bmr",
+         "resting_metabolic_rate",
+         "sleep_score",
+         "sleep_duration",
+         "hrv_weekly_average",
+         "hrv_last_night_average",
+         "hrv_last_night_5min_high",
+         "hrv_baseline_low_upper",
+         "hrv_baseline_balanced_lower",
+         "hrv_baseline_balanced_upper",
+         "skin_temp_nightly",
+         "skin_temp_deviation",
+         "skin_temp_7day_deviation",
+         "vo2max",
+         "body_battery_high",
+         "body_battery_low",
+         "body_battery_charged",
+         "body_battery_drained",
+         "training_readiness",
+         "readiness_factor_sleep",
+         "readiness_factor_recovery_time",
+         "readiness_factor_load_ratio",
+         "readiness_factor_stress_history",
+         "readiness_factor_hrv",
+         "readiness_factor_sleep_history",
+         "recovery_time",
+         "training_load_acute",
+         "training_load_chronic",
+         "training_load_ratio",
+         "endurance_score",
+         "fitness_age",
+         "weight_kg",
+         "active_minutes",
+         "highly_active_minutes",
+         "hydration_ml",
+         "sweat_loss_ml",
+         "hrv_status",
+         "training_readiness_level",
+         "training_readiness_context",
+         "vo2max_sport",
+         "training_load_status"
+        ],
+        "include_points": true,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts window_days=1, baseline_days=1",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 134,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "window_days": 1,
+        "baseline_days": 1,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts window_days=7, baseline_days=28",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 135,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "window_days": 7,
+        "baseline_days": 28,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts window_days=31, baseline_days=365",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 136,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "window_days": 31,
+        "baseline_days": 365,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts window_days=32, baseline_days=366",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 137,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "window_days": 32,
+        "baseline_days": 366,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts window_days=0, baseline_days=0",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 138,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "window_days": 0,
+        "baseline_days": 0,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts window_days=-3, baseline_days=-3",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 139,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "window_days": -3,
+        "baseline_days": -3,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts window_days=100000, baseline_days=100000",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 140,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "window_days": 100000,
+        "baseline_days": 100000,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_contract ",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 141,
+      "method": "tools/call",
+      "params": {
+       "name": "get_contract",
+       "arguments": {}
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "coercion",
+   "entries": [
+    {
+     "name": "initialize 2025-11-25",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "coerce int list_activities.limit=3",
+     "expect": 101,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":3}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"3\"",
+     "expect": 102,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":102,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"3\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=2.0",
+     "expect": 103,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":103,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":2.0}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=2.5",
+     "expect": 104,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":104,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":2.5}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=true",
+     "expect": 105,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":105,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":true}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=false",
+     "expect": 106,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":106,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":false}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=null",
+     "expect": 107,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":107,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":null}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"abc\"",
+     "expect": 108,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":108,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"abc\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"1e2\"",
+     "expect": 109,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":109,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"1e2\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\" 3 \"",
+     "expect": 110,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":110,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\" 3 \"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"3.0\"",
+     "expect": 111,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":111,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"3.0\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"\"",
+     "expect": 112,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":112,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=1e23",
+     "expect": 113,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":113,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":1e23}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=-1e23",
+     "expect": 114,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":114,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":-1e23}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=99999999999999999999999",
+     "expect": 115,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":115,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":99999999999999999999999}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"99999999999999999999999\"",
+     "expect": 116,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":116,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"99999999999999999999999\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=[]",
+     "expect": 117,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":117,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":[]}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit={}",
+     "expect": 118,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":118,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":{}}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"+3\"",
+     "expect": 119,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":119,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"+3\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"-3\"",
+     "expect": 120,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":120,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"-3\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"0x10\"",
+     "expect": 121,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":121,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"0x10\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"1_000\"",
+     "expect": 122,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":122,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"1_000\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"\\u0663\"",
+     "expect": 123,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":123,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"\\u0663\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"\\uff13\"",
+     "expect": 124,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":124,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"\\uff13\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=NaN",
+     "expect": 125,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":125,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":NaN}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=Infinity",
+     "expect": 126,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":126,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":Infinity}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=-0",
+     "expect": 127,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":127,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":-0}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=0",
+     "expect": 128,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":128,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":0}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=-1",
+     "expect": 129,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":129,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":-1}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=1e2",
+     "expect": 130,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":130,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":1e2}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=3e0",
+     "expect": 131,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":131,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":3e0}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=0.0",
+     "expect": 132,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":132,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":0.0}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=-0.0",
+     "expect": 133,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":133,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":-0.0}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=200",
+     "expect": 134,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":134,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":200}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=201",
+     "expect": 135,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":135,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":201}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=9007199254740993",
+     "expect": 136,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":136,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":9007199254740993}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=-9007199254740993",
+     "expect": 137,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":137,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":-9007199254740993}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"  \"",
+     "expect": 138,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":138,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"  \"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"3 \"",
+     "expect": 139,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":139,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"3 \"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"3\\n\"",
+     "expect": 140,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":140,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"3\\n\"}}}"
+    },
+    {
+     "name": "coerce int list_activities.limit=\"\u0663\"",
+     "expect": 141,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":141,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":\"\u0663\"}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=\"2025-06-30\"",
+     "expect": 142,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":142,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"2025-06-30\"}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=\"\"",
+     "expect": 143,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":143,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"\"}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=null",
+     "expect": 144,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":144,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":null}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=3",
+     "expect": 145,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":145,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":3}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=true",
+     "expect": 146,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":146,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":true}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=2.5",
+     "expect": 147,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":147,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":2.5}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=[]",
+     "expect": 148,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":148,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":[]}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date={}",
+     "expect": 149,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":149,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":{}}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=\"x\"",
+     "expect": 150,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":150,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"x\"}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=\"\\u00e9\"",
+     "expect": 151,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":151,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"\\u00e9\"}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=\"[\\\"a\\\"]\"",
+     "expect": 152,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":152,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"[\\\"a\\\"]\"}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=\"null\"",
+     "expect": 153,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":153,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"null\"}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=\"3\"",
+     "expect": 154,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":154,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"3\"}}}"
+    },
+    {
+     "name": "coerce str|None get_sleep_detail.date=\"\\ud83d\\ude00\"",
+     "expect": 155,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":155,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"\\ud83d\\ude00\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=true",
+     "expect": 156,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":156,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":true}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=false",
+     "expect": 157,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":157,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":false}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=1",
+     "expect": 158,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":158,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":1}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=0",
+     "expect": 159,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":159,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":0}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=2",
+     "expect": 160,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":160,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":2}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=-1",
+     "expect": 161,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":161,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":-1}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"true\"",
+     "expect": 162,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":162,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"true\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"false\"",
+     "expect": 163,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":163,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"false\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"True\"",
+     "expect": 164,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":164,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"True\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"TRUE\"",
+     "expect": 165,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":165,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"TRUE\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"yes\"",
+     "expect": 166,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":166,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"yes\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"no\"",
+     "expect": 167,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":167,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"no\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"on\"",
+     "expect": 168,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":168,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"on\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"off\"",
+     "expect": 169,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":169,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"off\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"1\"",
+     "expect": 170,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":170,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"1\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"0\"",
+     "expect": 171,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":171,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"0\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"t\"",
+     "expect": 172,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":172,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"t\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"f\"",
+     "expect": 173,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":173,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"f\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"y\"",
+     "expect": 174,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":174,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"y\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"n\"",
+     "expect": 175,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":175,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"n\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\" true\"",
+     "expect": 176,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":176,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\" true\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"null\"",
+     "expect": 177,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":177,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"null\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=null",
+     "expect": 178,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":178,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":null}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=1.0",
+     "expect": 179,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":179,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":1.0}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=0.0",
+     "expect": 180,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":180,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":0.0}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=0.5",
+     "expect": 181,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":181,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":0.5}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"abc\"",
+     "expect": 182,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":182,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"abc\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"\"",
+     "expect": 183,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":183,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=[]",
+     "expect": 184,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":184,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":[]}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points={}",
+     "expect": 185,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":185,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":{}}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"2\"",
+     "expect": 186,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":186,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"2\"}}}"
+    },
+    {
+     "name": "coerce bool get_period_facts.include_points=\"1.0\"",
+     "expect": 187,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":187,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":\"1.0\"}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[\"steps\"]",
+     "expect": 188,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":188,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"steps\"]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[]",
+     "expect": 189,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":189,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=\"steps\"",
+     "expect": 190,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":190,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":\"steps\"}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=\"[\\\"steps\\\"]\"",
+     "expect": 191,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":191,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":\"[\\\"steps\\\"]\"}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[\"steps\",1]",
+     "expect": 192,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":192,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"steps\",1]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[null]",
+     "expect": 193,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":193,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[null]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=null",
+     "expect": 194,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":194,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":null}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics={}",
+     "expect": 195,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":195,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":{}}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[\"steps\",\"steps\"]",
+     "expect": 196,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":196,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"steps\",\"steps\"]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[1]",
+     "expect": 197,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":197,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[1]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=\"[]\"",
+     "expect": 198,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":198,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":\"[]\"}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[[\"steps\"]]",
+     "expect": 199,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":199,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[[\"steps\"]]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=\"steps,heart_rate\"",
+     "expect": 200,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":200,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":\"steps,heart_rate\"}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[\"heart_rate\",\"stress\"]",
+     "expect": 201,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":201,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"heart_rate\",\"stress\"]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[\"\"]",
+     "expect": 202,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":202,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"\"]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=[true]",
+     "expect": 203,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":203,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[true]}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=3",
+     "expect": 204,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":204,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":3}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=true",
+     "expect": 205,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":205,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":true}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=\"null\"",
+     "expect": 206,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":206,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":\"null\"}}}"
+    },
+    {
+     "name": "coerce list[str] get_metric_series.metrics=\"{}\"",
+     "expect": 207,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":207,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":\"{}\"}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=[\"steps\"]",
+     "expect": 208,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":208,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":[\"steps\"]}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=[]",
+     "expect": 209,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":209,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":[]}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=null",
+     "expect": 210,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":210,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":null}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=\"steps\"",
+     "expect": 211,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":211,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":\"steps\"}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=\"[\\\"steps\\\"]\"",
+     "expect": 212,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":212,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":\"[\\\"steps\\\"]\"}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=[1]",
+     "expect": 213,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":213,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":[1]}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics={}",
+     "expect": 214,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":214,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":{}}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=[\"steps\",null]",
+     "expect": 215,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":215,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":[\"steps\",null]}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=\"null\"",
+     "expect": 216,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":216,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":\"null\"}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=\"[]\"",
+     "expect": 217,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":217,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":\"[]\"}}}"
+    },
+    {
+     "name": "coerce list[str]|None get_period_facts.metrics=[\"\"]",
+     "expect": 218,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":218,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":[\"\"]}}}"
+    },
+    {
+     "name": "coerce arguments list_activities None",
+     "expect": 219,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":219,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\"}}"
+    },
+    {
+     "name": "coerce arguments list_activities null",
+     "expect": 220,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":220,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":null}}"
+    },
+    {
+     "name": "coerce arguments list_activities {}",
+     "expect": 221,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":221,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{}}}"
+    },
+    {
+     "name": "coerce arguments list_activities []",
+     "expect": 222,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":222,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":[]}}"
+    },
+    {
+     "name": "coerce arguments list_activities \"x\"",
+     "expect": 223,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":223,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":\"x\"}}"
+    },
+    {
+     "name": "coerce arguments list_activities 3",
+     "expect": 224,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":224,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":3}}"
+    },
+    {
+     "name": "coerce arguments list_activities true",
+     "expect": 225,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":225,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":true}}"
+    },
+    {
+     "name": "coerce arguments list_activities {\"limit\":2,\"extra\":1}",
+     "expect": 226,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":226,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":2,\"extra\":1}}}"
+    },
+    {
+     "name": "coerce arguments list_activities {\"limit\":1,\"limit\":2}",
+     "expect": 227,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":227,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":1,\"limit\":2}}}"
+    },
+    {
+     "name": "coerce arguments list_activities {\"Limit\":2}",
+     "expect": 228,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":228,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"Limit\":2}}}"
+    },
+    {
+     "name": "coerce arguments list_activities {\"limit\":2,\"limit\":\"x\"}",
+     "expect": 229,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":229,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":2,\"limit\":\"x\"}}}"
+    },
+    {
+     "name": "coerce arguments get_metric_series None",
+     "expect": 230,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":230,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\"}}"
+    },
+    {
+     "name": "coerce arguments get_metric_series {}",
+     "expect": 231,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":231,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{}}}"
+    },
+    {
+     "name": "coerce arguments get_metric_series {\"days\":3}",
+     "expect": 232,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":232,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"days\":3}}}"
+    },
+    {
+     "name": "coerce arguments get_metric_series {\"metrics\":[\"steps\"]}",
+     "expect": 233,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":233,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"steps\"]}}}"
+    },
+    {
+     "name": "coerce arguments get_metric_series {\"metrics\":[\"steps\"],\"end_date\":null}",
+     "expect": 234,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":234,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"steps\"],\"end_date\":null}}}"
+    },
+    {
+     "name": "coerce arguments get_metric_series {\"metrics\":[\"steps\"],\"source_scope\":null,\"days\":null}",
+     "expect": 235,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":235,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"steps\"],\"source_scope\":null,\"days\":null}}}"
+    },
+    {
+     "name": "coerce arguments get_contract None",
+     "expect": 236,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":236,\"method\":\"tools/call\",\"params\":{\"name\":\"get_contract\"}}"
+    },
+    {
+     "name": "coerce arguments get_contract {}",
+     "expect": 237,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":237,\"method\":\"tools/call\",\"params\":{\"name\":\"get_contract\",\"arguments\":{}}}"
+    },
+    {
+     "name": "coerce arguments get_contract {\"x\":1}",
+     "expect": 238,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":238,\"method\":\"tools/call\",\"params\":{\"name\":\"get_contract\",\"arguments\":{\"x\":1}}}"
+    },
+    {
+     "name": "coerce arguments get_contract null",
+     "expect": 239,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":239,\"method\":\"tools/call\",\"params\":{\"name\":\"get_contract\",\"arguments\":null}}"
+    },
+    {
+     "name": "coerce arguments get_data_health None",
+     "expect": 240,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":240,\"method\":\"tools/call\",\"params\":{\"name\":\"get_data_health\"}}"
+    },
+    {
+     "name": "coerce arguments get_data_health {\"window_days\":null}",
+     "expect": 241,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":241,\"method\":\"tools/call\",\"params\":{\"name\":\"get_data_health\",\"arguments\":{\"window_days\":null}}}"
+    },
+    {
+     "name": "coerce arguments get_period_facts {\"window_days\":null}",
+     "expect": 242,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":242,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"window_days\":null}}}"
+    },
+    {
+     "name": "coerce arguments get_period_facts {\"include_points\":null}",
+     "expect": 243,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":243,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"include_points\":null}}}"
+    },
+    {
+     "name": "coerce arguments get_sleep_detail None",
+     "expect": 244,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":244,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\"}}"
+    },
+    {
+     "name": "coerce arguments get_sleep_detail {\"date\":null}",
+     "expect": 245,
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":245,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":null}}}"
+    }
+   ]
+  }
+ ]
+}

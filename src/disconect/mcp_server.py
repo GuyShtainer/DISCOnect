@@ -50,6 +50,19 @@ def _neutral_result(tool: Callable[..., dict[str, Any]]) -> Callable[..., dict[s
     return scrubbed
 
 
+#: Every ``ToolError`` text the server writes itself, as templates (``{exc}`` is the text of the exception that
+#: caused it). Written to ``disconect-core/mcp.json`` so the Rust MCP says the same words.
+ERROR_TEMPLATES = {
+    "not_configured": "{exc}. Nothing can be answered until an import has run.",
+    "schema_too_new": "{exc}",
+    "locked": ("{exc}. The store is encrypted or locked: run 'disconect key cache' once in a terminal, "
+               "then restart disconect-mcp."),
+    "open_failed": "database could not be opened: {exc}",
+    "value_error": "{exc}",
+    "database_error": "database error: {exc}",
+    "no_metrics": "metrics must name at least one metric; call get_contract for the list",
+}
+
 READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True,
                             openWorldHint=False)
 
@@ -62,20 +75,19 @@ def _db() -> Iterator[sqlite.Connection]:
     try:
         conn = storage.open_read_only(storage.default_db_path(), allow_prompt=False)
     except storage.NotConfigured as exc:
-        raise ToolError(f"{exc}. Nothing can be answered until an import has run.") from exc
+        raise ToolError(ERROR_TEMPLATES["not_configured"].format(exc=exc)) from exc
     except storage.SchemaTooNew as exc:
-        raise ToolError(str(exc)) from exc
+        raise ToolError(ERROR_TEMPLATES["schema_too_new"].format(exc=exc)) from exc
     except (storage.Encrypted, storage.NotEncrypted) as exc:
-        raise ToolError(f"{exc}. The store is encrypted or locked: run 'disconect key cache' once in a "
-                        "terminal, then restart disconect-mcp.") from exc
+        raise ToolError(ERROR_TEMPLATES["locked"].format(exc=exc)) from exc
     except storage.DatabaseError as exc:
-        raise ToolError(f"database could not be opened: {exc}") from exc
+        raise ToolError(ERROR_TEMPLATES["open_failed"].format(exc=exc)) from exc
     try:
         yield conn
     except ValueError as exc:
-        raise ToolError(str(exc)) from exc
+        raise ToolError(ERROR_TEMPLATES["value_error"].format(exc=exc)) from exc
     except sqlite.Error as exc:
-        raise ToolError(f"database error: {exc}") from exc
+        raise ToolError(ERROR_TEMPLATES["database_error"].format(exc=exc)) from exc
     finally:
         conn.close()
 
@@ -105,7 +117,7 @@ def get_metric_series(metrics: list[str], days: int = 90, source_scope: str | No
     """metrics: names from the contract; days: 1-1825 (sample metrics capped at 366);
     source_scope: device | vendor_cloud | local | omitted for all; end_date: YYYY-MM-DD."""
     if not metrics:
-        raise ToolError("metrics must name at least one metric; call get_contract for the list")
+        raise ToolError(ERROR_TEMPLATES["no_metrics"])
     with _db() as conn:
         return queries.metric_series(conn, metrics, days, source_scope, end_date)
 
