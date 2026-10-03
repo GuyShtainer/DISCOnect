@@ -27,7 +27,6 @@ import functools
 import json
 import os
 import pathlib
-import re
 import sys
 import threading
 from collections.abc import Callable, Iterable, Iterator
@@ -45,7 +44,6 @@ DEFAULT_METRIC_DAYS = 90
 LAST_IMPORTS = 5
 #: Protocol transport names -> the names the store records.
 TRANSPORTS = {"export": sources.TRANSPORT_CONNECT_EXPORT, "usb": "usb"}
-_MANUFACTURER = re.compile(r"garmin(?: connect)?", re.IGNORECASE)
 _DEFERRED = object()
 
 
@@ -202,17 +200,6 @@ def _unlocked_only(handler: Handler) -> Handler:
     return guarded
 
 
-def _neutral(node: Any) -> Any:
-    """Replace the manufacturer's name in any string of ``node``: the UI never shows it."""
-    if isinstance(node, dict):
-        return {key: _neutral(value) for key, value in node.items()}
-    if isinstance(node, list):
-        return [_neutral(item) for item in node]
-    if isinstance(node, str):
-        return _MANUFACTURER.sub("{vendor}", node)
-    return node
-
-
 # ---- app / key ----
 
 def app_info(session: Session, call: Call) -> dict:
@@ -282,7 +269,7 @@ def data_health(session: Session, call: Call) -> dict:
     with session.reader() as conn:
         report = health.data_health(conn, window_days)
     report.pop("conventions", None)
-    return _neutral(report)
+    return identity.neutral(report)
 
 
 @_unlocked_only
@@ -331,7 +318,7 @@ def data_facts(session: Session, call: Call) -> dict:
     with session.reader() as conn:
         facts = insight.period_facts(conn, days, baseline_days)
     facts.pop("sources", None)
-    return _neutral(facts)
+    return identity.neutral(facts)
 
 
 # ---- import ----

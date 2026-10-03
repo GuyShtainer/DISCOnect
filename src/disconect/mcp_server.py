@@ -20,17 +20,18 @@ database other than ``~/.disconect/disconect.db`` (the old ``~/.hearthbeat`` fol
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Iterator
+import functools
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from disconect import __version__, contract, health, identity, insight, queries, storage
+from disconect import contract, health, identity, insight, queries, storage
 from disconect.storage import sqlite
 
-INSTRUCTIONS = (
+INSTRUCTIONS = identity.neutral(
     f"{identity.PRODUCT} serves one person's watch health data from a local database. "
     f"{contract.PRIVACY_NOTE}\nTime: {contract.TIME_CONVENTION}\n"
     f"Missing values: {contract.MISSING_VALUE_CONVENTION}\nSources: {contract.SOURCE_CONVENTION}\n"
@@ -40,10 +41,19 @@ INSTRUCTIONS = (
     "Do not diagnose; describe."
 )
 
+
+def _neutral_result(tool: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
+    """Run ``tool`` and scrub the manufacturer's name from its result, as ``serve`` does (ADR 0001)."""
+    @functools.wraps(tool)
+    def scrubbed(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return identity.neutral(tool(*args, **kwargs))
+    return scrubbed
+
+
 READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True,
                             openWorldHint=False)
 
-server = MCPServer(name=identity.MCP_SERVER_NAME, version=__version__, instructions=INSTRUCTIONS)
+server = MCPServer(name=identity.MCP_SERVER_NAME, version=identity.VERSION, instructions=INSTRUCTIONS)
 
 
 @contextlib.contextmanager
@@ -76,6 +86,7 @@ def _db() -> Iterator[sqlite.Connection]:
     "ledger: for every metric and source scope, how many days in the window (up to 3650) are present, "
     "failed, source_empty or not_covered, with the gap ranges. Use it to tell 'never imported' from "
     "'failed to decode' from 'the source had nothing'. " + contract.COVERAGE_CONVENTION))
+@_neutral_result
 def get_data_health(window_days: int = 30) -> dict[str, Any]:
     """window_days: coverage window ending today, 1-3650."""
     with _db() as conn:
@@ -88,6 +99,7 @@ def get_data_health(window_days: int = 30) -> dict[str, Any]:
     "respiration_rate, spo2, hrv_rmssd) return per-local-day {date, min, mean, max, samples}. "
     "Each series states its unit and source_scope; scopes are never merged. Unknown metric names "
     "are listed in ignored_metrics, not errors. " + contract.MISSING_VALUE_CONVENTION))
+@_neutral_result
 def get_metric_series(metrics: list[str], days: int = 90, source_scope: str | None = None,
                       end_date: str | None = None) -> dict[str, Any]:
     """metrics: names from the contract; days: 1-1825 (sample metrics capped at 366);
@@ -102,6 +114,7 @@ def get_metric_series(metrics: list[str], days: int = 90, source_scope: str | No
     "One night in full: window, stage minutes, the score breakdown, overnight SpO2/HR/respiration, "
     "and the stage timeline when the watch recorded one. Every source's record of the night is "
     "returned side by side. Omit date for the latest night. " + contract.MISSING_VALUE_CONVENTION))
+@_neutral_result
 def get_sleep_detail(date: str | None = None) -> dict[str, Any]:
     """date: local YYYY-MM-DD the sleep ended on; omitted = latest stored night."""
     with _db() as conn:
@@ -111,6 +124,7 @@ def get_sleep_detail(date: str | None = None) -> dict[str, Any]:
 @server.tool(name="list_activities", annotations=READ_ONLY, description=(
     "Recent recorded activities (sport, duration, distance, calories, heart rate), newest first. "
     "No routes or coordinates are stored or returned. " + contract.MISSING_VALUE_CONVENTION))
+@_neutral_result
 def list_activities(limit: int = 20) -> dict[str, Any]:
     """limit: 1-200."""
     with _db() as conn:
@@ -125,6 +139,7 @@ def list_activities(limit: int = 20) -> dict[str, Any]:
     "against the person's own history; no population norms exist here. A fact with confidence "
     "'insufficient' has no comparison, by design. Facts describe, they do not diagnose. "
     "end_date defaults to the latest stored date (see as_of). " + contract.MISSING_VALUE_CONVENTION))
+@_neutral_result
 def get_period_facts(window_days: int = 7, baseline_days: int = 28, end_date: str | None = None,
                      metrics: list[str] | None = None, source_scope: str | None = None,
                      include_points: bool = False) -> dict[str, Any]:
@@ -139,6 +154,7 @@ def get_period_facts(window_days: int = 7, baseline_days: int = 28, end_date: st
 @server.tool(name="get_contract", annotations=READ_ONLY, description=(
     f"The read contract every {identity.PRODUCT} outlet follows: time, missing-value and source conventions, "
     "and the full list of metrics with units, cadence and meaning."))
+@_neutral_result
 def get_contract() -> dict[str, Any]:
     return contract.as_dict()
 

@@ -7,6 +7,7 @@ identifiers the sources contain and walks every MCP tool's structured output.
 
 import asyncio
 import json
+import re
 
 import pytest
 
@@ -90,6 +91,35 @@ def test_tool_output_carries_no_identifiers(db_path, monkeypatch, tool, args):
         for needle in FORBIDDEN_TEXT:
             assert needle not in text, f"{needle!r} leaked at {path}"
     assert SERIAL not in json.dumps(payload)
+
+
+@pytest.mark.parametrize("tool,args", CALLS, ids=[c[0] for c in CALLS])
+def test_tool_output_names_no_manufacturer(db_path, monkeypatch, tool, args):
+    """ADR 0001: ``identity.neutral`` runs over every MCP tool result, as it does over ``serve``'s."""
+    _seed(db_path)
+    monkeypatch.setenv(storage.DEFAULT_DB_ENV, str(db_path))
+    from disconect import mcp_server
+    result = asyncio.run(mcp_server.server.call_tool(tool, args))
+    assert not re.search("garmin", json.dumps(result.structured_content), re.IGNORECASE)
+    assert not re.search("garmin", result.content[0].text, re.IGNORECASE)
+
+
+def test_the_manufacturer_is_scrubbed_where_the_contract_names_it(db_path, monkeypatch):
+    """The scrub is not vacuous: the contract's own text names the vendor and comes back as the placeholder."""
+    from disconect import contract, identity, mcp_server
+    assert re.search("garmin", contract.SOURCE_CONVENTION, re.IGNORECASE)
+    monkeypatch.setenv(storage.DEFAULT_DB_ENV, str(db_path))
+    _seed(db_path)
+    result = asyncio.run(mcp_server.server.call_tool("get_contract", {}))
+    assert identity.VENDOR_PLACEHOLDER in json.dumps(result.structured_content)
+
+
+def test_instructions_and_tool_listing_name_no_manufacturer():
+    from disconect import identity, mcp_server
+    assert identity.VENDOR_PLACEHOLDER in mcp_server.INSTRUCTIONS
+    assert not re.search("garmin", mcp_server.INSTRUCTIONS, re.IGNORECASE)
+    for tool in asyncio.run(mcp_server.server.list_tools()):
+        assert not re.search("garmin", json.dumps(tool.model_dump(mode="json")), re.IGNORECASE), tool.name
 
 
 def test_every_registered_tool_is_covered():

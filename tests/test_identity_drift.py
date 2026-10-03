@@ -8,7 +8,7 @@ thing, and while the Rust manufacturer scrub is the pattern ``serve.py`` really 
 import pathlib
 import re
 
-from disconect import identity, serve
+from disconect import identity
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TS = ROOT / "disconect-app" / "src" / "identity.ts"
@@ -31,9 +31,9 @@ def test_product_and_notice_agree_across_python_typescript_and_rust():
 
 
 def test_the_rust_manufacturer_scrub_is_the_pattern_serve_applies():
-    assert _rs_const("MANUFACTURER_PATTERN") == serve._MANUFACTURER.pattern
-    assert serve._MANUFACTURER.flags & re.IGNORECASE
-    assert _rs_const("VENDOR_PLACEHOLDER") == "{vendor}" == serve._MANUFACTURER.sub("{vendor}", "garmin")
+    assert _rs_const("MANUFACTURER_PATTERN") == identity.MANUFACTURER.pattern
+    assert identity.MANUFACTURER.flags & re.IGNORECASE
+    assert _rs_const("VENDOR_PLACEHOLDER") == "{vendor}" == identity.MANUFACTURER.sub("{vendor}", "garmin")
 
 
 def test_the_scrub_cases_the_rust_unit_test_pins_are_the_python_answers():
@@ -41,7 +41,13 @@ def test_the_scrub_cases_the_rust_unit_test_pins_are_the_python_answers():
              "garmin  connect": "{vendor}  connect", "garmin connectx": "{vendor}x",
              "garmın İx GARMİN": "{vendor} İx {vendor}", "garmi": "garmi"}
     for text, expected in cases.items():
-        assert serve._neutral(text) == expected, text
+        assert identity.neutral(text) == expected, text
+
+
+def test_the_mcp_server_version_is_the_rust_crates_version():
+    """``serverInfo.version`` is ``identity.VERSION``; the crate (and so the Rust MCP) must report the same."""
+    cargo = (ROOT / "disconect-core" / "Cargo.toml").read_text()
+    assert re.search(r'^version = "([^"]+)"', cargo, re.MULTILINE).group(1) == identity.VERSION
 
 
 def test_the_keychain_service_names_differ_on_purpose():
@@ -94,4 +100,4 @@ def test_mcp_instructions_carry_the_product_name_and_no_manufacturer():
 
     assert mcp_server.INSTRUCTIONS.startswith(f"{identity.PRODUCT} serves one person's watch health data")
     assert mcp_server.server.name == identity.MCP_SERVER_NAME
-    assert not serve._MANUFACTURER.search(mcp_server.INSTRUCTIONS.split("\n")[0]), "ADR 0001: no vendor name"
+    assert not identity.MANUFACTURER.search(mcp_server.INSTRUCTIONS.split("\n")[0]), "ADR 0001: no vendor name"
