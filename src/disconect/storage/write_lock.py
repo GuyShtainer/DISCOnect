@@ -23,7 +23,7 @@ import time
 from collections.abc import Iterator
 
 from disconect import identity
-from disconect.storage import _time
+from disconect.storage import _time, home
 
 POLL_INTERVAL_S = 0.12
 
@@ -59,7 +59,7 @@ def write_lock(db_path: pathlib.Path, purpose: str, timeout_s: float = 10.0) -> 
     """
     lock_path = lock_path_for(db_path)
     holder_path = lock_path.with_name(lock_path.name + ".holder")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    home.ensure_parent_dir(lock_path)
     deadline = time.monotonic() + timeout_s
     handle = open(lock_path, "a+", encoding="utf-8")  # noqa: SIM115 - closed in finally
     try:

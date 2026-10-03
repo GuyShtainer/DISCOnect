@@ -4,7 +4,7 @@
 argparse defaults, ``--help``, every read-only MCP call and the app's verify steps. Moving the old
 folder is ``disconect migrate-home`` (``storage/migrate_home.py``) and nothing else.
 
-The Rust core (``disconect-core/src/serve.rs::resolve_default_db``) implements the same decision and
+The Rust core (``disconect-core/src/home.rs``) implements the same decision and
 prints the same hint texts; ``tests/test_home.py`` and the Rust unit tests pin both.
 """
 
@@ -16,6 +16,7 @@ import sys
 from collections.abc import Mapping
 
 from disconect import identity
+from disconect.storage.errors import HomeMoved
 
 DB_ENV = identity.ENV_PREFIX + "DB"
 #: Env names of the old builds. They are not aliases: nothing reads them, we only warn.
@@ -27,8 +28,8 @@ def resolve_default_db() -> tuple[pathlib.Path, str | None]:
     """``(db path, legacy folder name or None)``.
 
     ``$DISCONECT_DB`` if set; else ``~/.disconect/disconect.db`` if that *file* exists; else the same
-    file name of an old build's folder (``~/.hearthbeat/hearthbeat.db``) if it exists, reported as the
-    second element so a caller can hint once; else the new path (which may not exist yet).
+    file name of an old build's folder (``~/.hearthbeat/hearthbeat.db``, or ``disconect.db`` there when a
+    ``migrate-home`` stopped half way) if it exists, reported as the second element so a caller can hint once; else the new path (which may not exist yet).
     """
     override = os.environ.get(DB_ENV)
     if override:
@@ -37,10 +38,27 @@ def resolve_default_db() -> tuple[pathlib.Path, str | None]:
     current = home / identity.DATA_DIR / identity.DB_FILENAME
     if not current.is_file():
         for legacy in identity.LEGACY_HOMES:
-            candidate = home / legacy / identity.LEGACY_DB_FILENAME
-            if candidate.is_file():
-                return candidate, legacy
+            # the database under its old name, or under its new one in a half-done migrate-home
+            # (siblings renamed, folder not yet)
+            for name in (identity.LEGACY_DB_FILENAME, identity.DB_FILENAME):
+                candidate = home / legacy / name
+                if candidate.is_file():
+                    return candidate, legacy
     return current, None
+
+
+def ensure_parent_dir(path: pathlib.Path) -> None:
+    """Create the folder of ``path`` for a writer, except an old data folder that is gone.
+
+    Raises :class:`~disconect.storage.errors.HomeMoved` when the folder is missing and is one of
+    ``identity.LEGACY_HOMES``: ``migrate-home`` moved it, and re-creating it would split the data.
+    """
+    parent = pathlib.Path(path).parent
+    if parent.is_dir():
+        return
+    if parent.name in identity.LEGACY_HOMES:
+        raise HomeMoved(f"data folder ~/{parent.name} has moved; restart {identity.PRODUCT}")
+    parent.mkdir(parents=True, exist_ok=True)
 
 
 def legacy_home_hint(legacy: str) -> str:

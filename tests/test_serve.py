@@ -529,3 +529,39 @@ def test_cli_serve_subcommand_runs_the_same_main(db_path, monkeypatch):
     monkeypatch.setattr(serve, "main", lambda argv: seen.append(argv) or 0)
     assert cli.main(["--db", str(db_path), "serve"]) == 0
     assert seen == [["--db", str(db_path)]]
+
+
+def test_a_moved_legacy_folder_is_never_recreated_by_a_later_import(tmp_path):
+    """F1b of the 02a review: serve resolves the legacy folder, migrate-home moves it under the idle process,
+    the next import.run used to re-create ~/.hearthbeat as a new store (split data). It is refused instead."""
+    legacy = tmp_path / ".hearthbeat"
+    legacy.mkdir()
+    _seed(legacy / "hearthbeat.db")
+    source = tmp_path / "export"
+    source.mkdir()
+    script = tmp_path / "bootstrap_home.py"
+    script.write_text(BOOTSTRAP.replace("EXTRA", "").replace('["--db", os.environ["DISCONECT_DB"]]', "[]"))
+    env = {"HOME": str(tmp_path), "PATH": os.environ["PATH"]}
+    proc = subprocess.Popen([sys.executable, str(script)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, env=env, text=True)
+    try:
+        proc.stdin.write(_requests(("app.info", {})))
+        proc.stdin.flush()
+        assert json.loads(proc.stdout.readline())["result"]["product"] == identity.PRODUCT
+        # what migrate-home does underneath an idle process
+        for entry in legacy.iterdir():
+            if entry.name.startswith("hearthbeat.db"):
+                entry.rename(legacy / ("disconect.db" + entry.name[len("hearthbeat.db"):]))
+        legacy.rename(tmp_path / ".disconect")
+        proc.stdin.write(json.dumps({"id": 2, "method": "import.run", "params": {"path": str(source)}}) + "\n")
+        proc.stdin.flush()
+        reply = json.loads(proc.stdout.readline())
+        assert reply["error"]["code"] == "not_found", reply
+        assert reply["error"]["message"] == "data folder ~/.hearthbeat has moved; restart DISCOnect"
+        assert not legacy.exists(), "the old folder must not come back"
+        proc.stdin.close()
+        assert proc.wait(timeout=5) == 0
+    finally:
+        proc.kill()
+        proc.stdout.close()
+        proc.stderr.close()

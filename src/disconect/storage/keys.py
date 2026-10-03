@@ -41,6 +41,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from mnemonic import Mnemonic
 
 from disconect import identity
+from disconect.storage import home
 
 FORMAT_VERSION = 1
 PASSPHRASE_ENV = "DISCONECT_PASSPHRASE"
@@ -245,7 +246,7 @@ def _document(master: bytes, passphrase: str, created_at: str | None = None,
 def write_key_file(path: pathlib.Path, document: dict) -> None:
     """Atomic 0600 write: exclusive temp file -> fsync -> replace -> fsync directory. Directory becomes 0700."""
     path = pathlib.Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    home.ensure_parent_dir(path)
     os.chmod(path.parent, 0o700)
     temp = path.with_name(path.name + f".tmp-{secrets.token_hex(4)}")
     fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -358,6 +359,20 @@ def keychain_delete(key_id: bytes) -> bool:
     except keyring.errors.PasswordDeleteError:
         return False
     return True
+
+
+def keychain_delete_legacy(key_id: bytes) -> bool:
+    """Delete the items an earlier build left under its own service name (``identity.LEGACY_CLI_KEYCHAIN_SERVICES``)
+    for this key id; absent items and keychain failures are ignored. True if any item was removed."""
+    keyring = _keychain()
+    removed = False
+    for service in identity.LEGACY_CLI_KEYCHAIN_SERVICES:
+        try:
+            keyring.delete_password(service, key_id.hex())
+            removed = True
+        except keyring.errors.PasswordDeleteError:
+            pass
+    return removed
 
 
 def status_for(db_path: pathlib.Path) -> dict:

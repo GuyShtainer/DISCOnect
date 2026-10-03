@@ -70,6 +70,7 @@ def test_relay_config_follows_the_resolved_folder(tmp_path):
 
 
 def test_the_cli_prints_the_legacy_hint_once_on_stderr_and_moves_nothing(tmp_path, capsys):
+    (tmp_path / ".hearthbeat").mkdir()
     with storage.open_for_write(tmp_path / ".hearthbeat" / "hearthbeat.db", "test"):
         pass
     code = cli.main(["status"])
@@ -81,6 +82,7 @@ def test_the_cli_prints_the_legacy_hint_once_on_stderr_and_moves_nothing(tmp_pat
 
 
 def test_no_hint_for_an_explicit_db_for_help_or_for_the_new_folder(tmp_path, capsys):
+    (tmp_path / ".hearthbeat").mkdir()
     with storage.open_for_write(tmp_path / ".hearthbeat" / "hearthbeat.db", "test"):
         pass
     scratch = tmp_path / "other.db"
@@ -121,3 +123,70 @@ def test_no_warning_without_old_env_names():
 
 def test_the_legacy_names_are_the_identity_constants():
     assert (identity.LEGACY_HOMES, identity.LEGACY_DB_FILENAME) == ([".hearthbeat"], "hearthbeat.db")
+
+
+# ---- F2: the half-done migrate-home state ----
+
+def test_a_half_done_migrate_home_resolves_to_the_renamed_db_in_the_old_folder(tmp_path):
+    """Siblings renamed, folder not yet: ~/.hearthbeat/disconect.db is the store, reported as legacy."""
+    half = _touch_db(tmp_path / ".hearthbeat", "disconect.db")
+    assert home.resolve_default_db() == (half, ".hearthbeat")
+    assert home.relay_config_path() == tmp_path / ".hearthbeat" / "relay.json"
+
+
+def test_the_old_name_wins_over_the_renamed_one_when_both_are_in_the_old_folder(tmp_path):
+    _touch_db(tmp_path / ".hearthbeat", "disconect.db")
+    old = _touch_db(tmp_path / ".hearthbeat", "hearthbeat.db")
+    assert home.resolve_default_db() == (old, ".hearthbeat")
+
+
+# ---- F1b: a writer never re-creates a legacy folder that migrate-home moved away ----
+
+MOVED = "data folder ~/.hearthbeat has moved; restart DISCOnect"
+
+
+def _resolved_legacy_then_moved(tmp_path):
+    """Resolve under a legacy HOME, then remove the folder (what migrate-home does underneath a running process)."""
+    legacy = _touch_db(tmp_path / ".hearthbeat", "hearthbeat.db")
+    resolved, name = home.resolve_default_db()
+    assert (resolved, name) == (legacy, ".hearthbeat")
+    legacy.unlink()
+    legacy.parent.rmdir()
+    return resolved
+
+
+def test_open_for_write_refuses_a_moved_legacy_folder_and_creates_nothing(tmp_path):
+    resolved = _resolved_legacy_then_moved(tmp_path)
+    with pytest.raises(storage.HomeMoved, match=MOVED), storage.open_for_write(resolved, "import"):
+        pass
+    assert not (tmp_path / ".hearthbeat").exists() and not (tmp_path / ".disconect").exists()
+
+
+def test_the_write_lock_and_the_key_file_refuse_a_moved_legacy_folder_too(tmp_path):
+    from disconect.storage import keys
+    from disconect.storage.write_lock import write_lock
+
+    resolved = _resolved_legacy_then_moved(tmp_path)
+    with pytest.raises(storage.HomeMoved, match=MOVED), write_lock(resolved, "x"):
+        pass
+    with pytest.raises(storage.HomeMoved, match=MOVED):
+        keys.write_key_file(keys.key_path_for(resolved), {})
+    assert not (tmp_path / ".hearthbeat").exists()
+
+
+def test_the_cli_maps_a_moved_folder_to_the_not_configured_exit_code(tmp_path, capsys):
+    resolved = _resolved_legacy_then_moved(tmp_path)
+    src = tmp_path / "src"
+    src.mkdir()
+    assert cli.main(["--db", str(resolved), "import", str(src)]) == cli.EXIT_NOT_CONFIGURED
+    assert MOVED in capsys.readouterr().err
+    assert not (tmp_path / ".hearthbeat").exists()
+
+
+def test_a_missing_folder_that_is_not_a_legacy_home_is_still_created(tmp_path):
+    with storage.open_for_write(tmp_path / "fresh" / "x.db", "test"):
+        pass
+    assert (tmp_path / "fresh" / "x.db").is_file()
+    with storage.open_for_write(tmp_path / ".disconect" / "disconect.db", "test"):
+        pass
+    assert (tmp_path / ".disconect" / "disconect.db").is_file()

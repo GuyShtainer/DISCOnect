@@ -24,11 +24,12 @@ from sqlcipher3 import dbapi2 as sqlite
 
 from disconect import identity
 from disconect.storage import home, keys, migrations
+from disconect.storage.errors import HomeMoved, NotConfigured, StorageError
 from disconect.storage._time import iso_utc, parse_iso_utc, utc_now_iso
 from disconect.storage.write_lock import WriteLockBusy, write_lock
 
 __all__ = [
-    "DEFAULT_DB_ENV", "DatabaseError", "Encrypted", "NotConfigured", "NotEncrypted", "Row",
+    "DEFAULT_DB_ENV", "DatabaseError", "Encrypted", "HomeMoved", "NotConfigured", "NotEncrypted", "Row",
     "SchemaTooNew", "StorageError", "WriteLockBusy", "connect", "default_db_path", "is_encrypted_file",
     "is_unlocked", "iso_utc", "open_for_write", "open_read_only", "parse_iso_utc", "prime", "remember", "forget", "sqlite", "unlocked_master", "utc_now_iso",
 ]
@@ -41,14 +42,6 @@ SQLITE_MAGIC = b"SQLite format 3\x00"
 
 #: Master keys unlocked in this process, by key-file path: the MCP server unlocks once at start.
 _unlocked: dict[pathlib.Path, bytes] = {}
-
-
-class StorageError(Exception):
-    """Base class for store-level failures."""
-
-
-class NotConfigured(StorageError):
-    """No database exists yet: nothing has been imported."""
 
 
 class SchemaTooNew(StorageError):
@@ -216,10 +209,11 @@ def open_for_write(path: pathlib.Path, purpose: str, timeout_s: float = 10.0
 
     Creates the file and migrates the schema when needed. Raises
     :class:`WriteLockBusy` if another writer holds the lock past ``timeout_s``
-    and :class:`SchemaTooNew` if the file is from a newer build.
+    and :class:`SchemaTooNew` if the file is from a newer build. Raises :class:`HomeMoved` instead of
+    re-creating an old data folder that ``migrate-home`` moved away.
     """
     path = pathlib.Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    home.ensure_parent_dir(path)
     with write_lock(path, purpose, timeout_s):
         conn = connect(path, read_only=False)
         try:

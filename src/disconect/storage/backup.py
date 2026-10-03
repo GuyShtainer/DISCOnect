@@ -24,7 +24,7 @@ import pathlib
 import shutil
 
 from disconect import __version__, contract, identity
-from disconect.storage import _time, keys, migrations
+from disconect.storage import _time, home, keys, migrations
 from disconect.storage.write_lock import write_lock
 
 MANIFEST_SUFFIX = ".manifest.json"
@@ -197,7 +197,7 @@ def restore_backup(backup_path: pathlib.Path, db_path: pathlib.Path) -> dict:
     backup_path, db_path = pathlib.Path(backup_path), pathlib.Path(db_path)
     master = _master_for(db_path)
     manifest = verify_backup(backup_path, master)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    home.ensure_parent_dir(db_path)
     stamp = datetime.datetime.now(_time.UTC).strftime("%Y%m%dT%H%M%SZ")
     rollback = db_path.with_name(f"{db_path.name}.pre-restore-{stamp}")
     converted = False
