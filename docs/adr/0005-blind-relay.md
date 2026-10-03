@@ -29,6 +29,8 @@
 - Metadata leakage accepted and documented: blob sizes, timestamps, counts (rclone-crypt
   class of leakage). Padding/batching to daily bundles reduces it; not eliminated.
 - No accounts on the relay beyond the bucket/service credentials the user already holds.
+  The relay account (the first path segment, `HKDF(master)`) is a visible, non-secret per-user prefix: it
+  names a user's objects to anyone who can list the relay, and proves nothing about the master.
 
 ## Rejected
 - Server-side compute with server-held keys (classic self-host): violates "without the key".
