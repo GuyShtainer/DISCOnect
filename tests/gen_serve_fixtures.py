@@ -1,0 +1,589 @@
+#!/usr/bin/env python3
+"""Build the committed synthetic store the serve differential and the Rust oracle replay run on.
+
+    python tests/gen_serve_fixtures.py            # rewrite synthetic.hbdb, synthetic-v1.hbdb, empty.hbdb and the generated script entries
+    python tests/gen_serve_fixtures.py --oracle   # also rewrite oracle-synthetic*.jsonl.gz (the Python responses)
+
+The store is entirely synthetic (the privacy test's seed rows plus the synthetic Connect export the
+import tests build: serial and e-mail shapes are fake, plus the rows ``_extend_for_facts`` adds so that
+``data.facts`` meets every branch: enough baseline days, ties, a zero-variance baseline, thin and missing
+baselines, every confidence band, sparse metrics, a cancelling series, half-hour and tied clock offsets) and the
+rows ``_extend_for_coverage`` adds so that the coverage ledger meets every branch (see its docstring) and the
+rows ``_extend_for_health`` adds (runs and provenance messages to redact). The v1 store
+is the same data under the schema-v1 migration alone. The clock is pinned with ``DISCONECT_NOW`` so the
+``imported_at`` stamps are the same every time. ``tools/serve_diff.py`` produces the oracle file.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import json
+import os
+import pathlib
+import shutil
+import sys
+import tempfile
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+
+FIXTURES = pathlib.Path(__file__).resolve().parent / "fixtures" / "serve"
+STORE = FIXTURES / "synthetic.hbdb"
+STORE_V1 = FIXTURES / "synthetic-v1.hbdb"
+STORE_EMPTY = FIXTURES / "empty.hbdb"
+SCRIPT = FIXTURES / "script.json"
+PINNED_NOW = "2025-07-02T09:30:00Z"
+#: Further clock pins the live gate is run under (``serve_diff.py --now``): the watch ahead of UTC,
+#: the watch behind UTC (a negative offset), and years later.
+OTHER_NOWS = ("2025-07-02T21:00:00Z", "2025-03-06T02:00:00Z", "2031-01-01T00:00:00Z")
+
+
+AS_OF = datetime.date(2025, 6, 30)   # the store's latest date: ``data.facts`` windows end here
+
+
+def _day(back: int) -> str:
+    """The date ``back`` days before the store's latest date."""
+    return (AS_OF - datetime.timedelta(days=back)).isoformat()
+
+
+def _series(metric: str, scope: str, values_by_back: dict[int, float]) -> list[tuple]:
+    """``daily_metrics`` rows (date, metric, value, scope, device) for ``back`` days before ``AS_OF``."""
+    return [(_day(back), metric, value, scope, "7") for back, value in sorted(values_by_back.items(), reverse=True)]
+
+
+def _daily_rows() -> tuple[list[tuple], list[tuple[str, str]]]:
+    """The synthetic daily series and the (metric, scope) pairs they replace. Window = back 0..6, baseline = 7..34."""
+    rows: list[tuple] = []
+    # ordinary: 42 days of two-decimal-free floats; the window sits 1.7 above the baseline
+    rows += _series("resting_heart_rate", "device",
+                    {back: round(50 + ((back * 37) % 11) / 3 + (1.7 if back < 7 else 0.0), 6) for back in range(42)})
+    # a tie in the means: baseline alternates 9000/11000 (mean exactly 10000), the window is 10000 each day
+    rows += _series("steps", "local", {back: 10000.0 if back < 7 else (9000.0 if back % 2 else 11000.0)
+                                       for back in range(35)})
+    # a delta below 1e-9 that is negative: fmean of three 0.1 is one ulp above 0.1, of seven exactly 0.1
+    rows += _series("calories_active", "vendor_cloud", {back: 0.1 for back in [*range(7), 7, 8, 9]})
+    # a zero-variance baseline with a real change
+    rows += _series("heart_rate_max", "vendor_cloud", {back: 160.0 if back < 7 else 150.0 for back in range(35)})
+    # every confidence band: baseline days with data 8 (high), 7 (medium), 5 (medium), 4 (low), 3 (low)
+    rows += _series("stress_avg", "local", {back: 31.5 + back % 3 for back in [0, 1, *range(7, 15)]})
+    rows += _series("training_load_acute", "device", {back: 200.5 + back for back in [2, *range(10, 17)]})
+    rows += _series("sleep_duration", "device", {back: 27000.0 + 60 * back for back in [0, 3, 9, 11, 14, 20, 21]})
+    rows += _series("hydration_ml", "device", {back: 1800.0 - back for back in [1, 8, 12, 20, 30]})
+    # sparse metrics: thin baseline (2 days), no baseline (window only), one baseline day short of the minimum
+    rows += _series("vo2max", "device", {5: 49.5, 13: 49.0, 22: 48.5})
+    rows += _series("weight_kg", "device", {3: 71.2, 9: 71.6, 18: 71.4})
+    rows += _series("endurance_score", "device", {1: 6100.0, 4: 6150.0})
+    rows += _series("fitness_age", "device", {2: 31.0, 40: 33.0})
+    # the same series in two scopes: equal facts side by side
+    rows += _series("sleep_score", "vendor_cloud", {back: 70 + (30 - back) for back in range(30)})
+    # sums that differ from a plain loop: many-decimal values, then a cancelling series
+    rows += _series("calories_total", "vendor_cloud", {back: round(2400 + (back * 7919 % 1000) / 7.0, 9)
+                                                       for back in range(35)})
+    rows += _series("recovery_time", "vendor_cloud", {0: 1.0, 1: 2.0, 8: 1e16, 9: 1.0, 10: -1e16, 11: 1.0, 12: 0.25})
+    replaced = sorted({(row[1], row[3]) for row in rows})
+    return rows, replaced
+
+
+def _sample_rows() -> list[tuple]:
+    """Sample rows (metric, ts_utc, value, scope, device). The watch runs UTC+3, so 22:30Z is the next local day."""
+    rows: list[tuple] = []
+    for back in range(40):
+        day = AS_OF - datetime.timedelta(days=back)
+        for hour, minute in ((10, 0), (12, 0), (22, 30)):
+            value = round(60 + ((back * 13 + hour) % 17) * 0.37 + (4.1 if back < 7 else 0.0), 6)
+            rows.append(("heart_rate", f"{day.isoformat()}T{hour:02d}:{minute:02d}:00Z", value, "device", "7"))
+    # a day whose mean is a tie at two decimals: 60.125 rounds half to even
+    rows += [("spo2", f"{_day(3)}T08:00:00Z", 60.0, "device", "7"), ("spo2", f"{_day(3)}T09:00:00Z", 60.25, "device", "7")]
+    rows += [("spo2", f"{_day(back)}T08:00:00Z", 95.0 + back % 4, "device", "7") for back in (9, 12, 15, 18, 21)]
+    # respiration around the midpoint between two clock offsets (a tie goes to the earlier offset), in two scopes
+    for back in range(8, 16):
+        rows.append(("respiration_rate", f"{_day(back)}T10:30:00Z", 14.0 + back * 0.1, "device", "7"))
+        rows.append(("respiration_rate", f"{_day(back)}T20:30:00Z", 15.5 - back * 0.05, "device", "7"))
+    rows += [("respiration_rate", f"{_day(back)}T09:00:00Z", 13.0 + back, "local", "7") for back in (0, 1, 8, 9, 10, 11)]
+    rows += [("respiration_rate", f"{_day(back)}T09:00:00Z", 16.0 - back * 0.5, "vendor_cloud", "7") for back in (2, 9, 10, 11)]
+    return rows
+
+
+def _extend_for_facts(conn) -> None:
+    """Replace the series the facts differential needs; everything else the import wrote stays as it was."""
+    daily, replaced = _daily_rows()
+    for metric, scope in replaced:
+        conn.execute("DELETE FROM daily_metrics WHERE metric=? AND source_scope=?", (metric, scope))
+    conn.executemany("INSERT INTO daily_metrics(date, metric, value, source_scope, device_id, raw_record_id) "
+                     "VALUES(?,?,?,?,?,1)", daily)
+    conn.execute("DELETE FROM metric_samples WHERE metric IN ('heart_rate', 'spo2', 'respiration_rate')")
+    conn.executemany("INSERT INTO metric_samples(metric, ts_utc, value, source_scope, device_id, raw_record_id) "
+                     "VALUES(?,?,?,?,?,1)", _sample_rows())
+    # a half-hour zone from the 20th on: local days after the midpoint (17 June, 10:30Z) follow it, and the
+    # respiration samples at exactly 10:30Z on that day sit on the tie between the two offsets
+    conn.execute("INSERT OR REPLACE INTO clock_offsets(ts_utc, offset_s, device_id, raw_record_id) "
+                 "VALUES('2025-06-20T00:00:00Z', 12600, '7', 1)")
+
+
+# ---- the coverage scenarios ----
+
+_STAMP = "2025-07-01T00:00:00Z"
+
+
+def _raw(conn, stream: str, start: str | None, end: str | None, scope: str = "device") -> int:
+    """One retained record with a span (``source_key`` is unique per stream and start)."""
+    cursor = conn.execute(
+        "INSERT INTO raw_records(stream, source_key, source_scope, transport, payload_kind, payload, "
+        "payload_hash, payload_bytes, start_utc, end_utc, imported_at) VALUES(?,?,?,'usb','fit',x'00','h',1,?,?,?)",
+        (stream, f"{stream}|{start}|{end}", scope, start, end, _STAMP))
+    return cursor.lastrowid
+
+
+def _daily(conn, raw: int, rows: list[tuple]) -> None:
+    """``daily_metrics`` rows (date, metric, value, scope, device) that point at ``raw``."""
+    conn.executemany("INSERT INTO daily_metrics(date, metric, value, source_scope, device_id, raw_record_id) "
+                     "VALUES(?,?,?,?,?,?)", [(*row, raw) for row in rows])
+
+
+def _samples(conn, raw: int, rows: list[tuple]) -> None:
+    """``metric_samples`` rows (metric, ts_utc, value, scope, device) that point at ``raw``."""
+    conn.executemany("INSERT INTO metric_samples(metric, ts_utc, value, source_scope, device_id, raw_record_id) "
+                     "VALUES(?,?,?,?,?,?)", [(*row, raw) for row in rows])
+
+
+def _extend_for_coverage(conn) -> None:
+    """Rows that make every branch of the coverage ledger answer something different.
+
+    Three clock regions, far from the June data (the nearest stated offset decides): until mid-February
+    a half-hour zone (+05:30, local midnight at 18:30Z, so an hour of samples holds the midnight and the
+    per-sample path runs), until 21 March a negative offset (-05:00, midnight at 05:00Z), then a positive
+    one (+02:00, midnight at 22:00Z). Files end exactly at a local midnight, so the exclusive end (minus one
+    microsecond) decides whether the next day is covered. Also here: export ranges with and without rows
+    (``source_empty`` beside ``present``), failures with their own span, with the span of a retained file,
+    crossing midnight, and one on a day that has a row (``present`` wins), nightly streams that inherit
+    the all-day files' coverage, a sparse metric, a record whose end precedes its start, an empty span,
+    two devices on one day, an undeclared stream (map drift) and a series with more than ``MAX_GAPS`` gaps.
+    """
+    conn.executemany(
+        "INSERT OR REPLACE INTO clock_offsets(ts_utc, offset_s, device_id, raw_record_id) VALUES(?,?,?,1)",
+        [("2025-02-01T00:00:00Z", 19800, "9"), ("2025-03-01T00:00:00Z", -18000, "8"),
+         ("2025-04-10T00:00:00Z", 7200, "7")])
+    conn.execute("INSERT OR IGNORE INTO import_runs(id, started_at, transport, status) VALUES(3, ?, 'usb', 'ok')",
+                 (_STAMP,))
+
+    # half-hour region: files end at local midnight (18:30Z); samples straddle it in one UTC hour
+    h1 = _raw(conn, "fit:monitoring_b", "2025-02-02T18:30:00Z", "2025-02-05T18:30:00Z")
+    h2 = _raw(conn, "fit:monitoring_b", "2025-02-08T18:30:00Z", "2025-02-09T18:30:00Z")
+    _samples(conn, h1, [("heart_rate", "2025-02-05T18:29:59Z", 61.5, "device", "7"),
+                        ("heart_rate", "2025-02-05T18:30:00Z", 62.5, "device", "7")])
+    _samples(conn, h2, [("heart_rate", "2025-02-09T18:29:59Z", 63.0, "device", "7")])
+    _daily(conn, h1, [("2025-02-03", "steps", 4100.0, "local", "7"), ("2025-02-04", "steps", 5200.0, "local", "7")])
+
+    # negative region
+    n1 = _raw(conn, "fit:monitoring_b", "2025-03-03T05:00:00Z", "2025-03-07T05:00:00Z")
+    n2 = _raw(conn, "fit:monitoring_b", "2025-03-10T05:00:00Z", "2025-03-13T05:00:00Z")
+    _samples(conn, n1, [("heart_rate", "2025-03-04T04:59:59Z", 58.0, "device", "7"),
+                        ("heart_rate", "2025-03-04T05:00:00Z", 59.0, "device", "7"),
+                        ("stress", "2025-03-05T10:00:00Z", 31.0, "device", "7"),
+                        ("stress", "2025-03-05T11:00:00Z", 33.25, "device", "7")])
+    _daily(conn, n1, [("2025-03-03", "steps", 7000.0, "local", "7"), ("2025-03-04", "steps", 8100.5, "local", "7"),
+                      ("2025-03-05", "steps", 6400.0, "local", "7"),
+                      ("2025-03-03", "resting_heart_rate", 52.0, "device", "7"),
+                      ("2025-03-03", "resting_heart_rate", 55.5, "device", "8"),   # two devices, one day
+                      ("2025-03-05", "resting_heart_rate", 51.0, "device", "7"),
+                      ("2025-03-05", "steps", 1500.0, "device", "7")])             # fit:monitoring_b is not declared for it
+    _daily(conn, n2, [("2025-03-10", "steps", 7700.0, "local", "7")])
+    _samples(conn, n2, [("stress", "2025-03-11T12:00:00Z", 28.0, "local", "7")])    # an undeclared (metric, scope, stream)
+    sleep = _raw(conn, "fit:sleep", "2025-03-04T03:00:00Z", "2025-03-04T11:00:00Z")
+    _daily(conn, sleep, [("2025-03-04", "sleep_score", 77.0, "device", "7")])
+    # failures: a span of its own; one crossing local midnight; a day that also has a row; a retained file's span
+    conn.executemany(
+        "INSERT INTO import_failures(run_id, stream, start_utc, end_utc, raw_record_id, payload_hash, kind, recorded_at) "
+        "VALUES(3, ?, ?, ?, ?, ?, 'decode', ?)",
+        [("fit:monitoring_b", "2025-03-08T14:00:00Z", "2025-03-08T20:00:00Z", None, "f1", _STAMP),
+         ("fit:monitoring_b", "2025-03-14T04:00:00Z", "2025-03-14T06:00:00Z", None, "f2", _STAMP),
+         ("fit:monitoring_b", "2025-03-04T10:00:00Z", "2025-03-04T12:00:00Z", None, "f3", _STAMP)])
+    kept = _raw(conn, "fit:monitoring_b", "2025-03-16T12:00:00Z", "2025-03-17T03:00:00Z")
+    conn.execute("INSERT INTO import_failures(run_id, stream, start_utc, end_utc, raw_record_id, payload_hash, kind, "
+                 "recorded_at) VALUES(3, 'fit:monitoring_b', NULL, NULL, ?, 'f4', 'load', ?)", (kept, _STAMP))
+    conn.execute("INSERT INTO import_failures(run_id, stream, start_utc, end_utc, kind, recorded_at) "
+                 "VALUES(3, NULL, '2025-03-15T00:00:00Z', '2025-03-15T05:00:00Z', 'decode', ?)", (_STAMP,))
+    _raw(conn, "fit:monitoring_b", "2025-03-18T05:00:00Z", "2025-03-17T05:00:00Z")   # end before start
+    _raw(conn, "fit:monitoring_b", "2025-03-19T12:00:00Z", "2025-03-19T12:00:00Z")   # an empty span
+
+    # positive region: export windows claimed with and without rows, files inside and across midnight, a sparse metric
+    conn.executemany("INSERT OR IGNORE INTO export_ranges(run_id, stream, from_day, to_day) VALUES(3,?,?,?)",
+                     [("json:uds", "2025-04-01", "2025-04-10"), ("json:sleep", "2025-04-05", "2025-04-06")])
+    uds = _raw(conn, "json:uds", "2025-04-02T00:00:00Z", "2025-04-02T00:00:00Z", "vendor_cloud")
+    _daily(conn, uds, [("2025-04-02", "steps", 9100.0, "vendor_cloud", None), ("2025-04-03", "steps", 8800.0, "vendor_cloud", None)])
+    cloud_sleep = _raw(conn, "json:sleep", "2025-04-05T00:00:00Z", "2025-04-05T00:00:00Z", "vendor_cloud")
+    _daily(conn, cloud_sleep, [("2025-04-05", "sleep_score", 81.0, "vendor_cloud", None)])
+    p1 = _raw(conn, "fit:monitoring_b", "2025-04-14T22:00:00Z", "2025-04-15T22:00:00Z")
+    p2 = _raw(conn, "fit:monitoring_b", "2025-04-20T10:00:00Z", "2025-04-21T10:00:00Z")
+    _daily(conn, p1, [("2025-04-15", "steps", 6600.0, "local", "7")])
+    _samples(conn, p2, [("heart_rate", "2025-04-20T23:30:00Z", 64.0, "device", "7")])
+    metrics = _raw(conn, "fit:metrics", "2025-04-15T12:00:00Z", "2025-04-15T12:00:00Z")
+    _daily(conn, metrics, [("2025-04-15", "vo2max", 50.5, "device", "7")])
+
+    # more than MAX_GAPS gaps: a value every other day for 58 days, with only the first day's file retained
+    gap_source = _raw(conn, "json:uds", "2025-01-02T00:00:00Z", "2025-01-02T00:00:00Z", "vendor_cloud")
+    start = datetime.date(2025, 1, 2)
+    _daily(conn, gap_source, [((start + datetime.timedelta(days=2 * k)).isoformat(), "intensity_minutes_moderate",
+                               float(10 + k), "vendor_cloud", None) for k in range(29)])
+
+
+def _extend_for_health(conn) -> None:
+    """Rows that make ``data.health`` and ``import.last`` meet their redaction and limit branches: more
+    runs than the five that are reported (newest first), error texts holding an e-mail address, a path and
+    a long identifier, an empty error (not null), a running run, and provenance messages to redact."""
+    runs = [
+        (4, "2025-07-01T01:00:00Z", "2025-07-01T01:00:05Z", "connect_export", "failed", 9, 0, 0, 9, 0,
+         "OSError: cannot read /Users/someone/me@example.com/export.zip for account 12345678901"),
+        (5, "2025-07-01T02:00:00Z", "2025-07-01T02:00:05Z", "usb", "partial", 4, 3, 0, 1, 1200, ""),
+        (6, "2025-07-01T03:00:00Z", None, "drop", "running", 0, 0, 0, 0, 0, None),
+        (7, "2025-07-01T04:00:00Z", "2025-07-01T04:00:01Z", "usb", "ok", 2, 2, 0, 0, 40, None),
+        (8, "2025-07-01T05:00:00Z", "2025-07-01T05:00:09Z", "connect_export", "failed", 1, 0, 0, 1, 0,
+         "C:\\Users\\someone\\export.zip: call someone@example.org about 9988776"),
+    ]
+    conn.executemany(
+        "INSERT INTO import_runs(id, started_at, finished_at, transport, status, files_seen, files_imported, "
+        "files_duplicate, files_failed, records_written, error) VALUES(?,?,?,?,?,?,?,?,?,?,?)", runs)
+    streams = [row[0] for row in conn.execute("SELECT stream FROM stream_provenance ORDER BY stream")]
+    assert len(streams) >= 3, "the import left provenance rows"
+    conn.execute("UPDATE stream_provenance SET last_parse_error_at=?, last_parse_error_kind='decode', "
+                 "last_parse_error_message=?, files_failed=2 WHERE stream=?",
+                 (_STAMP, "bad file /Users/someone/me@example.com/x.fit near byte 1234567", streams[0]))
+    conn.execute("UPDATE stream_provenance SET last_write_error_at=?, last_write_error_kind='storage', "
+                 "last_write_error_message=?, last_parse_error_message='' WHERE stream=?",
+                 (_STAMP, "disk full at /var/data/hearthbeat/store.db (123456789 bytes)", streams[1]))
+
+
+def build(target: pathlib.Path) -> None:
+    """Write the synthetic store at ``target`` as one plain file (WAL mode header, no -wal left over)."""
+    os.environ["DISCONECT_NOW"] = PINNED_NOW
+    from disconect import storage
+    from disconect.ingest import sources
+    from test_import import _build_export
+    from test_privacy import _seed
+
+    with tempfile.TemporaryDirectory() as folder:
+        work = pathlib.Path(folder)
+        db_path = work / "synthetic.hbdb"
+        _seed(db_path)
+        export = work / "export"
+        export.mkdir()
+        _build_export(export)
+        with storage.open_for_write(db_path, "fixture") as conn:
+            sources.import_path(export, conn)
+            _extend_for_facts(conn)
+            _extend_for_coverage(conn)
+            _extend_for_health(conn)
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        for leftover in db_path.parent.glob("synthetic.hbdb-*"):
+            assert leftover.stat().st_size == 0, f"{leftover.name} still holds data"
+        shutil.copyfile(db_path, target)
+
+
+def build_empty(target: pathlib.Path) -> None:
+    """A migrated store that never imported anything (``never_imported``, no runs, no provenance)."""
+    os.environ["DISCONECT_NOW"] = PINNED_NOW
+    from disconect import storage
+
+    with tempfile.TemporaryDirectory() as folder:
+        db_path = pathlib.Path(folder) / "empty.hbdb"
+        with storage.open_for_write(db_path, "fixture") as conn:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        for leftover in db_path.parent.glob("empty.hbdb-*"):
+            assert leftover.stat().st_size == 0, f"{leftover.name} still holds data"
+        shutil.copyfile(db_path, target)
+
+
+def build_v1(source: pathlib.Path, target: pathlib.Path) -> None:
+    """The same data under the schema-v1 migration alone: no ``export_ranges`` and no ``import_failures``,
+    so the ledger reports ``refinements_available`` false. Plain SQLite in rollback-journal mode."""
+    from disconect.storage import migrations, sqlite
+
+    version, ddl = migrations.MIGRATIONS[0]
+    assert version == 1
+    with tempfile.TemporaryDirectory() as folder:
+        work = pathlib.Path(folder)
+        shutil.copyfile(source, work / "source.hbdb")
+        conn = sqlite.connect(str(work / "v1.hbdb"))
+        conn.executescript(ddl)
+        conn.execute("INSERT INTO schema_migrations(version, applied_at) VALUES(1, ?)", (PINNED_NOW,))
+        conn.execute("PRAGMA user_version = 1")
+        conn.execute("ATTACH DATABASE ? AS syn", (str(work / "source.hbdb"),))
+        tables = [name for (name,) in conn.execute(
+            "SELECT name FROM main.sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+            "AND name != 'schema_migrations'").fetchall()]
+        for table in tables:
+            mine = [row[1] for row in conn.execute(f"PRAGMA main.table_info({table})")]
+            theirs = [row[1] for row in conn.execute(f"PRAGMA syn.table_info({table})")]
+            assert mine == theirs, f"{table}: v1 columns differ from the migrated store"
+            conn.execute(f"INSERT INTO main.{table} SELECT * FROM syn.{table}")
+        conn.commit()
+        conn.execute("DETACH DATABASE syn")
+        conn.close()
+        assert not (work / "v1.hbdb-journal").exists()
+        shutil.copyfile(work / "v1.hbdb", target)
+
+
+# ---- the metric / today requests ----
+
+#: ``booked`` marks a request whose Python answer is the permissiveness kb/23 books; the Rust core must
+#: answer ``bad_params`` (the harness counts it under its own name, never as identical or as a difference).
+BOOKED_FROMISOFORMAT = "kb23-fromisoformat-permissive"
+FOCUS_METRICS = ("heart_rate", "stress", "spo2", "steps", "sleep_score", "resting_heart_rate",
+                 "intensity_minutes_moderate", "vo2max")
+BIG_METRICS = ("heart_rate", "steps", "sleep_score", "vo2max")
+LAST_DAYS = (None, "$MID", "$FIRST", "$BEFORE", "2099-12-31")
+BAD_LAST_DAYS = ("20261003", "2026-W40-6", "nonsense", "", "2025-13-40", "2025-02-30", "0000-01-01",
+                 "9999-12-31", "0001-01-03", "2025-6-30", " 2025-06-30", "\uff12\uff10\uff12\uff15-06-30",
+                 "2025-03-05T00:00", "2025-06-30\n")
+BOOKED_LAST_DAYS = {"20261003", "2026-W40-6"}
+
+
+def _request(request_id: int, name: str, **params) -> dict:
+    entry = {"name": name, "send": {"id": request_id, "method": "data.metric", "params": params}}
+    last_day = params.get("last_day")
+    if isinstance(last_day, str) and last_day in BOOKED_LAST_DAYS:
+        entry["booked"] = BOOKED_FROMISOFORMAT
+    return entry
+
+
+def _health_entries() -> list[dict]:
+    """``data.health`` over every window and every bad ``window_days`` (the clamp is 1 to 3650)."""
+    entries: list[dict] = []
+
+    def add(label: str, **params) -> None:
+        entries.append({"name": f"gen: data.health {label}",
+                        "send": {"id": 13000 + len(entries), "method": "data.health", "params": params}})
+
+    entries.append({"name": "gen: data.health plain", "send": {"id": 13000, "method": "data.health"}})
+    for window in (1, 2, 7, 30, 90, 180, 365, 3649, 3650, 3651, 10000, 0, -1, -3650, -99999):
+        add(f"window_days={window}", window_days=window)
+    for value in ("30", 30.5, 30.0, True, False, None, [30], {"a": 1}, "", [], {}):
+        add(f"bad window_days: {value!r}", window_days=value)
+    add("ignores unknown params", window_days=30, days=7, metric="steps")
+    raw = {
+        "window_days: 4300 digits (clamped)": '{"id":%d,"method":"data.health","params":{"window_days":$DIGITS4300}}',
+        "window_days: negative 4300 digits": '{"id":%d,"method":"data.health","params":{"window_days":-$DIGITS4300}}',
+        "window_days: beyond i64": '{"id":%d,"method":"data.health","params":{"window_days":9223372036854775808}}',
+        "window_days: 4301 digits": '{"id":%d,"method":"data.health","params":{"window_days":$DIGITS4301}}',
+        "window_days: exponent form": '{"id":%d,"method":"data.health","params":{"window_days":1e1}}',
+        "window_days: NaN": '{"id":%d,"method":"data.health","params":{"window_days":NaN}}',
+        "window_days: minus zero": '{"id":%d,"method":"data.health","params":{"window_days":-0}}',
+        "params null": '{"id":%d,"method":"data.health","params":null}',
+        "params array": '{"id":%d,"method":"data.health","params":[]}',
+        "params missing": '{"id":%d,"method":"data.health"}',
+        "duplicate window_days keeps the last": '{"id":%d,"method":"data.health","params":{"window_days":3,"window_days":40}}',
+    }
+    for label, template in raw.items():
+        request_id = 13000 + len(entries)
+        entries.append({"name": f"gen: data.health {label}", "raw": template % request_id})
+    return entries
+
+
+def _import_entries() -> list[dict]:
+    """``import.last`` and the ``import.run`` requests that fail before the store is opened for writing
+    (anything that reaches the worker changes the store, so ``serve_diff.py`` runs those on separate copies)."""
+    entries = [
+        {"name": "gen: import.last plain", "send": {"id": 14000, "method": "import.last"}},
+        {"name": "gen: import.last ignores params", "send": {"id": 14001, "method": "import.last",
+                                                              "params": {"limit": 1, "x": [1]}}},
+        {"name": "gen: import.last params null", "raw": '{"id":14002,"method":"import.last","params":null}'},
+        {"name": "gen: import.last params array", "raw": '{"id":14003,"method":"import.last","params":[]}'},
+    ]
+
+    def add(label: str, **params) -> None:
+        entries.append({"name": f"gen: import.run {label}",
+                        "send": {"id": 14100 + len(entries), "method": "import.run", "params": params}})
+
+    for value in (None, "", 5, True, False, ["x"], {"a": 1}, 1.5):
+        add(f"bad path: {value!r}", path=value, transport="usb")
+    add("missing path, bad transport", transport="carrier pigeon")
+    for value in (5, True, False, "", "Export", "usb ", "carrier pigeon", "gadgetbridge", ["export"], {"a": 1}, 1.5, 0):
+        add(f"bad transport: {value!r}", path="x", transport=value)
+    add("bad path before bad transport", path=5, transport=5)
+    entries.append({"name": "gen: import.run params null", "raw": '{"id":14300,"method":"import.run","params":null}'})
+    entries.append({"name": "gen: import.run params array", "raw": '{"id":14301,"method":"import.run","params":[]}'})
+    entries.append({"name": "gen: import.run duplicate transport keeps the last",
+                    "raw": '{"id":14302,"method":"import.run","params":{"path":"x","transport":"usb","transport":"nope"}}'})
+    return entries
+
+
+def _metric_entries() -> list[dict]:
+    """Every contract metric and scope, the window edges, ``last_day`` forms and every bad parameter."""
+    from disconect import contract
+
+    numeric = [item.metric for item in contract.METRICS]
+    entries: list[dict] = []
+
+    def add(label: str, **params) -> None:
+        entries.append(_request(10000 + len(entries), f"gen: data.metric {label}", **params))
+
+    def tagged(name: str, last_day) -> str:
+        return f"{name} last={last_day if last_day is not None else 'absent'}"
+
+    for metric in numeric:
+        for scope in contract.SOURCE_SCOPES:
+            add(f"{metric}/{scope} days=30 mid", metric=metric, scope=scope, days=30, last_day="$MID")
+    for metric in numeric:
+        for scope in contract.SOURCE_SCOPES:
+            add(f"{metric}/{scope} days=60 last stored", metric=metric, scope=scope, days=60, last_day="$LAST")
+    for metric in numeric:
+        for scope in contract.SOURCE_SCOPES:
+            add(f"{metric}/{scope} days=7 today", metric=metric, scope=scope, days=7)
+    for metric in FOCUS_METRICS:
+        for scope in contract.SOURCE_SCOPES:
+            for days in (1, 7, 90, 0, -1):
+                for last_day in LAST_DAYS:
+                    params = {"metric": metric, "scope": scope, "days": days}
+                    if last_day is not None:
+                        params["last_day"] = last_day
+                    add(tagged(f"{metric}/{scope} days={days}", last_day), **params)
+    for metric in BIG_METRICS:
+        for scope in contract.SOURCE_SCOPES:
+            for days in (1825, 1826):
+                for last_day in (None, "$MID"):
+                    params = {"metric": metric, "scope": scope, "days": days}
+                    if last_day is not None:
+                        params["last_day"] = last_day
+                    add(tagged(f"{metric}/{scope} days={days}", last_day), **params)
+    for last_day in BAD_LAST_DAYS:
+        for metric in ("heart_rate", "steps", "nope", "hrv_status"):
+            add(f"last_day={last_day!r} {metric}", metric=metric, scope="device", days=7, last_day=last_day)
+    for label in contract.label_names():
+        add(f"{label} is a label, not a numeric metric", metric=label, scope="device", days=7, last_day="$MID")
+    for scope in contract.SOURCE_SCOPES:
+        add(f"unknown metric/{scope}", metric="nope", scope=scope, last_day="$MID")
+    add("steps with a scope that is not one", metric="steps", scope="cloud", last_day="$MID")
+    # every parameter, badly
+    good = {"metric": "steps", "scope": "local", "days": 7, "last_day": "$MID"}
+    bad_values = {
+        "metric": [None, "", 5, True, ["steps"], {"a": 1}, "it's", "Steps", "steps ", "nope", "caf\u00e9 \u0001", "x" * 40],
+        "scope": [None, "", 5, True, ["local"], {"a": 1}, "it's", "Local", "local ", "cloud"],
+        "days": ["7", 7.5, 7.0, True, False, None, [7], {"a": 1}],
+        "last_day": [5, True, False, [], {}, 1.5],
+    }
+    for name, values in bad_values.items():
+        for value in values:
+            add(f"bad {name}: {value!r}", **{**good, name: value})
+        add(f"missing {name}", **{key: val for key, val in good.items() if key != name})
+    add("null last_day is absent", **{**good, "last_day": None})
+    add("both text params bad (metric first)", metric=5, scope=5, days="x", last_day=5)
+    add("days bad, last_day bad (days first)", metric="steps", scope="local", days="x", last_day=5)
+    add("unknown metric, bad last_day (last_day first)", metric="nope", scope="local", last_day="nonsense")
+    add("unknown metric, unknown scope (metric first)", metric="nope", scope="cloud", last_day="$MID")
+    add("known metric, bad scope, bad last_day (last_day first)", metric="steps", scope="cloud", last_day="nonsense")
+    add("bad scope, bad days (days first)", metric="steps", scope="cloud", days="x")
+    raw = {
+        "days: 4300 digits (clamped)": '{"id":%d,"method":"data.metric","params":{"metric":"steps","scope":"local","days":$DIGITS4300,"last_day":"$MID"}}',
+        "days: negative 4300 digits": '{"id":%d,"method":"data.metric","params":{"metric":"steps","scope":"local","days":-$DIGITS4300,"last_day":"$MID"}}',
+        "days: beyond i64": '{"id":%d,"method":"data.metric","params":{"metric":"steps","scope":"local","days":9223372036854775808}}',
+        "days: 4301 digits": '{"id":%d,"method":"data.metric","params":{"metric":"steps","scope":"local","days":$DIGITS4301}}',
+        "days: exponent form": '{"id":%d,"method":"data.metric","params":{"metric":"steps","scope":"local","days":1e1}}',
+        "days: NaN": '{"id":%d,"method":"data.metric","params":{"metric":"steps","scope":"local","days":NaN}}',
+        "params null": '{"id":%d,"method":"data.metric","params":null}',
+        "params array": '{"id":%d,"method":"data.metric","params":[]}',
+        "params missing": '{"id":%d,"method":"data.metric"}',
+        "duplicate keys keep the last": '{"id":%d,"method":"data.metric","params":{"metric":"nope","metric":"steps","scope":"local","days":3,"days":4}}',
+        "metric with a lone surrogate": '{"id":%d,"method":"data.metric","params":{"metric":"st\\ud800","scope":"local"}}',
+        "scope with a lone surrogate": '{"id":%d,"method":"data.metric","params":{"metric":"steps","scope":"lo\\ud800"}}',
+        "last_day with a lone surrogate": '{"id":%d,"method":"data.metric","params":{"metric":"steps","scope":"local","last_day":"\\ud800"}}',
+        "metric with an apostrophe and a quote": '{"id":%d,"method":"data.metric","params":{"metric":"it\'s \\"x\\"","scope":"local"}}',
+        "metric and scope as escapes": '{"id":%d,"method":"data.metric","params":{"metric":"\\u0073teps","scope":"\\u006cocal","days":2,"last_day":"$MID"}}',
+    }
+    for label, template in raw.items():
+        request_id = 10000 + len(entries)
+        entries.append({"name": f"gen: data.metric {label}", "raw": template % request_id})
+    return entries
+
+
+def _today_entries() -> list[dict]:
+    return [
+        {"name": "gen: data.today plain", "send": {"id": 12000, "method": "data.today"}},
+        {"name": "gen: data.today ignores params", "send": {"id": 12001, "method": "data.today",
+                                                            "params": {"metric": "x", "days": "y"}}},
+        {"name": "gen: data.today params null", "raw": '{"id":12002,"method":"data.today","params":null}'},
+        {"name": "gen: data.today params array", "raw": '{"id":12003,"method":"data.today","params":[]}'},
+    ]
+
+
+def build_script(anchors: dict[str, str]) -> None:
+    """Regenerate the ``gen:`` entries of ``script.json`` (every other entry is hand-written and kept)."""
+    script = json.loads(SCRIPT.read_text())
+    kept = [entry for entry in script["entries"] if not entry["name"].startswith("gen: ")]
+    locked = [{"name": "gen: data.metric while locked",
+               "send": {"id": 12100, "method": "data.metric", "params": {"metric": "steps", "scope": "local"}}},
+              {"name": "gen: data.today while locked", "send": {"id": 12101, "method": "data.today"}},
+              {"name": "gen: data.health while locked", "send": {"id": 12102, "method": "data.health"}},
+              {"name": "gen: import.last while locked", "send": {"id": 12103, "method": "import.last"}},
+              # locked on an encrypted store; bad_params (never opened for writing) on a plaintext one
+              {"name": "gen: import.run while locked",
+               "send": {"id": 12104, "method": "import.run", "params": {"path": "x", "transport": "carrier pigeon"}}}]
+    entries: list[dict] = []
+    for entry in kept:
+        if entry["name"] == "import.last":
+            entries += _metric_entries() + _today_entries() + _health_entries() + _import_entries()
+        entries.append(entry)
+        if entry["name"] == "data.facts while locked":
+            entries += locked
+    script["entries"] = entries
+    script["anchors"] = anchors
+    script["other_nows"] = list(OTHER_NOWS)
+    SCRIPT.write_text(json.dumps(script, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+# ---- the coverage ledger, as data ----
+
+def ledger_cases(anchors: dict[str, str]) -> list[tuple[str, int]]:
+    """(last_day, window_days): the whole history, a window with every status, a window inside the
+    half-hour region, a one-day window, a window before any data, and the three clipping edges."""
+    return [(anchors["$LAST"], 3650), ("2025-04-30", 120), (anchors["$MID"], 40), ("2025-02-06", 12),
+            ("2025-03-20", 1), (anchors["$BEFORE"], 10), ("2025-06-30", 0), ("2025-06-30", -5),
+            ("2025-06-30", 99999)]
+
+
+def build_ledger(store: pathlib.Path, target: pathlib.Path, anchors: dict[str, str]) -> None:
+    """``coverage.ledger`` of the store for each case, as gzip JSON (``data.health`` ports it in a later slice;
+    until then the Rust ledger is held to these answers by ``tests/coverage_test.rs``)."""
+    import gzip
+    from disconect import coverage, storage
+
+    with tempfile.TemporaryDirectory() as folder:
+        copy = pathlib.Path(folder) / "store.db"
+        shutil.copyfile(store, copy)
+        conn = storage.open_read_only(copy)
+        try:
+            cases = [{"last_day": last_day, "window_days": window_days,
+                      "result": coverage.ledger(conn, last_day, window_days)}
+                     for last_day, window_days in ledger_cases(anchors)]
+        finally:
+            conn.close()
+    text = json.dumps({"cases": cases}, sort_keys=True, ensure_ascii=True) + "\n"
+    with target.open("wb") as handle, gzip.GzipFile("", "wb", 9, handle, mtime=0) as packed:
+        packed.write(text.encode("ascii"))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--oracle", action="store_true", help="also rewrite the Python oracle responses")
+    args = parser.parse_args()
+    FIXTURES.mkdir(parents=True, exist_ok=True)
+    build(STORE)
+    build_v1(STORE, STORE_V1)
+    build_empty(STORE_EMPTY)
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
+    import serve_diff
+    anchors = serve_diff.anchors_for(STORE)
+    assert anchors == serve_diff.anchors_for(STORE_V1)
+    build_script(anchors)
+    build_ledger(STORE, FIXTURES / "ledger-synthetic.json.gz", anchors)
+    build_ledger(STORE_V1, FIXTURES / "ledger-synthetic-v1.json.gz", anchors)
+    for store in (STORE, STORE_V1, STORE_EMPTY):
+        print(f"wrote {store.name}: {store.stat().st_size} bytes")
+    print(f"wrote {SCRIPT.name}: {len(json.loads(SCRIPT.read_text())['entries'])} entries")
+    if args.oracle:
+        import subprocess
+        tool = pathlib.Path(__file__).resolve().parents[3] / "tools" / "serve_diff.py"
+        for store, oracle in ((STORE, "oracle-synthetic.jsonl.gz"), (STORE_V1, "oracle-synthetic-v1.jsonl.gz"),
+                              (STORE_EMPTY, "oracle-empty.jsonl.gz")):
+            subprocess.run([sys.executable, str(tool), "--python-only", "--db", str(store),
+                            "--anchors-from", str(STORE), "--oracle-out", str(FIXTURES / oracle)], check=True)

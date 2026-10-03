@@ -1,0 +1,531 @@
+"""The serve sidecar: protocol behaviour in-process, process-level guarantees in a real child.
+
+In-process tests drive ``serve.serve_lines`` through a rig that feeds request lines and captures
+the protocol stream. The process-level tests (EOF exit, fd isolation, never-printed, ignored env
+passphrase) run the real module in a child, with an in-memory keyring installed by a bootstrap
+script because the child cannot see the test process's keyring.
+"""
+
+import base64
+import json
+import os
+import pathlib
+import socket
+import subprocess
+import sys
+import textwrap
+import threading
+
+import pytest
+
+from disconect import cli, contract, identity, serve, storage
+from disconect.ingest import sources
+from disconect.storage import keys
+from test_import import _build_export
+from test_privacy import FORBIDDEN_KEYS, FORBIDDEN_TEXT, SERIAL, _seed
+
+PASS = "a perfectly fine passphrase"
+WRONG = "not the passphrase at all!"
+STATUSES = {"present", "failed", "source_empty", "not_covered"}
+
+
+class Rig:
+    """Feeds request lines to one serve session and returns what it wrote to the protocol stream."""
+
+    def __init__(self, db_path):
+        import io
+        self.out = io.StringIO()
+        self.session = serve.Session(db_path, serve.Channel(self.out))
+        self.next_id = 0
+        self.lines: list[dict] = []
+
+    def feed(self, lines) -> list[dict]:
+        serve.serve_lines(self.session, lines)
+        written = [json.loads(line) for line in self.out.getvalue().splitlines()]
+        self.out.seek(0)
+        self.out.truncate()
+        self.lines.extend(written)
+        return written
+
+    def send(self, method, **params) -> dict:
+        """One request; the response (events are kept in ``self.lines`` only)."""
+        self.next_id += 1
+        written = self.feed([json.dumps({"id": self.next_id, "method": method, "params": params})])
+        return next(line for line in written if line.get("id") == self.next_id)
+
+    def result(self, method, **params):
+        response = self.send(method, **params)
+        assert "error" not in response, response
+        return response["result"]
+
+    def error_code(self, method, **params) -> str:
+        response = self.send(method, **params)
+        assert "result" not in response, response
+        return response["error"]["code"]
+
+
+def _encrypt(db_path, monkeypatch, production_kdf=False):
+    """Convert a seeded store to an encrypted one, leaving this process locked like a fresh start.
+
+    A child process enforces the production KDF floor on the key file it reads, so tests that
+    spawn one pass ``production_kdf=True``.
+    """
+    if production_kdf:
+        keys.set_kdf_params(None)
+    monkeypatch.setenv(keys.PASSPHRASE_ENV, PASS)
+    assert cli.main(["--db", str(db_path), "key", "init"]) == 0
+    monkeypatch.delenv(keys.PASSPHRASE_ENV, raising=False)
+    storage._unlocked.clear()
+    keys.forget_session()
+
+
+@pytest.fixture
+def plain(db_path):
+    _seed(db_path)
+    return Rig(db_path)
+
+
+@pytest.fixture
+def encrypted(db_path, monkeypatch, capsys):
+    _seed(db_path)
+    _encrypt(db_path, monkeypatch)
+    capsys.readouterr()
+    return Rig(db_path)
+
+
+# ---- the protocol envelope ----
+
+def test_app_info_names_the_product_and_carries_the_notice(plain, db_path):
+    info = plain.result("app.info")
+    assert info["product"] == identity.PRODUCT and info["notice"] == identity.NOTICE
+    assert info["encrypted"] is False and info["db"] == str(db_path)
+    assert info["contract"] == int(contract.CONTRACT_VERSION) and isinstance(info["schema"], int)
+
+
+def test_malformed_and_unknown_requests_get_error_lines(plain):
+    written = plain.feed(["not json", "[1]", json.dumps({"id": True, "method": "app.info"}),
+                          json.dumps({"id": 7, "method": 5}), json.dumps({"id": 8, "method": "no.such"}),
+                          "", json.dumps({"id": "x", "method": "app.info", "params": []})])
+    codes = [(line["id"], line["error"]["code"]) for line in written]
+    assert codes == [(None, "bad_params"), (None, "bad_params"), (None, "bad_params"), (7, "bad_params"),
+                     (8, "unknown_method"), ("x", "bad_params")]
+
+
+def test_string_ids_round_trip_and_blank_lines_are_skipped(plain):
+    written = plain.feed(["", json.dumps({"id": "abc", "method": "app.info"})])
+    assert len(written) == 1 and written[0]["id"] == "abc" and "result" in written[0]
+
+
+def test_unexpected_failures_report_only_their_type(plain, monkeypatch):
+    def boom(session, call):
+        raise RuntimeError("secret detail /Users/someone/x")
+    monkeypatch.setitem(serve.METHODS, "test.boom", boom)
+    error = plain.send("test.boom")["error"]
+    assert error == {"code": "internal", "message": "unexpected RuntimeError"}
+
+
+def test_error_messages_are_redacted(plain):
+    response = plain.send("import.run", path="/Users/someone/me@example.com/missing")
+    assert response["error"]["code"] == "not_found"
+    message = response["error"]["message"]
+    assert "/Users/" not in message and "@example.com" not in message and "{path}" in message
+
+
+def test_bad_params(plain):
+    assert plain.error_code("data.metric", metric="sleep_score") == "bad_params"          # scope missing
+    assert plain.error_code("data.metric", metric="nope", scope="device") == "bad_params"
+    assert plain.error_code("data.metric", metric="sleep_score", scope="moon") == "bad_params"
+    assert plain.error_code("data.metric", metric="sleep_score", scope="device", days="7") == "bad_params"
+    assert plain.error_code("data.metric", metric="sleep_score", scope="device", last_day="2025-13-40") == "bad_params"
+    assert plain.error_code("data.health", window_days=True) == "bad_params"
+    assert plain.error_code("import.run", path="x", transport="carrier pigeon") == "bad_params"
+    assert plain.error_code("key.cache") == "bad_params"
+
+
+def test_missing_store_is_not_found(db_path):
+    rig = Rig(db_path)
+    assert rig.error_code("data.health") == "not_found"
+    assert rig.result("key.status")["encrypted"] is False
+
+
+# ---- locked / unlock / keychain ----
+
+def test_locked_until_unlocked_then_data(encrypted):
+    status = encrypted.result("key.status")
+    assert status["key_file"] and status["encrypted"] and status["unlocked"] is False and status["keychain"] == "absent"
+    assert status["kdf"]["p"] == 1
+    for method, params in [("data.health", {}), ("data.metric", {"metric": "sleep_score", "scope": "device"}),
+                           ("data.today", {}), ("data.facts", {}), ("import.run", {"path": "x"}),
+                           ("import.last", {}), ("key.cache", {"enable": True})]:
+        assert encrypted.error_code(method, **params) == "locked", method
+    assert encrypted.error_code("key.unlock", passphrase=WRONG) == "wrong_passphrase"
+    assert encrypted.error_code("data.health") == "locked"
+    assert encrypted.result("key.unlock", passphrase=PASS) == {"unlocked": True}
+    assert encrypted.result("key.status")["unlocked"] is True
+    assert encrypted.result("data.health")["coverage"]["window"]["days"] == 90
+    assert keys._session_passphrase is None, "serve must not cache the passphrase"
+
+
+def test_unlock_rejects_a_non_string_passphrase(encrypted):
+    assert encrypted.error_code("key.unlock", passphrase=12345) == "bad_params"
+
+
+def test_plaintext_store_has_nothing_to_unlock_and_is_simply_open(plain):
+    assert plain.error_code("key.unlock", passphrase=PASS) == "not_encrypted"
+    assert plain.result("data.today")["metrics"], "a plaintext store with no key file is simply open"
+
+
+def test_serve_never_primes_from_keychain_or_env(encrypted, db_path, monkeypatch):
+    """A cached keychain item and an env passphrase exist; nothing unlocks until key.unlock asks."""
+    master = keys.unlock_with_passphrase(keys.read_key_file(keys.key_path_for(db_path)), PASS)
+    keys.keychain_set(keys.key_id_for(master), master)
+    monkeypatch.setenv(keys.PASSPHRASE_ENV, PASS)
+    assert encrypted.result("key.status") == {**encrypted.result("key.status"), "unlocked": False, "keychain": "cached"}
+    assert encrypted.error_code("data.health") == "locked"
+    assert encrypted.result("key.unlock") == {"unlocked": True}, "no passphrase param: the keychain path"
+    assert encrypted.result("data.health")
+
+
+def test_unlock_without_passphrase_and_empty_keychain_is_locked(encrypted):
+    assert encrypted.error_code("key.unlock") == "locked"
+
+
+def test_key_cache_round_trip(encrypted, db_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    assert encrypted.result("key.cache", enable=True) == {"keychain": "cached"}
+    assert encrypted.result("key.status")["keychain"] == "cached"
+    assert encrypted.result("key.cache", enable=False) == {"keychain": "absent"}
+    assert encrypted.result("key.status")["keychain"] == "absent"
+
+
+def test_key_cache_on_a_plaintext_store_has_nothing_to_cache(plain):
+    assert plain.error_code("key.cache", enable=True) == "not_encrypted"
+
+
+# ---- data ----
+
+def test_metric_is_calendar_filled_with_statuses(plain, db_path):
+    with storage.open_for_write(db_path, "test") as conn:
+        conn.execute("DELETE FROM daily_metrics WHERE date='2025-06-21'")      # inside a recorded failure span
+    result = plain.result("data.metric", metric="sleep_score", scope="device", days=14, last_day="2025-07-03")
+    days = result["days"]
+    assert [d["day"] for d in days][0] == "2025-06-20" and days[-1]["day"] == "2025-07-03" and len(days) == 14
+    assert result["unit"] == contract.unit_for("sleep_score") and result["scope"] == "device"
+    by_day = {d["day"]: d for d in days}
+    assert by_day["2025-06-30"] == {"day": "2025-06-30", "value": 100, "status": "present"}
+    assert by_day["2025-06-21"]["value"] is None and by_day["2025-06-21"]["status"] == "failed"
+    for late in ("2025-07-01", "2025-07-02", "2025-07-03"):
+        assert by_day[late]["value"] is None and by_day[late]["status"] in STATUSES - {"present"}
+    assert all((d["value"] is None) == (d["status"] != "present") for d in days)
+    assert all(d["value"] != 0 for d in days), "a missing day is never zero"
+
+
+def test_sample_metric_calendar_carries_the_daily_mean(plain):
+    days = plain.result("data.metric", metric="stress", scope="device", days=3, last_day="2025-07-01")["days"]
+    assert [d["day"] for d in days] == ["2025-06-29", "2025-06-30", "2025-07-01"]
+    assert [d["value"] for d in days] == [30, 30, None]
+
+
+def test_metric_defaults_end_today_and_span_ninety_days(plain):
+    days = plain.result("data.metric", metric="steps", scope="local")["days"]
+    assert len(days) == 90 and all(d["value"] is None for d in days)
+
+
+def test_today_lists_every_contract_pair_with_latest_value(plain):
+    today = plain.result("data.today")
+    rows = today["metrics"]
+    assert len(rows) == len(serve._contract_pairs()) and today["day"]
+    assert {(r["metric"], r["scope"]) for r in rows} <= set(contract.STREAMS_FOR)
+    by_pair = {(r["metric"], r["scope"]): r for r in rows}
+    assert by_pair[("sleep_score", "device")] == {"metric": "sleep_score", "scope": "device", "value": 100,
+                                                  "unit": contract.unit_for("sleep_score"), "day": "2025-06-30",
+                                                  "status": "present"}
+    assert by_pair[("stress", "device")]["value"] == 30 and by_pair[("stress", "device")]["day"] == "2025-06-30"
+    empty = by_pair[("steps", "local")]
+    assert empty["value"] is None and empty["status"] in STATUSES - {"present"}
+    assert all(r["status"] in STATUSES for r in rows)
+
+
+def test_health_and_facts_leave_out_the_core_convention_texts(plain):
+    health = plain.result("data.health", window_days=60)
+    assert "conventions" not in health and health["coverage"]["window"]["days"] == 60
+    facts = plain.result("data.facts", days=7, baseline_days=14)
+    assert "sources" not in facts and facts["window"]["days"] == 7 and facts["baseline"]["days"] == 14
+    for payload in (health, facts, plain.result("data.today")):
+        assert "garmin" not in json.dumps(payload).lower()
+
+
+# ---- import ----
+
+def test_import_streams_progress_and_answers_after_completion(plain, tmp_path):
+    root = tmp_path / "export"
+    root.mkdir()
+    _build_export(root)
+    response = plain.send("import.run", path=str(root), transport="export")
+    result = response["result"]
+    assert set(result) == {"run_id", "files", "ok", "partial", "duplicate", "failed"}
+    assert result["ok"] > 0 and result["failed"] == 0 and result["partial"] is False
+    events = [line for line in plain.lines if line.get("event") == "progress"]
+    assert events and all(e["op"] == "import" and isinstance(e["done"], int) for e in events)
+    assert any(e["total"] is None for e in events) and any(isinstance(e["total"], int) for e in events)
+    assert events[-1]["done"] >= 1 and all("/" not in e["note"] or e["note"].startswith("json:") for e in events)
+    last = plain.result("import.last")["runs"][0]
+    assert last["id"] == result["run_id"] and last["files_failed"] == 0 and last["failures"] == 0
+    again = plain.result("import.run", path=str(root))
+    assert again["ok"] == 0 and again["duplicate"] > 0
+
+
+def test_second_import_while_one_runs_is_busy(plain, tmp_path, monkeypatch):
+    started, release = threading.Event(), threading.Event()
+    real = sources.import_path
+
+    def slow(path, conn, transport=None, progress=None):
+        started.set()
+        assert release.wait(10)
+        return real(path, conn, transport, progress)
+    monkeypatch.setattr(sources, "import_path", slow)
+    root = tmp_path / "export"
+    root.mkdir()
+    _build_export(root)
+    request = lambda i, method, **p: json.dumps({"id": i, "method": method, "params": p})   # noqa: E731
+
+    def lines():
+        yield request(1, "import.run", path=str(root))
+        assert started.wait(10)
+        yield request(2, "import.run", path=str(root))
+        yield request(3, "import.last")          # reads keep working while the worker writes
+        release.set()
+    written = plain.feed(lines())
+    by_id = {line["id"]: line for line in written if "id" in line}
+    assert by_id[2]["error"]["code"] == "busy"
+    assert "result" in by_id[3] and "result" in by_id[1] and by_id[1]["result"]["ok"] > 0
+    assert plain.result("import.run", path=str(root))["duplicate"] > 0, "the slot is free again"
+
+
+def test_import_is_busy_while_another_process_holds_the_write_lock(plain, db_path, tmp_path):
+    root = tmp_path / "export"
+    root.mkdir()
+    _build_export(root)
+    with storage.write_lock(db_path, "cli import"):
+        assert plain.error_code("import.run", path=str(root)) == "busy"
+    assert plain.result("import.run", path=str(root))["ok"] > 0
+
+
+def test_import_failure_is_an_error_line_not_a_crash(plain, tmp_path, monkeypatch):
+    def broken(*_args, **_kwargs):
+        raise OSError("disk exploded at /Users/someone/x")
+    monkeypatch.setattr(sources, "import_path", broken)
+    response = plain.send("import.run", path=str(tmp_path))
+    assert response["error"]["code"] == "internal" and "/Users/" not in json.dumps(response)
+    assert plain.result("app.info"), "the process keeps serving"
+
+
+# ---- privacy walk: every method, every line ----
+
+def _walk_strings(node, path=""):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            assert key not in FORBIDDEN_KEYS, f"forbidden key {key!r} at {path}"
+            yield from _walk_strings(value, f"{path}.{key}")
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            yield from _walk_strings(item, f"{path}[{index}]")
+    elif isinstance(node, str):
+        yield path, node
+
+
+def _calls(export_root):
+    """One or more requests per method, in an order that exercises locked, unlocked and error paths."""
+    unlocked_reads = [("data.health", {"window_days": 3650}),
+                      ("data.metric", {"metric": "sleep_score", "scope": "device", "days": 60, "last_day": "2025-06-30"}),
+                      ("data.metric", {"metric": "stress", "scope": "device", "days": 30, "last_day": "2025-06-30"}),
+                      ("data.today", {}), ("data.facts", {"days": 7, "baseline_days": 28})]
+    return ([("app.info", {}), ("key.status", {}), ("bogus.method", {})]
+            + unlocked_reads                                    # locked errors
+            + [("key.unlock", {"passphrase": WRONG}), ("key.unlock", {"passphrase": PASS}),
+               ("key.cache", {"enable": True}), ("key.cache", {"enable": False})]
+            + unlocked_reads
+            + [("import.run", {"path": str(export_root), "transport": "export"}),
+               ("import.run", {"path": "/Users/someone/missing.zip"}), ("import.last", {}), ("key.status", {})])
+
+
+def test_every_method_passes_the_privacy_walk_with_no_network(encrypted, tmp_path, no_network):
+    root = tmp_path / "export"
+    root.mkdir()
+    _build_export(root)
+    calls = _calls(root)
+    assert {method for method, _ in calls} >= set(serve.METHODS), "add a privacy call for every new method"
+    for method, params in calls:
+        encrypted.send(method, **params)
+    assert len(encrypted.lines) >= len(calls)
+    for line in encrypted.lines:
+        for path, text in _walk_strings({k: v for k, v in line.items()}):
+            if path == ".result.db":
+                continue                                     # app.info states the path it was started with
+            for needle in FORBIDDEN_TEXT:
+                assert needle not in text, f"{needle!r} leaked at {path}"
+            assert "garmin" not in text.lower(), f"manufacturer name at {path}"
+        assert SERIAL not in json.dumps(line) and PASS not in json.dumps(line)
+
+
+def test_the_no_network_fixture_actually_blocks(no_network):
+    with pytest.raises(AssertionError):
+        socket.create_connection(("127.0.0.1", 9))
+    with pytest.raises(AssertionError):
+        socket.getaddrinfo("example.com", 80)
+
+
+# ---- real child process ----
+
+BOOTSTRAP = textwrap.dedent('''
+    import os, sys
+    import keyring, keyring.backend
+
+    class Memory(keyring.backend.KeyringBackend):
+        priority = 1
+        items = {}
+        def get_password(self, service, username): return self.items.get((service, username))
+        def set_password(self, service, username, password): self.items[(service, username)] = password
+        def delete_password(self, service, username): self.items.pop((service, username), None)
+
+    keyring.set_keyring(Memory())
+    from disconect import serve
+    EXTRA
+    sys.exit(serve.main(["--db", os.environ["DISCONECT_DB"]]))
+''')
+
+
+def _child_env(db_path, tmp_path, **extra):
+    return {"DISCONECT_DB": str(db_path), "HOME": str(tmp_path), "PATH": os.environ["PATH"], **extra}
+
+
+def _spawn(db_path, tmp_path, extra_code="", **env):
+    script = tmp_path / "bootstrap.py"
+    script.write_text(BOOTSTRAP.replace("EXTRA", textwrap.dedent(extra_code)))
+    return subprocess.Popen([sys.executable, str(script)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, env=_child_env(db_path, tmp_path, **env), text=True)
+
+
+def _requests(*calls) -> str:
+    return "".join(json.dumps({"id": i, "method": m, "params": p}) + "\n" for i, (m, p) in enumerate(calls, 1))
+
+
+def test_eof_ends_the_process_with_exit_zero_within_two_seconds(db_path, tmp_path):
+    _seed(db_path)
+    proc = _spawn(db_path, tmp_path)
+    proc.stdin.write(_requests(("app.info", {})))
+    proc.stdin.flush()
+    assert json.loads(proc.stdout.readline())["result"]["product"] == identity.PRODUCT
+    proc.stdin.close()
+    assert proc.wait(timeout=2) == 0
+    proc.stdout.close()
+    proc.stderr.close()
+
+
+def test_stray_prints_and_raw_fd_writes_never_reach_the_protocol_stream(db_path, tmp_path):
+    _seed(db_path)
+    proc = _spawn(db_path, tmp_path, '''
+        def noisy(session, call):
+            print("STRAY PRINT")
+            os.write(1, b"STRAY RAW WRITE\\n")
+            sys.stdout.write("STRAY STDOUT\\n")
+            return {"ok": True}
+        serve.METHODS["test.noisy"] = noisy
+    ''')
+    out, err = proc.communicate(_requests(("test.noisy", {}), ("app.info", {})), timeout=30)
+    assert proc.returncode == 0
+    lines = [json.loads(line) for line in out.splitlines()]            # every stdout line parses as protocol
+    assert [line["id"] for line in lines] == [1, 2] and lines[0]["result"] == {"ok": True}
+    assert "STRAY" not in out and all(f"STRAY {kind}" in err for kind in ("PRINT", "RAW WRITE", "STDOUT"))
+
+
+def test_passphrase_and_master_key_are_never_printed(db_path, tmp_path, monkeypatch):
+    _seed(db_path)
+    _encrypt(db_path, monkeypatch, production_kdf=True)
+    master = keys.unlock_with_passphrase(keys.read_key_file(keys.key_path_for(db_path)), PASS)
+    proc = _spawn(db_path, tmp_path)
+    out, err = proc.communicate(_requests(("key.unlock", {"passphrase": WRONG}), ("key.unlock", {"passphrase": PASS}),
+                                          ("key.cache", {"enable": True}), ("data.health", {"window_days": 7}),
+                                          ("key.cache", {"enable": False})), timeout=60)
+    assert proc.returncode == 0
+    replies = [json.loads(line) for line in out.splitlines()]
+    assert [("error" in r) for r in replies] == [True, False, False, False, False]
+    secrets_ = {"passphrase": PASS, "wrong passphrase": WRONG, "master": master, "db key": keys.db_key(master)}
+    for name, secret in secrets_.items():
+        raw = secret.encode() if isinstance(secret, str) else secret
+        forms = {raw, raw.hex().encode(), base64.b64encode(raw), base64.urlsafe_b64encode(raw)}
+        for stream_name, text in (("stdout", out), ("stderr", err)):
+            for form in forms:
+                assert form.decode("latin-1") not in text, f"{name} leaked on {stream_name}"
+
+
+def test_env_passphrase_is_ignored_and_reported(db_path, tmp_path, monkeypatch):
+    _seed(db_path)
+    _encrypt(db_path, monkeypatch, production_kdf=True)
+    proc = _spawn(db_path, tmp_path, **{keys.PASSPHRASE_ENV: PASS})
+    out, _err = proc.communicate(_requests(("key.status", {}), ("data.health", {})), timeout=60)
+    lines = [json.loads(line) for line in out.splitlines()]
+    assert lines[0]["event"] == "log" and lines[0]["level"] == "warn" and PASS not in lines[0]["message"]
+    assert lines[1]["result"]["unlocked"] is False and lines[2]["error"]["code"] == "locked"
+
+
+# ---- the core helpers serve relies on ----
+
+def test_local_today_is_the_later_of_utc_and_local(db_path):
+    import datetime
+    from disconect import queries
+    from disconect.ingest.clock import ClockOffsets
+    from disconect.ingest.model import ClockOffset
+    utc = datetime.timezone.utc
+    now = datetime.datetime.now(utc)
+    with storage.open_for_write(db_path, "test") as conn:
+        assert queries.local_today(conn) == now.date().isoformat()
+        ClockOffsets.persist(conn, [ClockOffset(now, 14 * 3600)], None, None)
+        ahead = queries.local_today(conn)
+        assert ahead == (now + datetime.timedelta(hours=14)).date().isoformat()
+        conn.execute("DELETE FROM clock_offsets")
+        ClockOffsets.persist(conn, [ClockOffset(now, -12 * 3600)], None, None)
+        assert queries.local_today(conn) == now.date().isoformat(), "behind UTC never moves today backwards"
+
+
+def test_day_statuses_agree_with_the_ledger(db_path):
+    from collections import Counter
+    from disconect import coverage
+    _seed(db_path)
+    with storage.open_for_write(db_path, "test") as conn:
+        conn.execute("DELETE FROM daily_metrics WHERE date='2025-06-21'")
+        statuses = coverage.day_statuses(conn, "sleep_score", "device", "2025-06-01", "2025-07-10")
+        row = next(r for r in coverage.ledger(conn, "2025-07-10", 40)["ledger"]
+                   if (r["metric"], r["source_scope"]) == ("sleep_score", "device"))
+        assert list(statuses) == sorted(statuses) and len(statuses) == 40
+        assert Counter(statuses.values()) == Counter({s: row[s] for s in STATUSES if row[s]})
+        assert coverage.day_statuses(conn, "steps", "moon", "2025-06-01", "2025-06-02") == {
+            "2025-06-01": "not_covered", "2025-06-02": "not_covered"}
+        with pytest.raises(ValueError):
+            coverage.day_statuses(conn, "sleep_score", "device", "2025-06-02", "2025-06-01")
+
+
+def test_import_path_reports_progress_per_file(db_path, tmp_path):
+    root = tmp_path / "export"
+    root.mkdir()
+    _build_export(root)
+    calls = []
+    with storage.open_for_write(db_path, "test") as conn:
+        sources.import_path(root, conn, progress=lambda done, total, note: calls.append((done, total, note)))
+    fits = [c for c in calls if c[1] is not None]
+    assert [c[0] for c in fits] == list(range(1, len(fits) + 1)) and fits[-1][1] == len(fits) == 4
+    assert all(c[1] is None and c[2].startswith("json:") for c in calls[len(fits):]) and len(calls) > len(fits)
+
+
+def test_key_status_dict_is_what_the_cli_prints(encrypted, db_path, capsys):
+    status = keys.status_for(db_path)
+    assert cli.main(["--db", str(db_path), "--json", "key", "status"]) == 0
+    assert json.loads(capsys.readouterr().out) == status
+    assert status["key_file"] is True and status["database_encrypted"] is True and status["keychain"] is False
+
+
+def test_cli_serve_subcommand_runs_the_same_main(db_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(serve, "main", lambda argv: seen.append(argv) or 0)
+    assert cli.main(["--db", str(db_path), "serve"]) == 0
+    assert seen == [["--db", str(db_path)]]
