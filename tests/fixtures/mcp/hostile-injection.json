@@ -1,0 +1,48 @@
+{
+ "sessions": [
+  {
+   "name": "injection",
+   "entries": [
+    {
+     "name": "line 1: {\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersi",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"x\",\"version\":\"0\"}}}"
+    },
+    {
+     "name": "line 2: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}"
+    },
+    {
+     "name": "line 3: {\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sl",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_sleep_detail\",\"arguments\":{\"date\":\"\\ud800\"}}}"
+    },
+    {
+     "name": "line 4: {\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"get_me",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"\\udc00steps\"]}}}"
+    },
+    {
+     "name": "line 5: {\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"get_pe",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"source_scope\":\"\\ud83d\"}}}"
+    },
+    {
+     "name": "line 6: {\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"get_pe",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"end_date\":\"2025-07-01' OR 1=1\"}}}",
+     "expect": 5
+    },
+    {
+     "name": "line 7: {\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"get_me",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"steps' OR 1=1 --\"],\"source_scope\":\"x' OR '1'='1\"}}}",
+     "expect": 6
+    },
+    {
+     "name": "line 8: {\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"get_pe",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"get_period_facts\",\"arguments\":{\"metrics\":[\"steps\"],\"source_scope\":\"watch' OR '1'='1\"}}}",
+     "expect": 7
+    },
+    {
+     "name": "line 9: {\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/call\",\"params\":{\"name\":\"get_me",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"steps\"],\"\\ud800\":1}}}"
+    }
+   ]
+  }
+ ]
+}

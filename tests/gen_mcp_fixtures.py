@@ -5,6 +5,8 @@
     python tests/gen_mcp_fixtures.py --oracle    # also rewrite oracle-<store>.jsonl.gz (the Python server's lines)
     python tests/gen_mcp_fixtures.py --encrypted # (re)build the encrypted store of the locked-path transcript
 
+``--oracle`` also records the three hostile corpora (``hostile-*``, see ``HOSTILE``) on the synthetic store.
+
 ``mcp.json`` is the language-neutral description of the server as it is served (pitch 11e): the tools exactly as
 ``tools/list`` sends them, ``instructions``, ``serverInfo``, ``capabilities``, the error templates, the protocol
 version rule, the answers to the methods without parameters and the **coercion table**: for each parameter type,
@@ -42,6 +44,7 @@ SERVE_FIXTURES = HERE / "fixtures" / "serve"
 MCP_JSON = pathlib.Path(__file__).resolve().parents[2] / "disconect-core" / "mcp.json"
 SCRIPT = FIXTURES / "script.json"
 PRIVACY_SEED = FIXTURES / "privacy-seed.hbdb"
+WIDE = HERE / "fixtures" / "read" / "wide.hbdb"   # 14 months, tiny and huge floats, 25 activities (gen_read_fixtures)
 ENCRYPTED = FIXTURES / "encrypted.hbdb"
 ENCRYPTED_KEYS = FIXTURES / "encrypted.keys.json"
 ENCRYPTED_PASSPHRASE = "a synthetic passphrase for the locked fixture"
@@ -54,6 +57,7 @@ STORES: dict[str, tuple[pathlib.Path, pathlib.Path | None]] = {
     "synthetic-v1": (SERVE_FIXTURES / "synthetic-v1.hbdb", None),
     "empty": (SERVE_FIXTURES / "empty.hbdb", None),
     "privacy-seed": (PRIVACY_SEED, None),
+    "wide": (WIDE, None),
     "absent": (ABSENT, None),
     "encrypted-locked": (ENCRYPTED, ENCRYPTED_KEYS),
 }
@@ -506,11 +510,58 @@ def build_script() -> dict:
         {"name": "invalid UTF-8 in a string", "raw": '{"jsonrpc":"2.0","id":42,"method":"ping","params":{"x":"\\ud800"}}'},
         {"name": "deep nesting", "raw": '{"jsonrpc":"2.0","id":43,"method":"ping","params":{"x":' + "[" * 100 + "]" * 100 + "}}"},
         {"name": "ping afterwards", "send": request(99, "ping")}]})
+    sessions.append({"name": "echo and floats", "entries": handshake() + _echo_and_float_entries()})
+    sessions.append({"name": "store encrypted mid-session", "entries": _midsession_entries()})
     sessions.append({"name": "tools default", "entries": handshake() + _tool_default_calls()})
     sessions.append({"name": "tool results", "entries": handshake() + _tool_result_entries(contract)})
     coercion, _ = coercion_entries()
     sessions.append({"name": "coercion", "entries": handshake() + coercion})
     return {"sessions": sessions}
+
+
+def _echo_and_float_entries() -> list[dict]:
+    """What the text bytes depend on: non-ASCII and escaped names echoed back, tiny stored floats (that every reader
+    rounds away: ``-0.0`` survives), huge ones (exponent form in both libraries), a unicode scope and date."""
+    entries: list[dict] = []
+    counter = [1]
+
+    def add(label: str, name: str, arguments) -> None:
+        counter[0] += 1
+        entries.append({"name": f"{name} {label}", "send": call(counter[0], name, arguments)})
+
+    odd = ["é", "日本語", "😀", 'a"b\\c', "line\nbreak\ttab", "\u0001\u007f\u2028\u00a0", "/slash", "steps"]
+    add("non-ASCII and escaped names", "get_metric_series", {"metrics": odd + ["skin_temp_deviation"], "days": 45,
+                                                              "end_date": "2025-06-30"})
+    add("non-ASCII and escaped names", "get_period_facts", {"metrics": odd + ["skin_temp_deviation", "vo2max"],
+                                                            "end_date": "2025-06-30", "include_points": True})
+    add("tiny stored floats", "get_metric_series", {"metrics": ["skin_temp_deviation"], "days": 45,
+                                                    "end_date": "2025-06-30"})
+    add("tiny stored floats", "get_period_facts", {"metrics": ["skin_temp_deviation"], "end_date": "2025-06-30",
+                                                   "window_days": 14, "baseline_days": 28, "include_points": True})
+    add("huge stored floats", "get_metric_series", {"metrics": ["vo2max"], "days": 10, "end_date": "2025-06-30"})
+    add("huge stored floats", "get_period_facts", {"metrics": ["vo2max"], "end_date": "2025-06-30",
+                                                   "window_days": 7, "baseline_days": 28, "include_points": True})
+    add("unicode source_scope", "get_metric_series", {"metrics": ["steps"], "source_scope": "é😀"})
+    add("unicode source_scope", "get_period_facts", {"metrics": ["é"], "source_scope": "é😀"})
+    add("unicode date", "get_sleep_detail", {"date": "é"})
+    add("unicode end_date", "get_period_facts", {"end_date": "2025-06-3é"})
+    add("long window", "get_data_health", {"window_days": 400})
+    add("every metric", "get_period_facts", {"include_points": True, "end_date": "2025-06-30", "window_days": 30})
+    return entries
+
+
+def _midsession_entries() -> list[dict]:
+    """A store that turns encrypted under a running server (``key init`` with the client open): the server serves
+    the plain store, then every read meets an encrypted file. Named allowance ``kb23-locked-midsession-text``."""
+    entries = handshake()
+    entries.append({"name": "before the swap", "send": call(2, "list_activities", {"limit": 1})})
+    entries.append({"name": "swap in the encrypted store", "swap": "encrypted"})
+    for index, (name, arguments) in enumerate((("get_data_health", {}), ("get_metric_series", {"metrics": ["steps"]}),
+                                              ("get_sleep_detail", {}), ("list_activities", {}),
+                                              ("get_period_facts", {}), ("get_contract", {}))):
+        entries.append({"name": f"after the swap {name}", "send": call(10 + index, name, arguments)})
+    entries.append({"name": "ping after", "send": request(30, "ping")})
+    return entries
 
 
 def _tool_result_entries(contract) -> list[dict]:
@@ -585,6 +636,78 @@ def script_text() -> str:
     return json.dumps(build_script(), indent=1, ensure_ascii=True) + "\n"
 
 
+# ---- the hostile scripts ----
+
+#: name -> (source file, kind). A ``lines`` source is one raw request per line (blank lines skipped), played one
+#: line at a time into the server, each followed by the harness's ping sentinel, so Python's concurrent tool
+#: answers cannot reorder what is collected; a ``script`` source is already a harness script. All three are the
+#: review-11e corpus (conformance corners, surrogate and injection payloads, the lenient coercions the table
+#: does not hold); they run on the synthetic store.
+HOSTILE = {
+    "conformance": ("hostile-conformance.txt", "lines"),
+    "injection": ("hostile-injection.txt", "lines"),
+    "coercions": ("hostile-coercions.json", "script"),
+}
+HOSTILE_STORE = "synthetic"
+
+
+def _has_lone_surrogate(node) -> bool:
+    """A string or key anywhere in ``node`` holds an unpaired surrogate (``\\ud800``): both servers drop the line."""
+    if isinstance(node, str):
+        return any("\ud800" <= char <= "\udfff" for char in node)
+    if isinstance(node, list):
+        return any(_has_lone_surrogate(item) for item in node)
+    if isinstance(node, dict):
+        return any(_has_lone_surrogate(key) or _has_lone_surrogate(value) for key, value in node.items())
+    return False
+
+
+def _line_entry(number: int, line: str) -> dict:
+    entry = {"name": f"line {number}: {line.strip()[:70]}", "raw": line}
+    try:
+        node = json.loads(line)
+    except ValueError:
+        return entry
+    if (isinstance(node, dict) and node.get("method") == "tools/call" and type(node.get("id")) in (int, str)
+            and not _has_lone_surrogate(node)):
+        entry["expect"] = node["id"]   # such a tool call is always answered, possibly after the sentinel
+    return entry
+
+
+def hostile_script(name: str) -> dict:
+    """The harness script of one hostile corpus."""
+    source, kind = HOSTILE[name]
+    path = FIXTURES / source
+    if kind == "script":
+        return json.loads(path.read_text(encoding="utf-8"))
+    lines = [line for line in path.read_text(encoding="utf-8").split("\n") if line.strip()]
+    return {"sessions": [{"name": name, "entries": [_line_entry(number, line)
+                                                      for number, line in enumerate(lines, 1)]}]}
+
+
+def hostile_script_path(name: str) -> pathlib.Path:
+    """Where the harness script lives (the ``script`` kind is its own source)."""
+    source, kind = HOSTILE[name]
+    return FIXTURES / source if kind == "script" else FIXTURES / f"hostile-{name}.json"
+
+
+def hostile_script_text(name: str) -> str:
+    return json.dumps(hostile_script(name), indent=1, ensure_ascii=True) + "\n"
+
+
+def record_hostile(name: str) -> list:
+    """The Python server's transcript of one hostile script on ``HOSTILE_STORE``."""
+    store, keys = STORES[HOSTILE_STORE]
+    with _scratch() as scratch:
+        run = mcp_diff.run_script([str(mcp_diff.PY_MCP)], "gen", mcp_diff.load_script(hostile_script_path(name)),
+                                  store, keys, scratch, PINNED_NOW, mcp_diff.TZ, None)
+    return run.records
+
+
+def hostile_oracle_path(name: str) -> pathlib.Path:
+    return FIXTURES / f"oracle-hostile-{name}.jsonl.gz"
+
+
 # ---- the oracle ----
 
 def record_store(name: str) -> list:
@@ -614,6 +737,10 @@ if __name__ == "__main__":
     print(f"wrote {SCRIPT.name}: {sum(len(s['entries']) for s in build_script()['sessions'])} entries")
     MCP_JSON.write_text(rendered(), encoding="utf-8")
     print(f"wrote {MCP_JSON.name}: {MCP_JSON.stat().st_size} bytes")
+    for hostile in HOSTILE:
+        if HOSTILE[hostile][1] == "lines":
+            hostile_script_path(hostile).write_text(hostile_script_text(hostile), encoding="utf-8")
+        print(f"hostile {hostile}: {sum(len(s['entries']) for s in hostile_script(hostile)['sessions'])} entries")
     if args.oracle:
         for store_name in STORES:
             records = record_store(store_name)
@@ -621,3 +748,7 @@ if __name__ == "__main__":
             lines = sum(len(e["stdout"]) for r in records for e in r.entries)
             print(f"wrote {oracle_path(store_name).name}: {len(records)} sessions, {lines} lines, "
                   f"{sum(len(r.stderr) for r in records)} stderr lines")
+        for hostile in HOSTILE:
+            records = record_hostile(hostile)
+            mcp_diff.write_oracle(hostile_oracle_path(hostile), records)
+            print(f"wrote {hostile_oracle_path(hostile).name}: {sum(len(e['stdout']) for r in records for e in r.entries)} lines")

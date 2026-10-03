@@ -1,0 +1,184 @@
+{
+ "sessions": [
+  {
+   "name": "conformance",
+   "entries": [
+    {
+     "name": "line 1: {\"jsonrpc\":\"2.0\",\"id\":100,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":100,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 2: {\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"tools/list\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"tools/list\"}"
+    },
+    {
+     "name": "line 3: {\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersi",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2099-01-01\",\"capabilities\":{\"roots\":{\"listChanged\":true},\"sampling\":{},\"elicitation\":{\"form\":{}},\"experimental\":{\"x\":{}}},\"clientInfo\":{\"name\":\"claude-ai\",\"version\":\"0.1.0\",\"title\":\"Claude\",\"icons\":[]}}}"
+    },
+    {
+     "name": "line 4: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}"
+    },
+    {
+     "name": "line 5: [{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}]",
+     "raw": "[{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}]"
+    },
+    {
+     "name": "line 6: []",
+     "raw": "[]"
+    },
+    {
+     "name": "line 7: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/roots/list_changed\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/roots/list_changed\"}"
+    },
+    {
+     "name": "line 8: {\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"logging/setLevel\",\"params\":{\"level\":",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"logging/setLevel\",\"params\":{\"level\":\"info\"}}"
+    },
+    {
+     "name": "line 9: {\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"logging/setLevel\",\"params\":{\"level\":",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"logging/setLevel\",\"params\":{\"level\":\"verbose\"}}"
+    },
+    {
+     "name": "line 10: {\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"resources/subscribe\",\"params\":{\"uri\"",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"resources/subscribe\",\"params\":{\"uri\":\"file:///x\"}}"
+    },
+    {
+     "name": "line 11: {\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"resources/unsubscribe\",\"params\":{\"ur",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"resources/unsubscribe\",\"params\":{\"uri\":\"file:///x\"}}"
+    },
+    {
+     "name": "line 12: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"request",
+     "raw": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":7,\"reason\":\"timeout\"}}"
+    },
+    {
+     "name": "line 13: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{}}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{}}"
+    },
+    {
+     "name": "line 14: {\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 15: {\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 16: {\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"get_co",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"get_contract\",\"arguments\":{}, \"_meta\":{\"progressToken\":\"p1\"}}}",
+     "expect": 6
+    },
+    {
+     "name": "line 17: {\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 18: {\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 19: {\"jsonrpc\":\"2.0\",\"id\":-5,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":-5,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 20: {\"jsonrpc\":\"2.0\",\"id\":9223372036854775808,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":9223372036854775808,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 21: {\"jsonrpc\":\"2.0\",\"id\":1.0,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":1.0,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 22: {\"jsonrpc\":\"2.0\",\"id\":true,\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":true,\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 23: {\"jsonrpc\":\"2.0\",\"id\":\"\",\"method\":\"ping\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":\"\",\"method\":\"ping\"}"
+    },
+    {
+     "name": "line 24: {\"jsonrpc\":\"2.0\",\"id\":8,\"result\":{}}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":8,\"result\":{}}"
+    },
+    {
+     "name": "line 25: {\"jsonrpc\":\"2.0\",\"id\":8,\"error\":{\"code\":-1,\"message\":\"x\"}}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":8,\"error\":{\"code\":-1,\"message\":\"x\"}}"
+    },
+    {
+     "name": "line 26: {\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"initialize\",\"params\":{\"protocolVersi",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"x\",\"version\":\"0\"}}}"
+    },
+    {
+     "name": "line 27: {\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"list_",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":null}}",
+     "expect": 10
+    },
+    {
+     "name": "line 28: {\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"list_",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\"}}",
+     "expect": 11
+    },
+    {
+     "name": "line 29: {\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"list_",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":1},\"task\":{\"ttl\":1000}}}",
+     "expect": 12
+    },
+    {
+     "name": "line 30: {\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"completion/complete\",\"params\":{\"ref",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"completion/complete\",\"params\":{\"ref\":{\"type\":\"ref/prompt\",\"name\":\"x\"},\"argument\":{\"name\":\"a\",\"value\":\"b\"}}}"
+    },
+    {
+     "name": "line 31: {\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"tasks/list\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"tasks/list\"}"
+    },
+    {
+     "name": "line 32: {\"jsonrpc\":\"2.0\",\"id\":15,\"method\":\"tasks/get\",\"params\":{\"taskId\":\"x\"}}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":15,\"method\":\"tasks/get\",\"params\":{\"taskId\":\"x\"}}"
+    },
+    {
+     "name": "line 33: {\"jsonrpc\":\"2.0\",\"id\":16,\"method\":\"elicitation/create\",\"params\":{}}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":16,\"method\":\"elicitation/create\",\"params\":{}}"
+    },
+    {
+     "name": "line 34: {\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"roots/list\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"roots/list\"}"
+    },
+    {
+     "name": "line 35: {\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"ping\"}",
+     "raw": "   {\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"ping\"}   "
+    },
+    {
+     "name": "line 36: {\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"ping\",\"params\":[]}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"ping\",\"params\":[]}"
+    },
+    {
+     "name": "line 37: {\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"tools/call\",\"params\":{\"name\":\"get_c",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"tools/call\",\"params\":{\"name\":\"get_contract\",\"arguments\":{\"extra\":1}}}",
+     "expect": 20
+    },
+    {
+     "name": "line 38: {\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"tools/call\",\"params\":{\"name\":\"GET_C",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"tools/call\",\"params\":{\"name\":\"GET_CONTRACT\",\"arguments\":{}}}",
+     "expect": 21
+    },
+    {
+     "name": "line 39: {\"jsonrpc\":\"2.0\",\"id\":22,\"method\":\"tools/call\",\"params\":{\"name\":\"\",\"ar",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":22,\"method\":\"tools/call\",\"params\":{\"name\":\"\",\"arguments\":{}}}",
+     "expect": 22
+    },
+    {
+     "name": "line 40: {\"jsonrpc\":\"2.0\",\"id\":23,\"method\":\"notifications/initialized\"}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":23,\"method\":\"notifications/initialized\"}"
+    },
+    {
+     "name": "line 41: {\"jsonrpc\":\"2.0\",\"id\":24,\"method\":\"tools/list\",\"params\":{\"_meta\":null}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":24,\"method\":\"tools/list\",\"params\":{\"_meta\":null}}"
+    },
+    {
+     "name": "line 42: {\"jsonrpc\":\"2.0\",\"id\":25,\"method\":\"tools/list\",\"params\":{\"_meta\":[]}}",
+     "raw": "{\"jsonrpc\":\"2.0\",\"id\":25,\"method\":\"tools/list\",\"params\":{\"_meta\":[]}}"
+    }
+   ]
+  }
+ ]
+}

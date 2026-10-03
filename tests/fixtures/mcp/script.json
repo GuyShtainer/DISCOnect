@@ -1146,6 +1146,385 @@
    ]
   },
   {
+   "name": "echo and floats",
+   "entries": [
+    {
+     "name": "initialize 2025-11-25",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "get_metric_series non-ASCII and escaped names",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "\u00e9",
+         "\u65e5\u672c\u8a9e",
+         "\ud83d\ude00",
+         "a\"b\\c",
+         "line\nbreak\ttab",
+         "\u0001\u007f\u2028\u00a0",
+         "/slash",
+         "steps",
+         "skin_temp_deviation"
+        ],
+        "days": 45,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts non-ASCII and escaped names",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "\u00e9",
+         "\u65e5\u672c\u8a9e",
+         "\ud83d\ude00",
+         "a\"b\\c",
+         "line\nbreak\ttab",
+         "\u0001\u007f\u2028\u00a0",
+         "/slash",
+         "steps",
+         "skin_temp_deviation",
+         "vo2max"
+        ],
+        "end_date": "2025-06-30",
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series tiny stored floats",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "skin_temp_deviation"
+        ],
+        "days": 45,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts tiny stored floats",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "skin_temp_deviation"
+        ],
+        "end_date": "2025-06-30",
+        "window_days": 14,
+        "baseline_days": 28,
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series huge stored floats",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "vo2max"
+        ],
+        "days": 10,
+        "end_date": "2025-06-30"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts huge stored floats",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "vo2max"
+        ],
+        "end_date": "2025-06-30",
+        "window_days": 7,
+        "baseline_days": 28,
+        "include_points": true
+       }
+      }
+     }
+    },
+    {
+     "name": "get_metric_series unicode source_scope",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ],
+        "source_scope": "\u00e9\ud83d\ude00"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts unicode source_scope",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "metrics": [
+         "\u00e9"
+        ],
+        "source_scope": "\u00e9\ud83d\ude00"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_sleep_detail unicode date",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {
+        "date": "\u00e9"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts unicode end_date",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "end_date": "2025-06-3\u00e9"
+       }
+      }
+     }
+    },
+    {
+     "name": "get_data_health long window",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {
+        "window_days": 400
+       }
+      }
+     }
+    },
+    {
+     "name": "get_period_facts every metric",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 13,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {
+        "include_points": true,
+        "end_date": "2025-06-30",
+        "window_days": 30
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "store encrypted mid-session",
+   "entries": [
+    {
+     "name": "initialize 2025-11-25",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+       "protocolVersion": "2025-11-25",
+       "capabilities": {},
+       "clientInfo": {
+        "name": "mcp-diff",
+        "version": "0"
+       }
+      }
+     }
+    },
+    {
+     "name": "notifications/initialized",
+     "send": {
+      "jsonrpc": "2.0",
+      "method": "notifications/initialized"
+     }
+    },
+    {
+     "name": "before the swap",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {
+        "limit": 1
+       }
+      }
+     }
+    },
+    {
+     "name": "swap in the encrypted store",
+     "swap": "encrypted"
+    },
+    {
+     "name": "after the swap get_data_health",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "method": "tools/call",
+      "params": {
+       "name": "get_data_health",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "after the swap get_metric_series",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "method": "tools/call",
+      "params": {
+       "name": "get_metric_series",
+       "arguments": {
+        "metrics": [
+         "steps"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "after the swap get_sleep_detail",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "method": "tools/call",
+      "params": {
+       "name": "get_sleep_detail",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "after the swap list_activities",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 13,
+      "method": "tools/call",
+      "params": {
+       "name": "list_activities",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "after the swap get_period_facts",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 14,
+      "method": "tools/call",
+      "params": {
+       "name": "get_period_facts",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "after the swap get_contract",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 15,
+      "method": "tools/call",
+      "params": {
+       "name": "get_contract",
+       "arguments": {}
+      }
+     }
+    },
+    {
+     "name": "ping after",
+     "send": {
+      "jsonrpc": "2.0",
+      "id": 30,
+      "method": "ping"
+     }
+    }
+   ]
+  },
+  {
    "name": "tools default",
    "entries": [
     {
