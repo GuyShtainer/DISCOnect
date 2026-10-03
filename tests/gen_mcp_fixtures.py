@@ -66,13 +66,26 @@ PROBE_VERSION = NEWEST
 
 # ---- the stores ----
 
+@contextlib.contextmanager
+def _pinned_clock():
+    """``DISCONECT_NOW`` for the block only: a test calling the builders must not pin the clock for the suite."""
+    before = os.environ.get("DISCONECT_NOW")
+    os.environ["DISCONECT_NOW"] = PINNED_NOW
+    try:
+        yield
+    finally:
+        if before is None:
+            os.environ.pop("DISCONECT_NOW", None)
+        else:
+            os.environ["DISCONECT_NOW"] = before
+
+
 def build_privacy_seed(target: pathlib.Path) -> None:
     """The ``test_privacy`` seed store as one plain file; the clock is pinned so it is the same bytes every time."""
-    os.environ["DISCONECT_NOW"] = PINNED_NOW
     from disconect import storage
     from test_privacy import _seed
 
-    with tempfile.TemporaryDirectory() as folder:
+    with tempfile.TemporaryDirectory() as folder, _pinned_clock():
         db_path = pathlib.Path(folder) / "privacy-seed.hbdb"
         _seed(db_path)
         with storage.open_for_write(db_path, "fixture") as conn:
