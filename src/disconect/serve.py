@@ -451,6 +451,39 @@ def sync_run(session: Session, call: Call) -> Any:
     return _DEFERRED
 
 
+# ---- tools ----
+
+@_unlocked_only
+def tools_call(session: Session, call: Call) -> dict:
+    """What the MCP tool ``name`` answers to ``arguments`` (``structuredContent``), read from this session's store.
+
+    The coach loop of the desktop app reaches the six read-only tools through this method, so there is one
+    implementation of them per core. Failures: ``invalid_params`` (``name`` is not a non-empty string,
+    ``arguments`` is not an object, or the arguments do not fit the tool: the message names the parameters at
+    fault, never a value), ``unknown_tool``, and ``tool_error`` (the tool's own error text, or its crash text)."""
+    from disconect import mcp_server   # late: the SDK is imported only by a process that serves tools
+
+    name = call.params.get("name")
+    if not isinstance(name, str) or not name:
+        raise ServeError("invalid_params", "name must be a non-empty string")
+    arguments = call.params.get("arguments")
+    if arguments is None:
+        arguments = {}
+    elif not isinstance(arguments, dict):
+        raise ServeError("invalid_params", "arguments must be an object")
+    try:
+        result = mcp_server.run_tool(name, arguments, session.db_path)
+    except mcp_server.UnknownTool as exc:
+        raise ServeError("unknown_tool", exc.text) from None
+    except mcp_server.ArgumentsRejected as exc:
+        raise ServeError("invalid_params", str(exc)) from None
+    except mcp_server.ToolError as exc:
+        raise ServeError("tool_error", str(exc)) from None
+    except Exception:  # noqa: BLE001 - a crash: only the tool's name is told, as the MCP does
+        raise ServeError("tool_error", mcp_server.CRASH_TEMPLATE.format(name=name)) from None
+    return {"name": name, "result": result}
+
+
 #: The protocol's methods. A method exists exactly when it is a key here.
 METHODS: dict[str, Handler] = {
     "app.info": app_info,
@@ -465,6 +498,7 @@ METHODS: dict[str, Handler] = {
     "import.last": import_last,
     "sync.status": sync_status,
     "sync.run": sync_run,
+    "tools.call": tools_call,
 }
 
 

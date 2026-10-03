@@ -341,6 +341,10 @@ def _calls(export_root):
                       ("data.metric", {"metric": "stress", "scope": "device", "days": 30, "last_day": "2025-06-30"}),
                       ("data.today", {}), ("data.facts", {"days": 7, "baseline_days": 28}),
                       ("sync.status", {}), ("sync.run", {})]
+    unlocked_reads += [("tools.call", {"name": name, "arguments": arguments}) for name, arguments in
+                       (("get_data_health", {}), ("get_metric_series", {"metrics": ["steps", "heart_rate"]}),
+                        ("get_sleep_detail", {}), ("list_activities", {"limit": 5}), ("get_period_facts", {}),
+                        ("get_contract", {}), ("get_sleep_detail", {"date": "nonsense"}), ("no_such_tool", {}))]
     return ([("app.info", {}), ("key.status", {}), ("bogus.method", {})]
             + unlocked_reads                                    # locked errors
             + [("key.unlock", {"passphrase": WRONG}), ("key.unlock", {"passphrase": PASS}),
