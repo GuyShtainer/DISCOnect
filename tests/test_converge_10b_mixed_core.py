@@ -4,14 +4,15 @@
 The scenarios of ``test_converge_10b`` re-run with some devices on the Rust binary (``import``,
 ``sync push``, ``sync pull``) and some on the Python oracle, all holding one master key. After every
 scenario the daily rows of all devices are equal, and the invariant holds on the Rust-made stores
-too: Python's ``reparse_all`` changes no daily row of any of them (the Rust CLI has no reparse
-command, so the Python oracle is the one replaying the raw set). Synthetic data only.
+too: the replay of the raw set (``disconect-core reparse`` on the Rust seats, Python's ``reparse_all`` on
+the Python seats) changes no daily row. Bet 12a adds the failed-conflict-write scenario (i). Synthetic data only.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import itertools
+import json
 import pathlib
 import shutil
 import subprocess
@@ -26,6 +27,8 @@ from disconect.storage import keys
 from test_converge_10b import (_assert_reparse_quiet, _bio, _daily, _day, _export, _fitness, _hash,
                                _interrupted_export, _load, _metrics_export, _readiness_rows, _split_readiness_export, _wellness_export)
 from test_core_parity import BINARY, PASS, _rust_env
+from test_relay_atomic import EARLY_STEPS, LATE_STEPS, _count, _hash_of, _steps, _store_with
+from test_import import _uds
 
 needs_binary = pytest.mark.skipif(not BINARY.exists(), reason="build projects/disconect-core first (cargo build)")
 pytestmark = needs_binary
@@ -123,9 +126,32 @@ def _converged(devices: list[Device]) -> set[tuple]:
     return reference
 
 
+def _reparse_runs(db: pathlib.Path) -> int:
+    conn = storage.open_read_only(db)
+    try:
+        return conn.execute("SELECT count(*) FROM import_runs WHERE transport='reparse'").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def _assert_rust_reparse_quiet(device: Device) -> None:
+    """The 10b invariant on a Rust seat, replayed by the Rust binary itself: a run row, no daily row changed."""
+    before, runs = _daily(device.db, with_observed=True), _reparse_runs(device.db)
+    done = subprocess.run([str(BINARY), "--db", str(device.db), "--json", "reparse"], env=_rust_env(),
+                          capture_output=True, text=True, timeout=300)
+    assert done.returncode == 0, f"rust reparse: {done.stderr[-400:]}"
+    stats = json.loads(done.stdout)
+    assert stats["status"] == "ok" and stats["transport"] == "reparse"
+    assert _reparse_runs(device.db) == runs + 1, "the reparse booked its run row"
+    assert _daily(device.db, with_observed=True) == before, "disconect-core reparse changed a daily row"
+
+
 def _quiet(devices: list[Device]) -> None:
     for device in devices:
-        _assert_reparse_quiet(device.db)
+        if device.core == "rs":
+            _assert_rust_reparse_quiet(device)
+        else:
+            _assert_reparse_quiet(device.db)
 
 
 # a: the 3-device ring, one Rust device in each seat, both import orders
@@ -274,3 +300,42 @@ def test_crash_in_import_rederive_then_reimport(tmp_path, fleet, monkeypatch, re
     fleet.do_import(clean, export)
     _converged([clean, killed])
     _quiet([killed])
+
+
+# i: a storage error while a conflict winner is written is an error, the loser survives, the retry converges
+@pytest.mark.parametrize("feeder_core,puller_core", [("py", "rs"), ("rs", "py")])
+def test_failed_conflict_write_leaves_the_loser_and_the_retry_converges(tmp_path, fleet, feeder_core, puller_core):
+    early = _uds("2025-06-15", EARLY_STEPS, 50)
+    early["wellnessEndTimeGmt"] = "2025-06-15T12:00:00.0"
+    late = _uds("2025-06-15", LATE_STEPS, 50)
+    late["wellnessEndTimeGmt"] = "2025-06-15T21:00:00.0"
+    feeder, puller = fleet.device("feeder", feeder_core), fleet.device("puller", puller_core)
+    fleet.do_import(puller, _store_with(tmp_path / "x", early))
+    fleet.do_import(feeder, _store_with(tmp_path / "y", late))
+    relay = FolderRelay(tmp_path / "relay")
+    fleet.push(feeder, relay), fleet.push(puller, relay)
+    incoming, loser = _hash_of(feeder.db), _hash_of(puller.db)
+    # a permanent trigger (a TEMP one would not survive into the Rust process) refuses the winner's raw row
+    with storage.open_for_write(puller.db, "test") as conn:
+        conn.execute("CREATE TRIGGER inject_12a BEFORE INSERT ON raw_records "
+                     f"WHEN NEW.payload_hash='{incoming}' BEGIN SELECT RAISE(ABORT,'injected'); END")
+        conn.commit()
+    if puller_core == "rs":
+        done = subprocess.run([str(BINARY), "--db", str(puller.db), "sync", "pull", "--relay", str(relay.root)],
+                              env=_rust_env(), capture_output=True, text=True, timeout=300)
+        assert done.returncode == 6, f"the pull must fail as a database error: {done.returncode} {done.stderr[-300:]}"
+    else:
+        with storage.open_for_write(puller.db, "sync") as conn, pytest.raises(sync.ConflictWriteFailed):
+            sync.pull(conn, fleet.master, relay)
+    with storage.open_for_write(puller.db, "test") as conn:
+        assert conn.execute("SELECT payload_hash FROM raw_records WHERE stream='json:uds'").fetchall() == [(loser,)]
+        assert _steps(conn) == EARLY_STEPS
+        for table in ("sync_conflicts", "raw_superseded"):
+            assert _count(conn, f"SELECT count(*) FROM {table}") == 0, f"orphan {table} row"
+        assert [r[0] for r in conn.execute("SELECT status FROM relay_bundles WHERE direction='pulled'")] == ["applying"]
+        conn.execute("DROP TRIGGER inject_12a")
+        conn.commit()
+    fleet.rounds([feeder, puller], relay)
+    rows = _converged([feeder, puller])
+    assert {row[5] for row in rows if row[2] == "steps" and row[3] == "vendor_cloud"} == {float(LATE_STEPS)}
+    _quiet([feeder, puller])
