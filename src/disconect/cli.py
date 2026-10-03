@@ -26,7 +26,7 @@ from disconect.ingest import sources
 from disconect.relay import sync as sync_module
 from disconect.relay.folder import FolderRelay
 from disconect.storage import backup as backup_module
-from disconect.storage import home
+from disconect.storage import home, migrate_home
 from disconect.storage import encrypt as encrypt_module
 from disconect.storage import keys, sqlite
 
@@ -591,6 +591,20 @@ def cmd_key_status(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_migrate_home(args: argparse.Namespace) -> int:
+    try:
+        report = migrate_home.migrate_home()
+    except migrate_home.MigrateRefused as exc:
+        print(f"migrate-home: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    lines = [report["message"]]
+    if report["moved"]:
+        lines += [f"before {report['from']}:", *(f"  {name}" for name in report["before"]),
+                  f"after {report['to']}:", *(f"  {name}" for name in report["after"])]
+    _emit(report, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     return serve.main(["--db", args.db])
 
@@ -683,6 +697,11 @@ def build_parser() -> argparse.ArgumentParser:
     syn.add_argument("--remember", action="store_true", help="save --relay to ~/.hearthbeat/relay.json")
     syn.set_defaults(func=cmd_sync)
 
+    mig = commands.add_parser(
+        "migrate-home", help=f"move the old data folder (~/{identity.LEGACY_HOMES[0]}) to ~/{identity.DATA_DIR}; "
+                             "quit the app and Claude Desktop first")
+    mig.set_defaults(func=cmd_migrate_home)
+
     srv = commands.add_parser("serve", help="JSON Lines sidecar on stdio for the desktop app (see docs/serve-protocol.md)")
     srv.set_defaults(func=cmd_serve)
 
@@ -705,8 +724,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    home.announce_default_resolution(args.db)
-    encrypt_module.cleanup_stray(pathlib.Path(args.db))
+    if args.command != "migrate-home":
+        home.announce_default_resolution(args.db)
+        encrypt_module.cleanup_stray(pathlib.Path(args.db))
     try:
         return int(args.func(args))
     except (storage.Encrypted, storage.NotEncrypted, keys.KeyError_) as exc:
