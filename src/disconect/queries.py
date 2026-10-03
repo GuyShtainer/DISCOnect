@@ -9,6 +9,7 @@ thirty rows, not forty thousand.
 from __future__ import annotations
 
 import datetime
+import re
 
 from disconect import contract, coverage
 from disconect.ingest.clock import ClockOffsets
@@ -40,9 +41,25 @@ def local_today(conn: sqlite.Connection) -> str:
     return max(now.date().isoformat(), ClockOffsets.load(conn).local_date(now))
 
 
+_DAY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+
+def parse_day(text: str, name: str) -> datetime.date:
+    """``YYYY-MM-DD`` and nothing else (``date.fromisoformat`` alone also takes ``20261003`` and ``2026-W40-6``).
+
+    Raises ``ValueError("<name> must be YYYY-MM-DD")`` for any other text, a real calendar day included or not.
+    """
+    if _DAY.fullmatch(text):
+        try:
+            return datetime.date.fromisoformat(text)
+        except ValueError:
+            pass
+    raise ValueError(f"{name} must be YYYY-MM-DD")
+
+
 def _window(days: int, end_date: str | None, cap: int) -> tuple[str, str]:
     days = max(1, min(int(days), cap))
-    end = datetime.date.fromisoformat(end_date) if end_date else _today()
+    end = parse_day(end_date, "end_date") if end_date else _today()
     start = end - datetime.timedelta(days=days - 1)
     return start.isoformat(), end.isoformat()
 
@@ -204,6 +221,8 @@ def sleep_detail(conn: sqlite.Connection, date: str | None = None) -> dict:
     Durations are reported in minutes; a stage or score the source did not
     state is absent, never 0. Sessions from different scopes sit side by side.
     """
+    if date is not None:
+        parse_day(date, "date")
     if date is None:
         row = conn.execute("SELECT MAX(date) FROM sleep_sessions").fetchone()
         date = row[0] if row else None

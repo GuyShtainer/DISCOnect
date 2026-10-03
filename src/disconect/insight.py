@@ -168,6 +168,8 @@ def period_facts(conn: sqlite.Connection, window_days: int = DEFAULT_WINDOW_DAYS
     if source_scope is not None and source_scope not in contract.SOURCE_SCOPES:
         raise ValueError(f"source_scope must be one of {contract.SOURCE_SCOPES}")
     scopes = (source_scope,) if source_scope else contract.SOURCE_SCOPES
+    if end_date:
+        queries.parse_day(end_date, "end_date")
     as_of = end_date or _latest_stored_date(conn)
     if as_of is None:
         return {"as_of": None, "facts": [], "ignored_metrics": list(metrics or []),

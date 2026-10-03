@@ -5,6 +5,7 @@ import datetime
 import json
 
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 
 from disconect import contract, queries, storage
 from disconect.ingest.clock import ClockOffsets
@@ -138,4 +139,40 @@ def test_intraday_samples_uses_the_local_day_not_the_utc_one(db_path):
         queries.intraday_samples(conn, "sleep_score")
     with pytest.raises(ValueError):
         queries.intraday_samples(conn, "stress", "2025-06-15", source_scope="cloud")
+    conn.close()
+
+
+BAD_DAYS = ("20261003", "2026-W40-6", "2025-6-30", " 2025-06-30", "2025-06-30\n", "2025-02-30", "2025-13-40",
+            "２０２５-06-30", "2025-03-05T00:00", "nonsense")
+
+
+@pytest.mark.parametrize("bad", BAD_DAYS)
+def test_a_date_argument_is_exactly_yyyy_mm_dd(db_path, monkeypatch, bad):
+    """``date.fromisoformat`` alone takes compact and week forms; a model could reach them through MCP."""
+    from disconect import insight
+    _seed(db_path)
+    conn = storage.open_read_only(db_path)
+    with pytest.raises(ValueError, match="^date must be YYYY-MM-DD$"):
+        queries.sleep_detail(conn, bad)
+    with pytest.raises(ValueError, match="^end_date must be YYYY-MM-DD$"):
+        insight.period_facts(conn, end_date=bad)
+    with pytest.raises(ValueError, match="^end_date must be YYYY-MM-DD$"):
+        queries.metric_series(conn, ["steps"], end_date=bad)
+    conn.close()
+    monkeypatch.setenv(storage.DEFAULT_DB_ENV, str(db_path))
+    from disconect import mcp_server
+    for tool, args, text in (("get_sleep_detail", {"date": bad}, "date must be YYYY-MM-DD"),
+                             ("get_period_facts", {"end_date": bad}, "end_date must be YYYY-MM-DD")):
+        with pytest.raises(ToolError) as caught:
+            asyncio.run(mcp_server.server.call_tool(tool, args))
+        assert str(caught.value) == f"Error executing tool {tool}: {text}", (tool, bad)
+
+
+def test_the_strict_date_still_takes_a_good_day_and_an_empty_end_date_means_omitted(db_path):
+    from disconect import insight
+    _seed(db_path)
+    conn = storage.open_read_only(db_path)
+    assert queries.sleep_detail(conn, "2025-06-16")["date"] == "2025-06-16"
+    assert insight.period_facts(conn, end_date="2025-06-16")["as_of"] == "2025-06-16"
+    assert insight.period_facts(conn, end_date="")["as_of"] == insight.period_facts(conn)["as_of"]
     conn.close()
