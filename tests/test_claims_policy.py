@@ -26,7 +26,8 @@ SCOPE = [
     PROJECTS / "disconect" / "src" / "disconect" / "identity.py",
     PROJECTS / "disconect-core" / "src" / "identity.rs",
     PROJECTS / "disconect" / "README.md",
-    APP / "src-tauri" / "src" / "coach" / "prompt.rs",
+    # every coach module: its fixed error and badge words reach the UI through the commands
+    *sorted((APP / "src-tauri" / "src" / "coach").glob("*.rs")),
 ]
 
 SCORE_CATEGORIES = ("score-marks", "score-names")
