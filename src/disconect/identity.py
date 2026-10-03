@@ -26,6 +26,9 @@ CLI_KEYCHAIN_SERVICE = "disconect-cli"
 #: Service names an earlier build's Python core stored the master key under; ``key cache --remove`` and
 #: ``key rotate-recovery`` delete these items too so no orphan keeps a copy of the key.
 LEGACY_CLI_KEYCHAIN_SERVICES = ["hearthbeat"]
+#: The in-app coach's provider-key item (Bet 15, desktop app only; the Python core never touches it). A third
+#: service so the coach key never shares an item with either core's master-key item (docs/kb/23, class 5).
+COACH_KEYCHAIN_SERVICE = "disconect-coach"
 MCP_SERVER_NAME = "disconect"
 COMMAND = "disconect"
 #: Folders and backup prefixes of earlier builds, read through (never written) until Bet 2 publishes.

@@ -63,6 +63,14 @@ def test_the_keychain_service_names_differ_on_purpose():
     assert _rs_const("KEYCHAIN_SERVICE") != keys.KEYCHAIN_SERVICE
 
 
+def test_the_coach_keychain_service_is_a_third_name_in_all_three_files():
+    """The in-app coach's provider key lives under its own service (Bet 15, slice 4)."""
+    assert identity.COACH_KEYCHAIN_SERVICE == "disconect-coach"
+    assert _ts_const("COACH_KEYCHAIN_SERVICE") == _rs_const("COACH_KEYCHAIN_SERVICE") == identity.COACH_KEYCHAIN_SERVICE
+    assert identity.COACH_KEYCHAIN_SERVICE not in (_rs_const("KEYCHAIN_SERVICE"), identity.CLI_KEYCHAIN_SERVICE)
+    assert identity.COACH_KEYCHAIN_SERVICE not in identity.LEGACY_CLI_KEYCHAIN_SERVICES
+
+
 APP_TS = ROOT / "disconect-app" / "src" / "app.ts"
 
 
@@ -78,7 +86,7 @@ def test_the_key_screen_words_the_core_quotes_are_the_words_the_app_shows():
 
 
 STRING_NAMES = ("DATA_DIR", "DB_FILENAME", "ENV_PREFIX", "CLI_KEYCHAIN_SERVICE", "MCP_SERVER_NAME", "COMMAND",
-                "BACKUP_PREFIX", "LEGACY_DB_FILENAME", "LEGACY_ENV_PREFIX")
+                "COACH_KEYCHAIN_SERVICE", "BACKUP_PREFIX", "LEGACY_DB_FILENAME", "LEGACY_ENV_PREFIX")
 LIST_NAMES = ("LEGACY_HOMES", "LEGACY_BACKUP_PREFIXES", "LEGACY_CLI_KEYCHAIN_SERVICES")
 
 
