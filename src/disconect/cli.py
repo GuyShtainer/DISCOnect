@@ -131,7 +131,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
             return EXIT_OK
         master = storage.master_key_for(db_path, allow_prompt=True)
         if master is None:
-            print("the relay needs an encrypted store: run 'hearthbeat key init' first", file=sys.stderr)
+            print(f"the relay needs an encrypted store: run '{identity.COMMAND} key init' first", file=sys.stderr)
             return EXIT_LOCKED
         relay = _relay_for(args)
         with storage.open_for_write(db_path, purpose="sync") as conn:

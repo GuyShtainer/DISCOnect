@@ -269,8 +269,7 @@ def write_key_file(path: pathlib.Path, document: dict) -> None:
 def read_key_file(path: pathlib.Path) -> KeyFile:
     path = pathlib.Path(path)
     if not path.exists():
-        # 02a slice B: this text is mirrored by keys.rs and frozen in the serve oracles until slice B rewrites all three
-        raise KeyFileMissing(f"no key file at {path.name}; run 'hearthbeat key init' (or set HEARTHBEAT_KEYS)")
+        raise KeyFileMissing(f"no key file at {path.name}; run '{identity.COMMAND} key init' (or set {KEYS_ENV})")
     try:
         raw = json.loads(path.read_text())
         if raw.get("format") != "hearthbeat-keys" or int(raw.get("format_version", 0)) > FORMAT_VERSION:

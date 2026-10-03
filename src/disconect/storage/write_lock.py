@@ -22,6 +22,7 @@ import pathlib
 import time
 from collections.abc import Iterator
 
+from disconect import identity
 from disconect.storage import _time
 
 POLL_INTERVAL_S = 0.12
@@ -33,7 +34,7 @@ class WriteLockBusy(Exception):
     def __init__(self, holder: dict | None):
         self.holder = holder
         what = f" ({holder.get('purpose')}, pid {holder.get('pid')})" if holder else ""
-        super().__init__(f"another Hearthbeat process is writing the database{what}")
+        super().__init__(f"another {identity.PRODUCT} process is writing the database{what}")
 
 
 def lock_path_for(db_path: pathlib.Path) -> pathlib.Path:

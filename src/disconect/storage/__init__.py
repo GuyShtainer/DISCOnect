@@ -22,6 +22,7 @@ from collections.abc import Iterator
 
 from sqlcipher3 import dbapi2 as sqlite
 
+from disconect import identity
 from disconect.storage import home, keys, migrations
 from disconect.storage._time import iso_utc, parse_iso_utc, utc_now_iso
 from disconect.storage.write_lock import WriteLockBusy, write_lock
@@ -147,7 +148,7 @@ def connect(path: pathlib.Path, *, read_only: bool, master: bytes | None = None,
         raise Encrypted(f"{path.name} is encrypted but no key file was found at "
                         f"{keys.key_path_for(path).name}")
     if master is not None and on_disk is False:
-        raise NotEncrypted(f"{path.name} is plaintext but a key file exists; run 'hearthbeat encrypt' "
+        raise NotEncrypted(f"{path.name} is plaintext but a key file exists; run '{identity.COMMAND} encrypt' "
                            "to convert it (or remove the key file if it is not yours)")
     if read_only:
         conn = sqlite.connect(f"file:{path}?mode=ro", uri=True, isolation_level=None,
@@ -164,7 +165,7 @@ def _check_not_too_new(conn: sqlite.Connection) -> None:
     if version > migrations.SCHEMA_VERSION:
         raise SchemaTooNew(
             f"database schema is version {version}; this build understands up to "
-            f"{migrations.SCHEMA_VERSION}. Upgrade Hearthbeat.")
+            f"{migrations.SCHEMA_VERSION}. Upgrade {identity.PRODUCT}.")
 
 
 def _try_next_key(path: pathlib.Path, read_only: bool) -> sqlite.Connection | None:
@@ -242,7 +243,7 @@ def open_read_only(path: pathlib.Path, *, allow_prompt: bool = True) -> sqlite.C
     """
     path = pathlib.Path(path)
     if not path.exists():
-        raise NotConfigured("no Hearthbeat database yet; run 'hearthbeat import' first")
+        raise NotConfigured(f"no {identity.PRODUCT} database yet; run '{identity.COMMAND} import' first")
     conn = connect(path, read_only=True, allow_prompt=allow_prompt)
     conn = _first_touch(conn, path, read_only=True)
     conn.execute("PRAGMA query_only = 1")
