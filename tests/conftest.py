@@ -15,7 +15,7 @@ UTC = datetime.timezone.utc
 
 @pytest.fixture
 def db_path(tmp_path: pathlib.Path) -> pathlib.Path:
-    return tmp_path / "hearthbeat.db"
+    return tmp_path / "disconect.db"
 
 
 @pytest.fixture

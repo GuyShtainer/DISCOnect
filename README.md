@@ -63,7 +63,9 @@ python3 -m venv .venv && .venv/bin/pip install -e '.[mcp,dev]'
 .venv/bin/python -m pytest                                     # tests, synthetic data only
 ```
 
-The database defaults to `~/.hearthbeat/hearthbeat.db`; override with `--db` or `DISCONECT_DB`.
+The database defaults to `~/.disconect/disconect.db`; override with `--db` or `DISCONECT_DB`. A folder
+from an earlier build (`~/.hearthbeat/hearthbeat.db`) is read as it is, with one hint on stderr, until
+you quit the app and Claude Desktop and run `disconect migrate-home`, which moves it.
 Re-importing the same files is a no-op (raw bytes are content-addressed), so importing the same
 FIT file from a USB pull and from an export never duplicates anything. Exit codes are published in
 `disconect --help`.
@@ -73,7 +75,7 @@ Claude Desktop / any MCP client, stdio:
 ```json
 { "mcpServers": { "disconect": {
     "command": "/absolute/path/projects/disconect/.venv/bin/disconect-mcp",
-    "env": { "DISCONECT_DB": "/Users/you/.hearthbeat/hearthbeat.db" } } } }
+    "env": { "DISCONECT_DB": "/Users/you/.disconect/disconect.db" } } } }
 ```
 
 The server opens the file read-only, opens no port, and returns no serial numbers, paths,

@@ -13,7 +13,8 @@ Boundaries, drawn hard:
   ``disconect.contract`` -- the same text the CLI prints.
 
 Run with ``disconect-mcp`` (stdio). Set ``DISCONECT_DB`` to point at a
-database other than ``~/.hearthbeat/hearthbeat.db``.
+database other than ``~/.disconect/disconect.db`` (the old ``~/.hearthbeat`` folder is read until
+``disconect migrate-home`` moves it).
 """
 
 from __future__ import annotations

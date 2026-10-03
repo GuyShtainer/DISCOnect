@@ -617,7 +617,8 @@ def build_parser() -> argparse.ArgumentParser:
                 "7 schema newer than this build, 8 backup/restore refused, 9 locked/key refused. " + contract.PRIVACY_NOTE))
     parser.add_argument("--version", action="version", version=f"{identity.COMMAND} {__version__}")
     parser.add_argument("--db", default=str(storage.default_db_path()),
-                        help=f"SQLite file (default ${storage.DEFAULT_DB_ENV} or ~/.hearthbeat/hearthbeat.db)")
+                        help=f"SQLite file (default ${storage.DEFAULT_DB_ENV} or ~/{identity.DATA_DIR}/{identity.DB_FILENAME}; "
+                             f"the legacy ~/{identity.LEGACY_HOMES[0]} is read until {identity.COMMAND} migrate-home)")
     parser.add_argument("--json", action="store_true", help="machine-readable output on stdout")
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -680,7 +681,7 @@ def build_parser() -> argparse.ArgumentParser:
     baks.set_defaults(func=cmd_backups)
 
     res = commands.add_parser("restore", help="replace the database with a verified snapshot")
-    res.add_argument("snapshot", help="path to a hearthbeat-*.db snapshot")
+    res.add_argument("snapshot", help="path to a disconect-*.db snapshot (older hearthbeat-*.db ones work too)")
     res.add_argument("--yes", action="store_true", help="confirm; the current database is kept as a rollback copy")
     res.set_defaults(func=cmd_restore)
 
@@ -693,8 +694,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     syn = commands.add_parser("sync", help="push/pull encrypted record bundles through a blind relay folder (docs/relay-protocol.md)")
     syn.add_argument("action", choices=["push", "pull", "status", "forget"])
-    syn.add_argument("--relay", help="relay folder (a WebDAV/rsync/Syncthing-carried path); default from ~/.hearthbeat/relay.json")
-    syn.add_argument("--remember", action="store_true", help="save --relay to ~/.hearthbeat/relay.json")
+    syn.add_argument("--relay", help="relay folder (a WebDAV/rsync/Syncthing-carried path); default from relay.json in the data folder")
+    syn.add_argument("--remember", action="store_true", help="save --relay to relay.json in the data folder")
     syn.set_defaults(func=cmd_sync)
 
     mig = commands.add_parser(

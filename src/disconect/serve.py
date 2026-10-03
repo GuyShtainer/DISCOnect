@@ -495,7 +495,8 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for ``disconect-serve``: serve the protocol on stdio until stdin closes."""
     parser = argparse.ArgumentParser(prog="disconect-serve", description="JSON Lines sidecar on stdio.")
     parser.add_argument("--db", default=str(storage.default_db_path()),
-                        help=f"SQLite file (default ${storage.DEFAULT_DB_ENV} or ~/.hearthbeat/hearthbeat.db)")
+                        help=f"SQLite file (default ${storage.DEFAULT_DB_ENV} or ~/{identity.DATA_DIR}/{identity.DB_FILENAME}; "
+                             f"the legacy ~/{identity.LEGACY_HOMES[0]} is read until {identity.COMMAND} migrate-home)")
     args = parser.parse_args(argv)
     storage.home.announce_default_resolution(args.db)
     channel = Channel(isolate_stdout())
