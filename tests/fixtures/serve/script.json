@@ -211,6 +211,37 @@
    }
   },
   {
+   "name": "gen: tools.call while locked",
+   "send": {
+    "id": 12107,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call unknown tool while locked",
+   "send": {
+    "id": 12108,
+    "method": "tools.call",
+    "params": {
+     "name": "no_such_tool"
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name while locked",
+   "send": {
+    "id": 12109,
+    "method": "tools.call",
+    "params": {
+     "name": 5
+    }
+   }
+  },
+  {
    "name": "gen: import.run while locked",
    "send": {
     "id": 12104,
@@ -18674,6 +18705,4545 @@
   {
    "name": "gen: sync.run params array",
    "raw": "{\"id\":16103,\"method\":\"sync.run\",\"params\":[]}"
+  },
+  {
+   "name": "gen: tools.call get_data_health with its defaults",
+   "send": {
+    "id": 17000,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series with its defaults",
+   "send": {
+    "id": 17001,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail with its defaults",
+   "send": {
+    "id": 17002,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities with its defaults",
+   "send": {
+    "id": 17003,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts with its defaults",
+   "send": {
+    "id": 17004,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_contract with its defaults",
+   "send": {
+    "id": 17005,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health arguments absent",
+   "send": {
+    "id": 17006,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health"
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health arguments null",
+   "send": {
+    "id": 17007,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": null
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=1",
+   "send": {
+    "id": 17008,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=7",
+   "send": {
+    "id": 17009,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 7
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=30",
+   "send": {
+    "id": 17010,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 30
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=400",
+   "send": {
+    "id": 17011,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 400
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=3650",
+   "send": {
+    "id": 17012,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 3650
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=3651",
+   "send": {
+    "id": 17013,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 3651
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=0",
+   "send": {
+    "id": 17014,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 0
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=-5",
+   "send": {
+    "id": 17015,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": -5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days='7'",
+   "send": {
+    "id": 17016,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": "7"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=7.0",
+   "send": {
+    "id": 17017,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 7.0
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=True",
+   "send": {
+    "id": 17018,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=False",
+   "send": {
+    "id": 17019,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": false
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series two metrics and a scope",
+   "send": {
+    "id": 17020,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "source_scope": "device",
+      "days": 30,
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series every metric",
+   "send": {
+    "id": 17021,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "heart_rate",
+       "stress",
+       "respiration_rate",
+       "spo2",
+       "hrv_rmssd",
+       "energy_reserve",
+       "steps",
+       "distance",
+       "resting_heart_rate",
+       "resting_heart_rate_current_day",
+       "heart_rate_min",
+       "heart_rate_max",
+       "stress_avg",
+       "energy_reserve_high",
+       "energy_reserve_low",
+       "energy_reserve_charged",
+       "energy_reserve_drained",
+       "spo2_avg",
+       "spo2_lowest",
+       "respiration_avg_waking",
+       "respiration_lowest",
+       "respiration_highest",
+       "intensity_minutes_moderate",
+       "intensity_minutes_vigorous",
+       "calories_total",
+       "calories_active",
+       "calories_bmr",
+       "resting_metabolic_rate",
+       "sleep_score",
+       "sleep_duration",
+       "hrv_weekly_average",
+       "hrv_last_night_average",
+       "hrv_last_night_5min_high",
+       "hrv_baseline_low_upper",
+       "hrv_baseline_balanced_lower",
+       "hrv_baseline_balanced_upper",
+       "skin_temp_nightly",
+       "skin_temp_deviation",
+       "skin_temp_7day_deviation",
+       "vo2max",
+       "body_battery_high",
+       "body_battery_low",
+       "body_battery_charged",
+       "body_battery_drained",
+       "training_readiness",
+       "readiness_factor_sleep",
+       "readiness_factor_recovery_time",
+       "readiness_factor_load_ratio",
+       "readiness_factor_stress_history",
+       "readiness_factor_hrv",
+       "readiness_factor_sleep_history",
+       "recovery_time",
+       "training_load_acute",
+       "training_load_chronic",
+       "training_load_ratio",
+       "endurance_score",
+       "fitness_age",
+       "weight_kg",
+       "active_minutes",
+       "highly_active_minutes",
+       "hydration_ml",
+       "sweat_loss_ml"
+      ],
+      "days": 60,
+      "end_date": "$LAST"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series scope='device'",
+   "send": {
+    "id": 17022,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate",
+       "sleep_score",
+       "resting_heart_rate"
+      ],
+      "source_scope": "device",
+      "days": 14,
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series scope='vendor_cloud'",
+   "send": {
+    "id": 17023,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate",
+       "sleep_score",
+       "resting_heart_rate"
+      ],
+      "source_scope": "vendor_cloud",
+      "days": 14,
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series scope='local'",
+   "send": {
+    "id": 17024,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate",
+       "sleep_score",
+       "resting_heart_rate"
+      ],
+      "source_scope": "local",
+      "days": 14,
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series scope='cloud'",
+   "send": {
+    "id": 17025,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate",
+       "sleep_score",
+       "resting_heart_rate"
+      ],
+      "source_scope": "cloud",
+      "days": 14,
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series scope=''",
+   "send": {
+    "id": 17026,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate",
+       "sleep_score",
+       "resting_heart_rate"
+      ],
+      "source_scope": "",
+      "days": 14,
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=1",
+   "send": {
+    "id": 17027,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": 1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=90",
+   "send": {
+    "id": 17028,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": 90
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=366",
+   "send": {
+    "id": 17029,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": 366
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=367",
+   "send": {
+    "id": 17030,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": 367
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=1825",
+   "send": {
+    "id": 17031,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": 1825
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=1826",
+   "send": {
+    "id": 17032,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": 1826
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=0",
+   "send": {
+    "id": 17033,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": 0
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=-1",
+   "send": {
+    "id": 17034,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": -1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days='30'",
+   "send": {
+    "id": 17035,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": "30"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=30.0",
+   "send": {
+    "id": 17036,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "heart_rate"
+      ],
+      "days": 30.0
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series unknown metric among known",
+   "send": {
+    "id": 17037,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "nope"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series only unknown metrics",
+   "send": {
+    "id": 17038,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "nope"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series no metrics",
+   "send": {
+    "id": 17039,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics as JSON text",
+   "send": {
+    "id": 17040,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": "[\"steps\", \"heart_rate\"]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series repeated metric",
+   "send": {
+    "id": 17041,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "steps"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='$FIRST'",
+   "send": {
+    "id": 17042,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "$FIRST"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='$MID'",
+   "send": {
+    "id": 17043,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='$LAST'",
+   "send": {
+    "id": 17044,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "$LAST"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='$BEFORE'",
+   "send": {
+    "id": 17045,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "$BEFORE"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='2025-6-1'",
+   "send": {
+    "id": 17046,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "2025-6-1"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='20250601'",
+   "send": {
+    "id": 17047,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "20250601"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='2025-W23-1'",
+   "send": {
+    "id": 17048,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "2025-W23-1"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date=''",
+   "send": {
+    "id": 17049,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": ""
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='nonsense'",
+   "send": {
+    "id": 17050,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "nonsense"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=None",
+   "send": {
+    "id": 17051,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='$FIRST'",
+   "send": {
+    "id": 17052,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "$FIRST"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='$MID'",
+   "send": {
+    "id": 17053,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='$LAST'",
+   "send": {
+    "id": 17054,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "$LAST"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='$BEFORE'",
+   "send": {
+    "id": 17055,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "$BEFORE"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='2025-06-16'",
+   "send": {
+    "id": 17056,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "2025-06-16"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='2025-6-16'",
+   "send": {
+    "id": 17057,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "2025-6-16"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='20250616'",
+   "send": {
+    "id": 17058,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "20250616"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='2025-W25-1'",
+   "send": {
+    "id": 17059,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "2025-W25-1"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='nonsense'",
+   "send": {
+    "id": 17060,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "nonsense"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=''",
+   "send": {
+    "id": 17061,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": ""
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=' 2025-06-16'",
+   "send": {
+    "id": 17062,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": " 2025-06-16"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=None",
+   "send": {
+    "id": 17063,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=1",
+   "send": {
+    "id": 17064,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=3",
+   "send": {
+    "id": 17065,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 3
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit='3'",
+   "send": {
+    "id": 17066,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": "3"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=3.0",
+   "send": {
+    "id": 17067,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 3.0
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=200",
+   "send": {
+    "id": 17068,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 200
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=201",
+   "send": {
+    "id": 17069,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 201
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=0",
+   "send": {
+    "id": 17070,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 0
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=-1",
+   "send": {
+    "id": 17071,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": -1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=True",
+   "send": {
+    "id": 17072,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=False",
+   "send": {
+    "id": 17073,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": false
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=2.5",
+   "send": {
+    "id": 17074,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit='abc'",
+   "send": {
+    "id": 17075,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": "abc"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=[]",
+   "send": {
+    "id": 17076,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit={}",
+   "send": {
+    "id": 17077,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points",
+   "send": {
+    "id": 17078,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points as text",
+   "send": {
+    "id": 17079,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts unknown metric",
+   "send": {
+    "id": 17080,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": [
+       "nope"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts known and unknown metrics",
+   "send": {
+    "id": 17081,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": [
+       "steps",
+       "nope"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts empty metrics",
+   "send": {
+    "id": 17082,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts every metric, points",
+   "send": {
+    "id": 17083,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": [
+       "heart_rate",
+       "stress",
+       "respiration_rate",
+       "spo2",
+       "hrv_rmssd",
+       "energy_reserve",
+       "steps",
+       "distance",
+       "resting_heart_rate",
+       "resting_heart_rate_current_day",
+       "heart_rate_min",
+       "heart_rate_max",
+       "stress_avg",
+       "energy_reserve_high",
+       "energy_reserve_low",
+       "energy_reserve_charged",
+       "energy_reserve_drained",
+       "spo2_avg",
+       "spo2_lowest",
+       "respiration_avg_waking",
+       "respiration_lowest",
+       "respiration_highest",
+       "intensity_minutes_moderate",
+       "intensity_minutes_vigorous",
+       "calories_total",
+       "calories_active",
+       "calories_bmr",
+       "resting_metabolic_rate",
+       "sleep_score",
+       "sleep_duration",
+       "hrv_weekly_average",
+       "hrv_last_night_average",
+       "hrv_last_night_5min_high",
+       "hrv_baseline_low_upper",
+       "hrv_baseline_balanced_lower",
+       "hrv_baseline_balanced_upper",
+       "skin_temp_nightly",
+       "skin_temp_deviation",
+       "skin_temp_7day_deviation",
+       "vo2max",
+       "body_battery_high",
+       "body_battery_low",
+       "body_battery_charged",
+       "body_battery_drained",
+       "training_readiness",
+       "readiness_factor_sleep",
+       "readiness_factor_recovery_time",
+       "readiness_factor_load_ratio",
+       "readiness_factor_stress_history",
+       "readiness_factor_hrv",
+       "readiness_factor_sleep_history",
+       "recovery_time",
+       "training_load_acute",
+       "training_load_chronic",
+       "training_load_ratio",
+       "endurance_score",
+       "fitness_age",
+       "weight_kg",
+       "active_minutes",
+       "highly_active_minutes",
+       "hydration_ml",
+       "sweat_loss_ml"
+      ],
+      "include_points": true,
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window=7 baseline=28",
+   "send": {
+    "id": 17084,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": 7,
+      "baseline_days": 28
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window=1 baseline=1",
+   "send": {
+    "id": 17085,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": 1,
+      "baseline_days": 1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window=31 baseline=365",
+   "send": {
+    "id": 17086,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": 31,
+      "baseline_days": 365
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window=32 baseline=366",
+   "send": {
+    "id": 17087,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": 32,
+      "baseline_days": 366
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window=0 baseline=0",
+   "send": {
+    "id": 17088,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": 0,
+      "baseline_days": 0
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window=-1 baseline=-1",
+   "send": {
+    "id": 17089,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": -1,
+      "baseline_days": -1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window=14 baseline=7",
+   "send": {
+    "id": 17090,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": 14,
+      "baseline_days": 7
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts scope='device'",
+   "send": {
+    "id": 17091,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "device",
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts scope='vendor_cloud'",
+   "send": {
+    "id": 17092,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "vendor_cloud",
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts scope='local'",
+   "send": {
+    "id": 17093,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "local",
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts scope='cloud'",
+   "send": {
+    "id": 17094,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "cloud",
+      "end_date": "$MID"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='$FIRST'",
+   "send": {
+    "id": 17095,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "$FIRST"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='$BEFORE'",
+   "send": {
+    "id": 17096,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "$BEFORE"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='2025-6-1'",
+   "send": {
+    "id": 17097,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "2025-6-1"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='20250601'",
+   "send": {
+    "id": 17098,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "20250601"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date=''",
+   "send": {
+    "id": 17099,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": ""
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='nonsense'",
+   "send": {
+    "id": 17100,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "nonsense"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_contract ignores surplus arguments",
+   "send": {
+    "id": 17101,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": {
+      "x": 1,
+      "y": [
+       2
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail ignores surplus arguments",
+   "send": {
+    "id": 17102,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "x": 1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=None",
+   "send": {
+    "id": 17103,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=5",
+   "send": {
+    "id": 17104,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=2.5",
+   "send": {
+    "id": 17105,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days='x'",
+   "send": {
+    "id": 17106,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days='5'",
+   "send": {
+    "id": 17107,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=[]",
+   "send": {
+    "id": 17108,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=['x']",
+   "send": {
+    "id": 17109,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=[1]",
+   "send": {
+    "id": 17110,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days={}",
+   "send": {
+    "id": 17111,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days={'a': 1}",
+   "send": {
+    "id": 17112,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days=True",
+   "send": {
+    "id": 17113,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days='true'",
+   "send": {
+    "id": 17114,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days='[]'",
+   "send": {
+    "id": 17115,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_data_health window_days='null'",
+   "send": {
+    "id": 17116,
+    "method": "tools.call",
+    "params": {
+     "name": "get_data_health",
+     "arguments": {
+      "window_days": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics=None",
+   "send": {
+    "id": 17117,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics=5",
+   "send": {
+    "id": 17118,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics=2.5",
+   "send": {
+    "id": 17119,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics='x'",
+   "send": {
+    "id": 17120,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics='5'",
+   "send": {
+    "id": 17121,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics=[]",
+   "send": {
+    "id": 17122,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics=['x']",
+   "send": {
+    "id": 17123,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics=[1]",
+   "send": {
+    "id": 17124,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics={}",
+   "send": {
+    "id": 17125,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics={'a': 1}",
+   "send": {
+    "id": 17126,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics=True",
+   "send": {
+    "id": 17127,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics='true'",
+   "send": {
+    "id": 17128,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics='[]'",
+   "send": {
+    "id": 17129,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics='null'",
+   "send": {
+    "id": 17130,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=None",
+   "send": {
+    "id": 17131,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=5",
+   "send": {
+    "id": 17132,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=2.5",
+   "send": {
+    "id": 17133,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days='x'",
+   "send": {
+    "id": 17134,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days='5'",
+   "send": {
+    "id": 17135,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=[]",
+   "send": {
+    "id": 17136,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=['x']",
+   "send": {
+    "id": 17137,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=[1]",
+   "send": {
+    "id": 17138,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days={}",
+   "send": {
+    "id": 17139,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days={'a': 1}",
+   "send": {
+    "id": 17140,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days=True",
+   "send": {
+    "id": 17141,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days='true'",
+   "send": {
+    "id": 17142,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days='[]'",
+   "send": {
+    "id": 17143,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series days='null'",
+   "send": {
+    "id": 17144,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "days": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope=None",
+   "send": {
+    "id": 17145,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope=5",
+   "send": {
+    "id": 17146,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope=2.5",
+   "send": {
+    "id": 17147,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope='x'",
+   "send": {
+    "id": 17148,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope='5'",
+   "send": {
+    "id": 17149,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope=[]",
+   "send": {
+    "id": 17150,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope=['x']",
+   "send": {
+    "id": 17151,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope=[1]",
+   "send": {
+    "id": 17152,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope={}",
+   "send": {
+    "id": 17153,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope={'a': 1}",
+   "send": {
+    "id": 17154,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope=True",
+   "send": {
+    "id": 17155,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope='true'",
+   "send": {
+    "id": 17156,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope='[]'",
+   "send": {
+    "id": 17157,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series source_scope='null'",
+   "send": {
+    "id": 17158,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "source_scope": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date=None",
+   "send": {
+    "id": 17159,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date=5",
+   "send": {
+    "id": 17160,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date=2.5",
+   "send": {
+    "id": 17161,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='x'",
+   "send": {
+    "id": 17162,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='5'",
+   "send": {
+    "id": 17163,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date=[]",
+   "send": {
+    "id": 17164,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date=['x']",
+   "send": {
+    "id": 17165,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date=[1]",
+   "send": {
+    "id": 17166,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date={}",
+   "send": {
+    "id": 17167,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date={'a': 1}",
+   "send": {
+    "id": 17168,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date=True",
+   "send": {
+    "id": 17169,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='true'",
+   "send": {
+    "id": 17170,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='[]'",
+   "send": {
+    "id": 17171,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series end_date='null'",
+   "send": {
+    "id": 17172,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "metrics": [
+       "steps"
+      ],
+      "end_date": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=None",
+   "send": {
+    "id": 17173,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=5",
+   "send": {
+    "id": 17174,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=2.5",
+   "send": {
+    "id": 17175,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='x'",
+   "send": {
+    "id": 17176,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='5'",
+   "send": {
+    "id": 17177,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=[]",
+   "send": {
+    "id": 17178,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=['x']",
+   "send": {
+    "id": 17179,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=[1]",
+   "send": {
+    "id": 17180,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date={}",
+   "send": {
+    "id": 17181,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date={'a': 1}",
+   "send": {
+    "id": 17182,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date=True",
+   "send": {
+    "id": 17183,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='true'",
+   "send": {
+    "id": 17184,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='[]'",
+   "send": {
+    "id": 17185,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_sleep_detail date='null'",
+   "send": {
+    "id": 17186,
+    "method": "tools.call",
+    "params": {
+     "name": "get_sleep_detail",
+     "arguments": {
+      "date": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=None",
+   "send": {
+    "id": 17187,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=5",
+   "send": {
+    "id": 17188,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=2.5",
+   "send": {
+    "id": 17189,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit='x'",
+   "send": {
+    "id": 17190,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit='5'",
+   "send": {
+    "id": 17191,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=[]",
+   "send": {
+    "id": 17192,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=['x']",
+   "send": {
+    "id": 17193,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=[1]",
+   "send": {
+    "id": 17194,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit={}",
+   "send": {
+    "id": 17195,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit={'a': 1}",
+   "send": {
+    "id": 17196,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit=True",
+   "send": {
+    "id": 17197,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit='true'",
+   "send": {
+    "id": 17198,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit='[]'",
+   "send": {
+    "id": 17199,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call list_activities limit='null'",
+   "send": {
+    "id": 17200,
+    "method": "tools.call",
+    "params": {
+     "name": "list_activities",
+     "arguments": {
+      "limit": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days=None",
+   "send": {
+    "id": 17201,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days=5",
+   "send": {
+    "id": 17202,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days=2.5",
+   "send": {
+    "id": 17203,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days='x'",
+   "send": {
+    "id": 17204,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days='5'",
+   "send": {
+    "id": 17205,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days=[]",
+   "send": {
+    "id": 17206,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days=['x']",
+   "send": {
+    "id": 17207,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days=[1]",
+   "send": {
+    "id": 17208,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days={}",
+   "send": {
+    "id": 17209,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days={'a': 1}",
+   "send": {
+    "id": 17210,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days=True",
+   "send": {
+    "id": 17211,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days='true'",
+   "send": {
+    "id": 17212,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days='[]'",
+   "send": {
+    "id": 17213,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts window_days='null'",
+   "send": {
+    "id": 17214,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days=None",
+   "send": {
+    "id": 17215,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days=5",
+   "send": {
+    "id": 17216,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days=2.5",
+   "send": {
+    "id": 17217,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days='x'",
+   "send": {
+    "id": 17218,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days='5'",
+   "send": {
+    "id": 17219,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days=[]",
+   "send": {
+    "id": 17220,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days=['x']",
+   "send": {
+    "id": 17221,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days=[1]",
+   "send": {
+    "id": 17222,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days={}",
+   "send": {
+    "id": 17223,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days={'a': 1}",
+   "send": {
+    "id": 17224,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days=True",
+   "send": {
+    "id": 17225,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days='true'",
+   "send": {
+    "id": 17226,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days='[]'",
+   "send": {
+    "id": 17227,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts baseline_days='null'",
+   "send": {
+    "id": 17228,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "baseline_days": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date=None",
+   "send": {
+    "id": 17229,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date=5",
+   "send": {
+    "id": 17230,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date=2.5",
+   "send": {
+    "id": 17231,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='x'",
+   "send": {
+    "id": 17232,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='5'",
+   "send": {
+    "id": 17233,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date=[]",
+   "send": {
+    "id": 17234,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date=['x']",
+   "send": {
+    "id": 17235,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date=[1]",
+   "send": {
+    "id": 17236,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date={}",
+   "send": {
+    "id": 17237,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date={'a': 1}",
+   "send": {
+    "id": 17238,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date=True",
+   "send": {
+    "id": 17239,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='true'",
+   "send": {
+    "id": 17240,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='[]'",
+   "send": {
+    "id": 17241,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts end_date='null'",
+   "send": {
+    "id": 17242,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "end_date": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics=None",
+   "send": {
+    "id": 17243,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics=5",
+   "send": {
+    "id": 17244,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics=2.5",
+   "send": {
+    "id": 17245,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics='x'",
+   "send": {
+    "id": 17246,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics='5'",
+   "send": {
+    "id": 17247,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics=[]",
+   "send": {
+    "id": 17248,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics=['x']",
+   "send": {
+    "id": 17249,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics=[1]",
+   "send": {
+    "id": 17250,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics={}",
+   "send": {
+    "id": 17251,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics={'a': 1}",
+   "send": {
+    "id": 17252,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics=True",
+   "send": {
+    "id": 17253,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics='true'",
+   "send": {
+    "id": 17254,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics='[]'",
+   "send": {
+    "id": 17255,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts metrics='null'",
+   "send": {
+    "id": 17256,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "metrics": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope=None",
+   "send": {
+    "id": 17257,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope=5",
+   "send": {
+    "id": 17258,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope=2.5",
+   "send": {
+    "id": 17259,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope='x'",
+   "send": {
+    "id": 17260,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope='5'",
+   "send": {
+    "id": 17261,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope=[]",
+   "send": {
+    "id": 17262,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope=['x']",
+   "send": {
+    "id": 17263,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope=[1]",
+   "send": {
+    "id": 17264,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope={}",
+   "send": {
+    "id": 17265,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope={'a': 1}",
+   "send": {
+    "id": 17266,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope=True",
+   "send": {
+    "id": 17267,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope='true'",
+   "send": {
+    "id": 17268,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope='[]'",
+   "send": {
+    "id": 17269,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts source_scope='null'",
+   "send": {
+    "id": 17270,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "source_scope": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points=None",
+   "send": {
+    "id": 17271,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": null
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points=5",
+   "send": {
+    "id": 17272,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points=2.5",
+   "send": {
+    "id": 17273,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": 2.5
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points='x'",
+   "send": {
+    "id": 17274,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": "x"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points='5'",
+   "send": {
+    "id": 17275,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": "5"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points=[]",
+   "send": {
+    "id": 17276,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": []
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points=['x']",
+   "send": {
+    "id": 17277,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": [
+       "x"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points=[1]",
+   "send": {
+    "id": 17278,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": [
+       1
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points={}",
+   "send": {
+    "id": 17279,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": {}
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points={'a': 1}",
+   "send": {
+    "id": 17280,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": {
+       "a": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points=True",
+   "send": {
+    "id": 17281,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": true
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points='true'",
+   "send": {
+    "id": 17282,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points='[]'",
+   "send": {
+    "id": 17283,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": "[]"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_period_facts include_points='null'",
+   "send": {
+    "id": 17284,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "include_points": "null"
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call get_metric_series metrics missing",
+   "send": {
+    "id": 17285,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call several parameters rejected at once",
+   "send": {
+    "id": 17286,
+    "method": "tools.call",
+    "params": {
+     "name": "get_period_facts",
+     "arguments": {
+      "window_days": "x",
+      "baseline_days": [],
+      "end_date": 5,
+      "metrics": 7,
+      "source_scope": [],
+      "include_points": 3
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call rejected parameters and an unknown one",
+   "send": {
+    "id": 17287,
+    "method": "tools.call",
+    "params": {
+     "name": "get_metric_series",
+     "arguments": {
+      "days": "x",
+      "surplus": 1
+     }
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call unknown tool",
+   "send": {
+    "id": 17288,
+    "method": "tools.call",
+    "params": {
+     "name": "no_such_tool",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call unknown tool, arguments absent",
+   "send": {
+    "id": 17289,
+    "method": "tools.call",
+    "params": {
+     "name": "no_such_tool"
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call unknown tool, arguments not an object",
+   "send": {
+    "id": 17290,
+    "method": "tools.call",
+    "params": {
+     "name": "no_such_tool",
+     "arguments": []
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call tool name differs in case",
+   "send": {
+    "id": 17291,
+    "method": "tools.call",
+    "params": {
+     "name": "Get_Contract",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call tool name with a trailing space",
+   "send": {
+    "id": 17292,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract ",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call an MCP method name is not a tool",
+   "send": {
+    "id": 17293,
+    "method": "tools.call",
+    "params": {
+     "name": "tools/list",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call a serve method name is not a tool",
+   "send": {
+    "id": 17294,
+    "method": "tools.call",
+    "params": {
+     "name": "data.health",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call tool name is a quote and an apostrophe",
+   "send": {
+    "id": 17295,
+    "method": "tools.call",
+    "params": {
+     "name": "it's \"x\"",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name: <absent>",
+   "send": {
+    "id": 17296,
+    "method": "tools.call",
+    "params": {
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name: None",
+   "send": {
+    "id": 17297,
+    "method": "tools.call",
+    "params": {
+     "name": null,
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name: 5",
+   "send": {
+    "id": 17298,
+    "method": "tools.call",
+    "params": {
+     "name": 5,
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name: True",
+   "send": {
+    "id": 17299,
+    "method": "tools.call",
+    "params": {
+     "name": true,
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name: ''",
+   "send": {
+    "id": 17300,
+    "method": "tools.call",
+    "params": {
+     "name": "",
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name: ['get_contract']",
+   "send": {
+    "id": 17301,
+    "method": "tools.call",
+    "params": {
+     "name": [
+      "get_contract"
+     ],
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name: {'a': 1}",
+   "send": {
+    "id": 17302,
+    "method": "tools.call",
+    "params": {
+     "name": {
+      "a": 1
+     },
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call bad name: 1.5",
+   "send": {
+    "id": 17303,
+    "method": "tools.call",
+    "params": {
+     "name": 1.5,
+     "arguments": {}
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments not an object: []",
+   "send": {
+    "id": 17304,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": []
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments not an object: [1]",
+   "send": {
+    "id": 17305,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments not an object: '{}'",
+   "send": {
+    "id": 17306,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": "{}"
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments not an object: 'x'",
+   "send": {
+    "id": 17307,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": "x"
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments not an object: 5",
+   "send": {
+    "id": 17308,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": 5
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments not an object: 1.5",
+   "send": {
+    "id": 17309,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": 1.5
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments not an object: True",
+   "send": {
+    "id": 17310,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": true
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments not an object: False",
+   "send": {
+    "id": 17311,
+    "method": "tools.call",
+    "params": {
+     "name": "get_contract",
+     "arguments": false
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call name first, then arguments",
+   "send": {
+    "id": 17312,
+    "method": "tools.call",
+    "params": {
+     "name": 5,
+     "arguments": []
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call arguments checked before the tool name",
+   "send": {
+    "id": 17313,
+    "method": "tools.call",
+    "params": {
+     "name": "no_such_tool",
+     "arguments": 5
+    }
+   }
+  },
+  {
+   "name": "gen: tools.call params null",
+   "raw": "{\"id\":17314,\"method\":\"tools.call\",\"params\":null}"
+  },
+  {
+   "name": "gen: tools.call params array",
+   "raw": "{\"id\":17315,\"method\":\"tools.call\",\"params\":[]}"
+  },
+  {
+   "name": "gen: tools.call params missing",
+   "raw": "{\"id\":17316,\"method\":\"tools.call\"}"
+  },
+  {
+   "name": "gen: tools.call duplicate keys keep the last",
+   "raw": "{\"id\":17317,\"method\":\"tools.call\",\"params\":{\"name\":\"nope\",\"name\":\"get_contract\",\"arguments\":{\"x\":1},\"arguments\":{}}}"
+  },
+  {
+   "name": "gen: tools.call limit: 4300 digits",
+   "raw": "{\"id\":17318,\"method\":\"tools.call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":$DIGITS4300}}}"
+  },
+  {
+   "name": "gen: tools.call limit: beyond i64",
+   "raw": "{\"id\":17319,\"method\":\"tools.call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":9223372036854775808}}}"
+  },
+  {
+   "name": "gen: tools.call window_days: negative beyond i64",
+   "raw": "{\"id\":17320,\"method\":\"tools.call\",\"params\":{\"name\":\"get_data_health\",\"arguments\":{\"window_days\":-9223372036854775809}}}"
+  },
+  {
+   "name": "gen: tools.call limit: exponent form",
+   "raw": "{\"id\":17321,\"method\":\"tools.call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":1e1}}}"
+  },
+  {
+   "name": "gen: tools.call limit: NaN",
+   "raw": "{\"id\":17322,\"method\":\"tools.call\",\"params\":{\"name\":\"list_activities\",\"arguments\":{\"limit\":NaN}}}"
+  },
+  {
+   "name": "gen: tools.call metrics: escapes",
+   "raw": "{\"id\":17323,\"method\":\"tools.call\",\"params\":{\"name\":\"get_metric_series\",\"arguments\":{\"metrics\":[\"\\u0073teps\"],\"days\":3}}}"
   },
   {
    "name": "import.last",

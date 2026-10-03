@@ -429,6 +429,119 @@ def _sync_entries() -> list[dict]:
     return entries
 
 
+def _tools_entries() -> list[dict]:
+    """``tools.call``: each of the six tools with defaults and with every parameter, the day anchors, the clamps,
+    every parameter badly typed (the cores' argument coercion must agree), the tool failures and the failures
+    of the call itself. One entry per call; the ids are 17000 up."""
+    from disconect import contract
+
+    entries: list[dict] = []
+
+    def add(label: str, name, arguments=None, **extra) -> None:
+        params: dict = {} if name is _ABSENT else {"name": name}
+        if arguments is not _ABSENT:
+            params["arguments"] = arguments
+        entries.append({"name": f"gen: tools.call {label}",
+                        "send": {"id": 17000 + len(entries), "method": "tools.call", "params": params}, **extra})
+
+    def raw(label: str, template: str) -> None:
+        entries.append({"name": f"gen: tools.call {label}", "raw": template % (17000 + len(entries))})
+
+    numeric = [item.metric for item in contract.METRICS]
+    for tool in ("get_data_health", "get_metric_series", "get_sleep_detail", "list_activities", "get_period_facts",
+                 "get_contract"):
+        add(f"{tool} with its defaults", tool, {"metrics": ["steps"]} if tool == "get_metric_series" else {})
+    add("get_data_health arguments absent", "get_data_health", _ABSENT)
+    add("get_data_health arguments null", "get_data_health", None)
+    for days in (1, 7, 30, 400, 3650, 3651, 0, -5, "7", 7.0, True, False):
+        add(f"get_data_health window_days={days!r}", "get_data_health", {"window_days": days})
+    add("get_metric_series two metrics and a scope", "get_metric_series",
+        {"metrics": ["steps", "heart_rate"], "source_scope": "device", "days": 30, "end_date": "$MID"})
+    add("get_metric_series every metric", "get_metric_series", {"metrics": numeric, "days": 60, "end_date": "$LAST"})
+    for scope in (*contract.SOURCE_SCOPES, "cloud", ""):
+        add(f"get_metric_series scope={scope!r}", "get_metric_series",
+            {"metrics": ["steps", "heart_rate", "sleep_score", "resting_heart_rate"], "source_scope": scope,
+             "days": 14, "end_date": "$MID"})
+    for days in (1, 90, 366, 367, 1825, 1826, 0, -1, "30", 30.0):
+        add(f"get_metric_series days={days!r}", "get_metric_series", {"metrics": ["steps", "heart_rate"], "days": days})
+    add("get_metric_series unknown metric among known", "get_metric_series", {"metrics": ["steps", "nope"]})
+    add("get_metric_series only unknown metrics", "get_metric_series", {"metrics": ["nope"]})
+    add("get_metric_series no metrics", "get_metric_series", {"metrics": []})
+    add("get_metric_series metrics as JSON text", "get_metric_series", {"metrics": '["steps", "heart_rate"]'})
+    add("get_metric_series repeated metric", "get_metric_series", {"metrics": ["steps", "steps"]})
+    for end_date in ("$FIRST", "$MID", "$LAST", "$BEFORE", "2025-6-1", "20250601", "2025-W23-1", "", "nonsense"):
+        add(f"get_metric_series end_date={end_date!r}", "get_metric_series", {"metrics": ["steps"], "end_date": end_date})
+    for day in (None, "$FIRST", "$MID", "$LAST", "$BEFORE", "2025-06-16", "2025-6-16", "20250616", "2025-W25-1",
+                "nonsense", "", " 2025-06-16"):
+        add(f"get_sleep_detail date={day!r}", "get_sleep_detail", {"date": day})
+    for limit in (None, 1, 3, "3", 3.0, 200, 201, 0, -1, True, False, 2.5, "abc", [], {}):
+        add(f"list_activities limit={limit!r}", "list_activities", {"limit": limit})
+    add("get_period_facts include_points", "get_period_facts", {"include_points": True})
+    add("get_period_facts include_points as text", "get_period_facts", {"include_points": "true"})
+    add("get_period_facts unknown metric", "get_period_facts", {"metrics": ["nope"]})
+    add("get_period_facts known and unknown metrics", "get_period_facts", {"metrics": ["steps", "nope"]})
+    add("get_period_facts empty metrics", "get_period_facts", {"metrics": []})
+    add("get_period_facts every metric, points", "get_period_facts",
+        {"metrics": numeric, "include_points": True, "end_date": "$MID"})
+    for window, baseline in ((7, 28), (1, 1), (31, 365), (32, 366), (0, 0), (-1, -1), (14, 7)):
+        add(f"get_period_facts window={window} baseline={baseline}", "get_period_facts",
+            {"window_days": window, "baseline_days": baseline})
+    for scope in (*contract.SOURCE_SCOPES, "cloud"):
+        add(f"get_period_facts scope={scope!r}", "get_period_facts", {"source_scope": scope, "end_date": "$MID"})
+    for end_date in ("$FIRST", "$BEFORE", "2025-6-1", "20250601", "", "nonsense"):
+        add(f"get_period_facts end_date={end_date!r}", "get_period_facts", {"end_date": end_date})
+    add("get_contract ignores surplus arguments", "get_contract", {"x": 1, "y": [2]})
+    add("get_sleep_detail ignores surplus arguments", "get_sleep_detail", {"x": 1})
+    # every parameter, badly typed
+    kinds = {
+        "get_data_health": ("window_days",),
+        "get_metric_series": ("metrics", "days", "source_scope", "end_date"),
+        "get_sleep_detail": ("date",),
+        "list_activities": ("limit",),
+        "get_period_facts": ("window_days", "baseline_days", "end_date", "metrics", "source_scope", "include_points"),
+    }
+    good = {"metrics": ["steps"]}
+    for tool, params in kinds.items():
+        for param in params:
+            for value in (None, 5, 2.5, "x", "5", [], ["x"], [1], {}, {"a": 1}, True, "true", "[]", "null"):
+                add(f"{tool} {param}={value!r}", tool, {**(good if tool == "get_metric_series" else {}), param: value})
+    add("get_metric_series metrics missing", "get_metric_series", {})
+    add("several parameters rejected at once", "get_period_facts",
+        {"window_days": "x", "baseline_days": [], "end_date": 5, "metrics": 7, "source_scope": [], "include_points": 3})
+    add("rejected parameters and an unknown one", "get_metric_series", {"days": "x", "surplus": 1})
+    # the call itself
+    add("unknown tool", "no_such_tool", {})
+    add("unknown tool, arguments absent", "no_such_tool", _ABSENT)
+    add("unknown tool, arguments not an object", "no_such_tool", [])
+    add("tool name differs in case", "Get_Contract", {})
+    add("tool name with a trailing space", "get_contract ", {})
+    add("an MCP method name is not a tool", "tools/list", {})
+    add("a serve method name is not a tool", "data.health", {})
+    add("tool name is a quote and an apostrophe", "it's \"x\"", {})
+    for name in (_ABSENT, None, 5, True, "", ["get_contract"], {"a": 1}, 1.5):
+        add(f"bad name: {'<absent>' if name is _ABSENT else repr(name)}", name, {})
+    for arguments in ([], [1], "{}", "x", 5, 1.5, True, False):
+        add(f"arguments not an object: {arguments!r}", "get_contract", arguments)
+    add("name first, then arguments", 5, [])
+    add("arguments checked before the tool name", "no_such_tool", 5)
+    raw("params null", '{"id":%d,"method":"tools.call","params":null}')
+    raw("params array", '{"id":%d,"method":"tools.call","params":[]}')
+    raw("params missing", '{"id":%d,"method":"tools.call"}')
+    raw("duplicate keys keep the last",
+        '{"id":%d,"method":"tools.call","params":{"name":"nope","name":"get_contract","arguments":{"x":1},"arguments":{}}}')
+    raw("limit: 4300 digits", '{"id":%d,"method":"tools.call","params":{"name":"list_activities","arguments":{"limit":$DIGITS4300}}}')
+    raw("limit: beyond i64", '{"id":%d,"method":"tools.call","params":{"name":"list_activities","arguments":{"limit":9223372036854775808}}}')
+    raw("window_days: negative beyond i64",
+        '{"id":%d,"method":"tools.call","params":{"name":"get_data_health","arguments":{"window_days":-9223372036854775809}}}')
+    raw("limit: exponent form", '{"id":%d,"method":"tools.call","params":{"name":"list_activities","arguments":{"limit":1e1}}}')
+    raw("limit: NaN", '{"id":%d,"method":"tools.call","params":{"name":"list_activities","arguments":{"limit":NaN}}}')
+    raw("metrics: escapes", '{"id":%d,"method":"tools.call","params":{"name":"get_metric_series","arguments":{"metrics":["\\u0073teps"],"days":3}}}')
+    return entries
+
+
+_ABSENT = object()
+
+
 def _metric_entries() -> list[dict]:
     """Every contract metric and scope, the window edges, ``last_day`` forms and every bad parameter."""
     from disconect import contract
@@ -539,13 +652,20 @@ def build_script(anchors: dict[str, str]) -> None:
               # locked on an encrypted store; plaintext stores are open, so these answer as unlocked ones do
               {"name": "gen: sync.status while locked", "send": {"id": 12105, "method": "sync.status"}},
               {"name": "gen: sync.run while locked", "send": {"id": 12106, "method": "sync.run"}},
+              # locked on an encrypted store; the tool's answer on a plaintext one
+              {"name": "gen: tools.call while locked",
+               "send": {"id": 12107, "method": "tools.call", "params": {"name": "get_contract", "arguments": {}}}},
+              {"name": "gen: tools.call unknown tool while locked",
+               "send": {"id": 12108, "method": "tools.call", "params": {"name": "no_such_tool"}}},
+              {"name": "gen: tools.call bad name while locked",
+               "send": {"id": 12109, "method": "tools.call", "params": {"name": 5}}},
               # locked on an encrypted store; bad_params (never opened for writing) on a plaintext one
               {"name": "gen: import.run while locked",
                "send": {"id": 12104, "method": "import.run", "params": {"path": "x", "transport": "carrier pigeon"}}}]
     entries: list[dict] = []
     for entry in kept:
         if entry["name"] == "import.last":
-            entries += _metric_entries() + _today_entries() + _health_entries() + _import_entries() + _sync_entries()
+            entries += _metric_entries() + _today_entries() + _health_entries() + _import_entries() + _sync_entries() + _tools_entries()
         entries.append(entry)
         if entry["name"] == "data.facts while locked":
             entries += locked
