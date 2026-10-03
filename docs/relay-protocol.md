@@ -124,24 +124,41 @@ object sizes and when they move, which a folder carried by Syncthing shows too.
 
 Refusals carry an empty body: `401` (no token, malformed, stale, wrong), `400` (a name that is not
 `^[0-9a-f]{64}/[0-9a-f]{32}$`), `403` (a well-formed name under another account), `413` (a body
-over one bundle: `MAX_OBJECT` = 64 MiB + 4096, declared or not), `500` (an I/O error).
+over one bundle: `MAX_OBJECT` = 64 MiB + 4096, declared), `408` (a head or body that stopped arriving), `500` (an I/O error).
 
 **Auth.** Every route but health carries
-`X-Disconect-Auth: v1.<unix seconds>.<hex HMAC-SHA256(token_key, message)>` with
-`message = METHOD ‖ "\n" ‖ path ‖ "\n" ‖ <unix seconds, decimal> ‖ "\n" ‖ hex(sha256(body))` (method upper
-case, `path` as sent: `/v1/objects/<account>/<name>`, empty body for GET and DELETE) and
+`X-Disconect-Auth: v1.<unix seconds>.<pre>.<tag>`, two hex HMAC-SHA256 values under one key:
+`pre = HMAC(token_key, "pre" ‖ "\n" ‖ METHOD ‖ "\n" ‖ path ‖ "\n" ‖ <unix seconds, decimal> ‖ "\n" ‖ <Content-Length, decimal>)`
+(`0` when the request declares no length, as GET and DELETE do) and
+`tag = HMAC(token_key, METHOD ‖ "\n" ‖ path ‖ "\n" ‖ <unix seconds, decimal> ‖ "\n" ‖ hex(sha256(body)))` (method upper
+case, `path` as sent: `/v1/objects/<account>/<name>`, empty body for GET and DELETE), with
 `token_key = HKDF-SHA256(ikm = master, salt = the 64 hex characters of the account as ASCII, info =
 "disconect/lan/v1/token")`, 32 bytes. The label is frozen from now on (`docs/kb/24-wire-constants.md`,
-which holds the known-answer vectors). The server checks, in this order and with a bare `401` for
-every failure: header shape, `|now - timestamp| <= 300 s` (a timestamp from the future is as stale as
-one from the past), then reads the body (capped) and compares the tag in constant time. Two
-devices that hold the same master (a paired phone and the Mac) therefore derive the same key with
-no exchange. Limits, stated: a request captured on the LAN can be replayed for 300 s (a replayed
-`PUT` rewrites the same bytes, a replayed `DELETE` removes an object the owner can re-push; a
-replayed `GET` shows ciphertext the sniffer already has); the body is read before the tag can be
-checked (the tag covers its hash), so an unauthenticated peer can make the server read up to one
-bundle per connection: bind to the LAN only on a network you trust. Time-skewed phones fail with
-`authentication_failed` until their clock is right.
+which holds the known-answer vectors, pre-tag ones included). The server checks, in this order and with a
+bare `401` for every failure: header shape, `|now - timestamp| <= 300 s` (a timestamp from the future is as
+stale as one from the past), **the pre-tag against the declared `Content-Length`, before it reads a single body
+byte**, then the body (exactly the declared length, at most one bundle), then the tag in constant time. A request
+without a `Content-Length` has an empty body, which is never read; chunked uploads are refused (`400`). Two
+devices that hold the same master (a paired phone and the Mac) therefore derive the same key with no exchange.
+
+**Limits, stated.**
+- *Replay.* A request captured on the LAN can be replayed for 300 s: a replayed `PUT` rewrites the same bytes, a
+  replayed `GET` shows ciphertext the sniffer already has, a replayed `DELETE` removes the object again. Nothing
+  re-pushes a bundle that was pushed, and nothing deletes anything today (the trait has `delete` for the pairing and
+  pruning slices to come), so a replayed `DELETE` has no victim yet. **Slice 12-E must not put single-use offers on
+  this API without a seen-tag cache** (the server keeps none): within the window, any request is replayable.
+- *Slow peers (Bet 12 review F1).* The first version read the body before it could check the tag, so four
+  connections with a well-formed forged header, `Content-Length: 1000000` and no body held every worker and
+  `/v1/health` timed out. Now the pre-tag refuses a peer without the key on the head alone (`401` at once,
+  nothing read), every socket read and write has a time-out (`idle` = 10 s; the head must arrive within it in total,
+  the body within `idle + length / 256 KiB/s`, so a 64 MiB bundle gets about 4.5 minutes and a one-byte-per-nine-seconds
+  trickle gets nothing; the answer is `408`), and each connection is a thread, at most 32 (one more is closed
+  unanswered), so a stalled peer holds only its own. What remains: an unauthenticated peer can occupy connection slots
+  with half-sent heads for up to 10 s each (no per-address limit), and a peer holding a captured header for the exact
+  length can hold a slot, and make the server buffer what it sends (one bundle at most), until the body budget ends.
+  Bind to the LAN only on a network you trust. The HTTP layer is the server's own small subset (one request per
+  connection, `Connection: close`; the library first tried, `tiny_http`, has no time-outs), see `lan_server.rs`.
+- Time-skewed phones fail with `authentication_failed` until their clock is right.
 
 **Client errors** (`RelayError`): unreachable (connect, name lookup, time-out, broken answer) is
 `Unreachable`, retryable; `401` is `Unauthorized`, reason and text `authentication_failed`; `404` on

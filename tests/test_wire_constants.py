@@ -88,8 +88,14 @@ def test_known_answer_relay_bundle(master):
 LAN_LABEL = "disconect/lan/v1/token"
 LAN_MASTER = bytes(range(1, 33))
 LAN_TOKEN_KEY = "fb82fb73a463f5df7439df5e66c64e3731a8d8c7e7e6b07ea5715b54c7822350"
-LAN_PUT = "v1.1700000000.2011a51d77be5327a5f5018eb22c266c5f137a1a3c4586f1f2617c8c51f6d060"
-LAN_GET = "v1.1700000000.71e67dc1ec1cefcf4692eabba5cbd8f4940fa4e97f7c4a18479fc7d15b194d62"
+# header = v1.<timestamp>.<pre>.<tag>. The tags are the vectors committed with slice 12-B and are unchanged;
+# the pre-tags (over the declared Content-Length, checked before any body byte is read) came with the review fix.
+LAN_PUT_TAG = "2011a51d77be5327a5f5018eb22c266c5f137a1a3c4586f1f2617c8c51f6d060"
+LAN_GET_TAG = "71e67dc1ec1cefcf4692eabba5cbd8f4940fa4e97f7c4a18479fc7d15b194d62"
+LAN_PUT_PRE = "223c54881c588a7961c34cac621e4df08c54682e3501b340d3a8569f645895c7"
+LAN_GET_PRE = "74a9b34685ff14e016cec487a0b4e3b25b0bf43b4f346479a1c52bf7679c9373"
+LAN_PUT = f"v1.1700000000.{LAN_PUT_PRE}.{LAN_PUT_TAG}"
+LAN_GET = f"v1.1700000000.{LAN_GET_PRE}.{LAN_GET_TAG}"
 
 
 def _lan_token_key(master: bytes) -> bytes:
@@ -100,11 +106,17 @@ def _lan_token_key(master: bytes) -> bytes:
     return hmac.new(prk, LAN_LABEL.encode() + b"\x01", hashlib.sha256).digest()
 
 
-def _lan_header(key: bytes, method: str, path: str, stamp: int, body: bytes) -> str:
+def _lan_header(key: bytes, method: str, path: str, stamp: int, body: bytes, length: int | None = None) -> str:
+    """``v1.<stamp>.<pre>.<tag>`` by hand: ``pre`` over ``"pre" LF method LF path LF stamp LF length``, ``tag`` over the body hash."""
     import hmac
 
+    declared = len(body) if length is None else length
+    pre = f"pre\n{method}\n{path}\n{stamp}\n{declared}".encode()
     message = f"{method}\n{path}\n{stamp}\n{hashlib.sha256(body).hexdigest()}".encode()
-    return f"v1.{stamp}.{hmac.new(key, message, hashlib.sha256).hexdigest()}"
+    return (
+        f"v1.{stamp}.{hmac.new(key, pre, hashlib.sha256).hexdigest()}."
+        f"{hmac.new(key, message, hashlib.sha256).hexdigest()}"
+    )
 
 
 def test_the_lan_token_label_and_vectors_are_held_by_both_the_rust_source_and_kb24():
@@ -112,7 +124,7 @@ def test_the_lan_token_label_and_vectors_are_held_by_both_the_rust_source_and_kb
     rust = (CORE / "src" / "relay" / "lan.rs").read_text()
     for text in (kb, rust):
         assert LAN_LABEL in text
-        for vector in (LAN_TOKEN_KEY, LAN_PUT, LAN_GET):
+        for vector in (LAN_TOKEN_KEY, LAN_PUT_PRE, LAN_PUT_TAG, LAN_GET_PRE, LAN_GET_TAG):
             assert vector in text
     assert f'b"{LAN_LABEL}"' in rust, "the Rust constant is the label verbatim"
 
@@ -124,3 +136,14 @@ def test_the_lan_vectors_follow_from_the_stated_construction():
     name = f"{account}/{'ab' * 16}"
     assert _lan_header(key, "PUT", f"/v1/objects/{name}", 1700000000, b"sealed bytes") == LAN_PUT
     assert _lan_header(key, "GET", "/v1/objects", 1700000000, b"") == LAN_GET
+
+
+def test_the_lan_pre_tag_binds_the_declared_length_and_is_not_the_tag():
+    key = _lan_token_key(LAN_MASTER)
+    path = f"/v1/objects/{bundle.account_for(LAN_MASTER)}/{'ab' * 16}"
+    honest = _lan_header(key, "PUT", path, 1700000000, b"sealed bytes")
+    longer = _lan_header(key, "PUT", path, 1700000000, b"sealed bytes", length=1_000_000)
+    pre, tag = honest.split(".")[2:]
+    assert pre != tag
+    assert longer.split(".")[2] != pre, "another declared length is another pre-tag"
+    assert longer.split(".")[3] == tag, "the tag still covers only the body hash"
