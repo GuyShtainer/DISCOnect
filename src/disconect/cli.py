@@ -152,7 +152,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
     except FileNotFoundError as exc:
         print(f"usage: {exc}", file=sys.stderr)
         return EXIT_USAGE
-    except sqlite.Error as exc:
+    except (sqlite.Error, sync_module.ConflictWriteFailed) as exc:
         print(f"database: {exc}", file=sys.stderr)
         return EXIT_DATABASE
 
