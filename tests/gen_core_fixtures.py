@@ -129,6 +129,16 @@ def scenarios() -> dict[str, bytes]:
     return out
 
 
+# Inputs that are not FIT files, kept byte-exact. ``hdr255`` is the one the Bet 12 review found to panic
+# fitparser: a 14-byte header that declares ``header_size = 255`` with a nonzero header CRC (fitparser slices
+# ``input[0..253]`` before it consults ``SkipHeaderCrcValidation``). The Python decoder does not panic; it
+# answers ``unrecognized_payload``, the same kind the Rust ``catch_unwind`` maps the panic to.
+HOSTILE: dict[str, bytes] = {
+    "garbage": b"not a fit file at all",
+    "hdr255": bytes.fromhex("ff205408000000002e4649540100"),
+}
+
+
 def expected_for(data: bytes) -> dict:
     try:
         return {"ok": decoded_to_json(fit_wellness.decode_fit(data))}
@@ -145,10 +155,11 @@ def write_synthetic(target: pathlib.Path) -> list[str]:
         (target / f"{name}.fit.bin").write_bytes(data)
         (target / f"{name}.expected.json").write_text(json.dumps(expected_for(data), indent=1, sort_keys=True) + "\n")
         names.append(name)
-    garbage = b"not a fit file at all"
-    (target / "garbage.fit.bin").write_bytes(garbage)
-    (target / "garbage.expected.json").write_text(json.dumps(expected_for(garbage), indent=1, sort_keys=True) + "\n")
-    return names + ["garbage"]
+    for name, data in HOSTILE.items():
+        (target / f"{name}.fit.bin").write_bytes(data)
+        (target / f"{name}.expected.json").write_text(json.dumps(expected_for(data), indent=1, sort_keys=True) + "\n")
+        names.append(name)
+    return names
 
 
 def write_corpus(corpus: pathlib.Path, out: pathlib.Path) -> int:
