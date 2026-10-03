@@ -327,9 +327,9 @@ def build_v1(source: pathlib.Path, target: pathlib.Path) -> None:
 
 # ---- the metric / today requests ----
 
-#: ``booked`` marks a request whose Python answer is the permissiveness kb/23 books; the Rust core must
-#: answer ``bad_params`` (the harness counts it under its own name, never as identical or as a difference).
-BOOKED_FROMISOFORMAT = "kb23-fromisoformat-permissive"
+#: No request is ``booked`` any more: the last named allowance (``kb23-fromisoformat-permissive``) was
+#: retired on 2026-10-03 when ``serve`` ``last_day`` became strict ``YYYY-MM-DD`` on both cores; the compact
+#: and week forms below are now plain bad parameters, answered alike.
 FOCUS_METRICS = ("heart_rate", "stress", "spo2", "steps", "sleep_score", "resting_heart_rate",
                  "intensity_minutes_moderate", "vo2max")
 BIG_METRICS = ("heart_rate", "steps", "sleep_score", "vo2max")
@@ -337,15 +337,10 @@ LAST_DAYS = (None, "$MID", "$FIRST", "$BEFORE", "2099-12-31")
 BAD_LAST_DAYS = ("20261003", "2026-W40-6", "nonsense", "", "2025-13-40", "2025-02-30", "0000-01-01",
                  "9999-12-31", "0001-01-03", "2025-6-30", " 2025-06-30", "\uff12\uff10\uff12\uff15-06-30",
                  "2025-03-05T00:00", "2025-06-30\n")
-BOOKED_LAST_DAYS = {"20261003", "2026-W40-6"}
 
 
 def _request(request_id: int, name: str, **params) -> dict:
-    entry = {"name": name, "send": {"id": request_id, "method": "data.metric", "params": params}}
-    last_day = params.get("last_day")
-    if isinstance(last_day, str) and last_day in BOOKED_LAST_DAYS:
-        entry["booked"] = BOOKED_FROMISOFORMAT
-    return entry
+    return {"name": name, "send": {"id": request_id, "method": "data.metric", "params": params}}
 
 
 def _health_entries() -> list[dict]:

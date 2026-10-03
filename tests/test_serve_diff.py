@@ -4,7 +4,7 @@
 * the copied privacy constants have not drifted from ``test_privacy``;
 * a core that differs in one type is caught by a real run (a stand-in for the Rust binary);
 * the committed oracle responses and ledger answers are what the Python core answers today;
-* the script's anchor days are the ones its stores give, and the booked requests are exactly the named two;
+* the script's anchor days are the ones its stores give, and no request is booked (the last allowance is retired);
 * when the Rust debug binary exists, the real gate runs on the committed synthetic stores (current and
   schema v1) and under further clock pins.
 """
@@ -26,7 +26,7 @@ import serve_diff  # noqa: E402
 
 import gen_serve_fixtures  # noqa: E402
 import test_privacy  # noqa: E402
-from disconect import contract, serve  # noqa: E402
+from disconect import contract, queries, serve  # noqa: E402
 
 FIXTURES = pathlib.Path(__file__).resolve().parent / "fixtures" / "serve"
 STORE = FIXTURES / "synthetic.hbdb"
@@ -139,13 +139,17 @@ def test_the_generated_script_entries_are_what_the_generator_writes_today(tmp_pa
     assert len(script["entries"]) < 2000
 
 
-def test_only_the_two_named_last_day_forms_are_booked():
+def test_no_request_is_booked_and_the_once_booked_forms_are_plain_bad_params():
     entries = json.loads(serve_diff.SCRIPT.read_text())["entries"]
-    booked = [e for e in entries if "booked" in e]
-    assert {e["booked"] for e in booked} == {gen_serve_fixtures.BOOKED_FROMISOFORMAT}
-    assert {e["send"]["params"]["last_day"] for e in booked} == {"20261003", "2026-W40-6"}
-    for entry in booked:   # Python really does accept both: that is what is booked
-        assert datetime.date.fromisoformat(entry["send"]["params"]["last_day"])
+    assert not [e for e in entries if "booked" in e], "the last named allowance was retired on 2026-10-03"
+    asked = {e["send"]["params"].get("last_day") for e in entries
+             if "send" in e and e["send"]["method"] == "data.metric" and isinstance(e["send"].get("params"), dict)
+             and isinstance(e["send"]["params"].get("last_day"), str)}
+    assert {"20261003", "2026-W40-6"} <= asked, "the compact and week forms stay in the script as bad requests"
+    for form in ("20261003", "2026-W40-6"):   # fromisoformat alone would take them: that was the allowance
+        assert datetime.date.fromisoformat(form)
+        with pytest.raises(ValueError, match="last_day must be YYYY-MM-DD"):
+            queries.parse_day(form, "last_day")
 
 
 def test_the_script_asks_for_every_contract_metric_in_every_scope():
@@ -231,7 +235,7 @@ def test_the_gate_passes_on_the_committed_synthetic_stores(capsys, store, label,
     assert "post-import core_diff: 0 differing rows" in report and "import leg run_id equal: 8/8" in report
     assert "sync leg: 19 steps" in report and "identical 19, differing 0" in report
     assert "sync.run results: python 6, rust 6" in report and "post-sync core_diff: 0 differing rows" in report
-    assert "booked (named allowance, Rust bad_params): 8 " in report
+    assert "booked (named allowance, Rust bad_params): 0" in report
 
 
 INPROC = serve_diff.default_rust_bin(release=False, inproc=True)

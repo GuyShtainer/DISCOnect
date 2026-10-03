@@ -284,9 +284,10 @@ def data_metric(session: Session, call: Call) -> dict:
     last_day = _text_param(call.params, "last_day", required=False)
     cap = queries.MAX_SAMPLE_DAYS if contract.cadence_for(metric) == contract.CADENCE_SAMPLE else queries.MAX_DAILY_DAYS
     with session.reader() as conn:
-        last = last_day or queries.local_today(conn)
-        first = (datetime.date.fromisoformat(last) - datetime.timedelta(days=max(1, min(days, cap)) - 1))
-        series = queries.metric_calendar(conn, metric, scope, first.isoformat(), last)
+        # strict YYYY-MM-DD like the MCP paths (kb/23: the fromisoformat allowance is retired)
+        last = queries.parse_day(last_day, "last_day") if last_day is not None else datetime.date.fromisoformat(queries.local_today(conn))
+        first = last - datetime.timedelta(days=max(1, min(days, cap)) - 1)
+        series = queries.metric_calendar(conn, metric, scope, first.isoformat(), last.isoformat())
     return {"metric": metric, "scope": scope, "unit": contract.unit_for(metric), "days": series}
 
 

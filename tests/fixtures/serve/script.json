@@ -16495,8 +16495,7 @@
      "days": 7,
      "last_day": "20261003"
     }
-   },
-   "booked": "kb23-fromisoformat-permissive"
+   }
   },
   {
    "name": "gen: data.metric last_day='20261003' steps",
@@ -16509,8 +16508,7 @@
      "days": 7,
      "last_day": "20261003"
     }
-   },
-   "booked": "kb23-fromisoformat-permissive"
+   }
   },
   {
    "name": "gen: data.metric last_day='20261003' nope",
@@ -16523,8 +16521,7 @@
      "days": 7,
      "last_day": "20261003"
     }
-   },
-   "booked": "kb23-fromisoformat-permissive"
+   }
   },
   {
    "name": "gen: data.metric last_day='20261003' hrv_status",
@@ -16537,8 +16534,7 @@
      "days": 7,
      "last_day": "20261003"
     }
-   },
-   "booked": "kb23-fromisoformat-permissive"
+   }
   },
   {
    "name": "gen: data.metric last_day='2026-W40-6' heart_rate",
@@ -16551,8 +16547,7 @@
      "days": 7,
      "last_day": "2026-W40-6"
     }
-   },
-   "booked": "kb23-fromisoformat-permissive"
+   }
   },
   {
    "name": "gen: data.metric last_day='2026-W40-6' steps",
@@ -16565,8 +16560,7 @@
      "days": 7,
      "last_day": "2026-W40-6"
     }
-   },
-   "booked": "kb23-fromisoformat-permissive"
+   }
   },
   {
    "name": "gen: data.metric last_day='2026-W40-6' nope",
@@ -16579,8 +16573,7 @@
      "days": 7,
      "last_day": "2026-W40-6"
     }
-   },
-   "booked": "kb23-fromisoformat-permissive"
+   }
   },
   {
    "name": "gen: data.metric last_day='2026-W40-6' hrv_status",
@@ -16593,8 +16586,7 @@
      "days": 7,
      "last_day": "2026-W40-6"
     }
-   },
-   "booked": "kb23-fromisoformat-permissive"
+   }
   },
   {
    "name": "gen: data.metric last_day='nonsense' heart_rate",
