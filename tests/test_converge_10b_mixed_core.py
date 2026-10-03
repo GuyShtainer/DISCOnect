@@ -16,6 +16,7 @@ import json
 import pathlib
 import shutil
 import subprocess
+import zlib
 
 import pytest
 
@@ -27,7 +28,8 @@ from disconect.storage import keys
 from test_converge_10b import (_assert_reparse_quiet, _bio, _daily, _day, _export, _fitness, _hash,
                                _interrupted_export, _load, _metrics_export, _readiness_rows, _split_readiness_export, _wellness_export)
 from test_core_parity import BINARY, PASS, _rust_env
-from test_relay_atomic import EARLY_STEPS, LATE_STEPS, _count, _hash_of, _steps, _store_with
+from test_relay_atomic import (EARLY_STEPS, LATE_STEPS, _count, _hash_of, _history, _rec, _seen, _steps, _store_many,
+                               _store_with, _unsent)
 from test_import import _uds
 
 needs_binary = pytest.mark.skipif(not BINARY.exists(), reason="build projects/disconect-core first (cargo build)")
@@ -339,3 +341,164 @@ def test_failed_conflict_write_leaves_the_loser_and_the_retry_converges(tmp_path
     rows = _converged([feeder, puller])
     assert {row[5] for row in rows if row[2] == "steps" and row[3] == "vendor_cloud"} == {float(LATE_STEPS)}
     _quiet([feeder, puller])
+
+
+# ---- opus review of 12a (F1-F4, F6) on every core pairing ---------------------------------------
+
+CORE_PAIRS = [("py", "rs"), ("rs", "py"), ("py", "py"), ("rs", "rs")]
+
+
+def _trigger(device: Device, name: str, sql: str) -> None:
+    """A permanent trigger: a TEMP one would not survive into the Rust process."""
+    with storage.open_for_write(device.db, "test") as conn:
+        conn.execute(f"CREATE TRIGGER {name} {sql}")
+        conn.commit()
+
+
+def _drop_trigger(device: Device, name: str) -> None:
+    with storage.open_for_write(device.db, "test") as conn:
+        conn.execute(f"DROP TRIGGER {name}")
+        conn.commit()
+
+
+def _pull_fails(fleet: Fleet, device: Device, relay: FolderRelay) -> None:
+    """The pull fails as a database error (exit 6 on the Rust seat)."""
+    if device.core == "rs":
+        done = subprocess.run([str(BINARY), "--db", str(device.db), "sync", "pull", "--relay", str(relay.root)],
+                              env=_rust_env(), capture_output=True, text=True, timeout=300)
+        assert done.returncode == 6, f"the pull must fail as a database error: {done.returncode} {done.stderr[-300:]}"
+        return
+    with storage.open_for_write(device.db, "sync") as conn, pytest.raises((sync.RecordWriteFailed, storage.sqlite.Error)):
+        sync.pull(conn, fleet.master, relay)
+
+
+def _read(device: Device, sql: str) -> list:
+    conn = storage.open_read_only(device.db)
+    try:
+        return [tuple(row) for row in conn.execute(sql).fetchall()]
+    finally:
+        conn.close()
+
+
+def _pair_of_devices(tmp_path, fleet, feeder_core, puller_core, puller_records):
+    """The feeder holds the late 06-15 observation, the puller ``puller_records`` (the early 06-15 one among them)."""
+    feeder, puller = fleet.device("feeder", feeder_core), fleet.device("puller", puller_core)
+    fleet.do_import(puller, _store_many(tmp_path / "x", puller_records))
+    fleet.do_import(feeder, _store_with(tmp_path / "y", _rec("2025-06-15", LATE_STEPS, "21")))
+    relay = FolderRelay(tmp_path / "relay")
+    fleet.push(feeder, relay), fleet.push(puller, relay)
+    return feeder, puller, relay
+
+
+# F1: the winner reuses the retired loser's rowid (the loser was the max id) and must still be marked seen
+@pytest.mark.parametrize("feeder_core,puller_core", CORE_PAIRS)
+def test_f1_conflict_winner_is_marked_seen_on_every_core(tmp_path, fleet, feeder_core, puller_core):
+    feeder, puller, relay = _pair_of_devices(tmp_path, fleet, feeder_core, puller_core, [_rec("2025-06-15", EARLY_STEPS, "12")])
+    fleet.pull(puller, relay)
+    conn = storage.open_read_only(puller.db)
+    try:
+        assert _seen(conn, _hash_of(feeder.db)) == 1
+        assert _unsent(conn) == 0
+    finally:
+        conn.close()
+    fleet.rounds([feeder, puller], relay)
+    _converged([feeder, puller])
+    _quiet([feeder, puller])
+
+
+# F2: the winner is stored but its relay_seen row was refused; the retry must still mark it
+@pytest.mark.parametrize("feeder_core,puller_core", [("py", "rs"), ("rs", "py")])
+def test_f2_retried_pull_marks_the_stored_winner_seen(tmp_path, fleet, feeder_core, puller_core):
+    feeder, puller, relay = _pair_of_devices(
+        tmp_path, fleet, feeder_core, puller_core, [_rec("2025-06-15", EARLY_STEPS, "12"), _rec("2025-06-16", 3000, "21")])
+    incoming = _hash_of(feeder.db)
+    _trigger(puller, "inject_f2", "BEFORE INSERT ON relay_seen WHEN (SELECT payload_hash FROM raw_records "
+                                  f"WHERE id=NEW.raw_record_id)='{incoming}' BEGIN SELECT RAISE(ABORT,'crash after commit'); END")
+    _pull_fails(fleet, puller, relay)
+    assert _read(puller, "SELECT status FROM relay_bundles WHERE direction='pulled'") == [("applying",)]
+    _drop_trigger(puller, "inject_f2")
+    fleet.pull(puller, relay)
+    conn = storage.open_read_only(puller.db)
+    try:
+        assert _seen(conn, incoming) == 1
+        assert _history_of(conn) == (1, 1), "no duplicate conflict row"
+        assert _unsent(conn) == 0
+    finally:
+        conn.close()
+    fleet.rounds([feeder, puller], relay)
+    _converged([feeder, puller])
+
+
+def _history_of(conn) -> tuple[int, int]:
+    return _count(conn, "SELECT count(*) FROM sync_conflicts"), _count(conn, "SELECT count(*) FROM raw_superseded")
+
+
+# F3: a plain (non-conflict) record whose write is refused keeps its bundle applying; the retry converges
+@pytest.mark.parametrize("abort", ["ABORT", "ROLLBACK"])
+@pytest.mark.parametrize("feeder_core,puller_core", CORE_PAIRS)
+def test_f3_plain_record_storage_failure_is_retried(tmp_path, fleet, feeder_core, puller_core, abort):
+    feeder, puller = fleet.device("feeder", feeder_core), fleet.device("puller", puller_core)
+    fleet.do_import(feeder, _store_with(tmp_path / "y", _rec("2025-06-15", LATE_STEPS, "21")))
+    relay = FolderRelay(tmp_path / "relay")
+    fleet.push(feeder, relay)
+    incoming = _hash_of(feeder.db)
+    _trigger(puller, "inject_f3", f"BEFORE INSERT ON raw_records WHEN NEW.payload_hash='{incoming}' BEGIN SELECT RAISE({abort},'injected'); END")
+    _pull_fails(fleet, puller, relay)
+    assert _read(puller, "SELECT status FROM relay_bundles WHERE direction='pulled'") == [("applying",)]
+    assert _read(puller, "SELECT count(*) FROM raw_records") == [(0,)]
+    _drop_trigger(puller, "inject_f3")
+    fleet.rounds([feeder, puller], relay)
+    _converged([feeder, puller])
+    assert _read(puller, "SELECT status FROM relay_bundles WHERE direction='pulled'")[0] == ("applied",)
+    _quiet([feeder, puller])
+
+
+# F4: the failing bundle carries an incoming loser ahead of the failing winner; no duplicate history rows after the retry
+@pytest.mark.parametrize("feeder_core,puller_core", [("py", "py"), ("py", "rs"), ("rs", "py")])
+def test_f4_reapplied_bundle_keeps_one_history_row_per_conflict(tmp_path, fleet, feeder_core, puller_core):
+    feeder, puller, third = fleet.device("feeder", feeder_core), fleet.device("puller", puller_core), fleet.device("third", "py")
+    fleet.do_import(feeder, _store_many(tmp_path / "f", [_rec("2025-06-14", 1000, "12"), _rec("2025-06-15", LATE_STEPS, "21")]))
+    fleet.do_import(puller, _store_many(tmp_path / "p", [_rec("2025-06-14", 2000, "21"), _rec("2025-06-15", EARLY_STEPS, "12")]))
+    fleet.do_import(third, _store_many(tmp_path / "t", [_rec("2025-06-16", 3000, "21")]))
+    relay = FolderRelay(tmp_path / "relay")
+    for device in (feeder, puller, third):
+        fleet.push(device, relay)
+    winner = _read(feeder, "SELECT payload_hash FROM raw_records WHERE source_key LIKE '%2025-06-15%'")[0][0]
+    _trigger(puller, "inject_f4", f"BEFORE INSERT ON raw_records WHEN NEW.payload_hash='{winner}' BEGIN SELECT RAISE(ABORT,'x'); END")
+    _pull_fails(fleet, puller, relay)
+    _drop_trigger(puller, "inject_f4")
+    fleet.pull(puller, relay), fleet.pull(third, relay)
+    fleet.rounds([feeder, puller, third], relay)
+    histories = {device.db.stem: tuple(_read(device, "SELECT (SELECT count(*) FROM sync_conflicts), "
+                                                     "(SELECT count(*) FROM raw_superseded)")[0])
+                 for device in (feeder, puller, third)}
+    assert len(set(histories.values())) == 1, histories
+    assert histories["puller"][0] == histories["puller"][1]
+    _converged([feeder, puller, third])
+    _quiet([feeder, puller, third])
+
+
+# F6: a corrupt retained record fails the reparse dry run with the same JSON failure entry on both cores
+def test_f6_corrupt_record_reparse_failures_carry_the_same_keys(tmp_path, fleet):
+    payloads = {}
+    for core in ("py", "rs"):
+        device = fleet.device(core, core)
+        fleet.do_import(device, _store_with(tmp_path / core, _rec("2025-06-15", LATE_STEPS, "21")))
+        with storage.open_for_write(device.db, "test") as conn:
+            conn.execute("UPDATE raw_records SET payload=?", (zlib.compress(b"this is not json"),))
+            conn.commit()
+        if core == "rs":
+            done = subprocess.run([str(BINARY), "--db", str(device.db), "--json", "reparse"], env=_rust_env(),
+                                  capture_output=True, text=True, timeout=300)
+            assert done.returncode == 1, done.stderr[-300:]
+            payloads[core] = json.loads(done.stdout)
+        else:
+            with storage.open_for_write(device.db, "reparse") as conn:
+                stats = sources.reparse_all(conn)
+            payloads[core] = {"failures": stats.failures, "files_failed": stats.files_failed, "status": stats.status()}
+    py, rs = payloads["py"]["failures"], payloads["rs"]["failures"]
+    assert len(py) == len(rs) == 1
+    assert sorted(py[0]) == sorted(rs[0]) == ["error", "file", "kind", "stream"]
+    for key in ("file", "kind", "stream"):
+        assert py[0][key] == rs[0][key], key   # the error wording differs (kb/22 #9)
+    assert payloads["py"]["status"] == payloads["rs"]["status"] == "failed"
