@@ -93,6 +93,19 @@ def refresh_manifest(snapshot: pathlib.Path, master: bytes | None) -> dict:
     return manifest
 
 
+def snapshot_files(dest_dir: pathlib.Path, suffix: str = "") -> list[pathlib.Path]:
+    """Snapshots in ``dest_dir`` under the current and every earlier prefix, oldest first by stamp.
+
+    ``suffix`` selects a companion (``.plaintext-rollback``); the default selects the snapshots.
+    Earlier prefixes are read forever: a plaintext snapshot an old build wrote must still be found
+    to be encrypted, rotated or listed.
+    """
+    dest_dir = pathlib.Path(dest_dir)
+    prefixes = [identity.BACKUP_PREFIX, *identity.LEGACY_BACKUP_PREFIXES]
+    found = {path for prefix in prefixes for path in dest_dir.glob(f"{prefix}-*.db{suffix}")}
+    return sorted(found, key=lambda path: (path.name.split("-", 1)[1], path.name))
+
+
 def default_backup_dir(db_path: pathlib.Path) -> pathlib.Path:
     return pathlib.Path(db_path).parent / "backups"
 
@@ -110,7 +123,7 @@ def create_backup(db_path: pathlib.Path, dest_dir: pathlib.Path | None = None,
     dest_dir = pathlib.Path(dest_dir) if dest_dir else default_backup_dir(db_path)
     dest_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.datetime.now(_time.UTC).strftime("%Y%m%dT%H%M%SZ")
-    target = dest_dir / f"hearthbeat-{stamp}.db"
+    target = dest_dir / f"{identity.BACKUP_PREFIX}-{stamp}.db"
     if target.exists():
         raise BackupError(f"a snapshot named {target.name} already exists; wait a second and retry")
     from disconect import storage
@@ -138,7 +151,7 @@ def list_backups(dest_dir: pathlib.Path) -> list[dict]:
     if not dest_dir.is_dir():
         return []
     found = []
-    for path in sorted(dest_dir.glob("hearthbeat-*.db"), reverse=True):
+    for path in reversed(snapshot_files(dest_dir)):
         manifest_path = path.with_name(path.name + MANIFEST_SUFFIX)
         if manifest_path.exists():
             with contextlib.suppress(ValueError):

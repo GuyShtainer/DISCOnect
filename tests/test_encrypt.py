@@ -411,3 +411,55 @@ def test_malformed_key_files_are_locked_not_crashes(tmp_path, db_path, capsys, m
     key_path.write_text(json.dumps(document))
     code, out, err = _run(["--db", str(db_path), "status"], capsys)
     assert code == cli.EXIT_LOCKED and "Traceback" not in err
+
+
+# ---- Bet 02a: backup prefixes ----
+
+def _as_old_build(snapshot):
+    """Rename a snapshot and its manifest to the prefix an earlier build wrote (`hearthbeat-*`)."""
+    old = snapshot.with_name("hearthbeat-" + snapshot.name.split("-", 1)[1])
+    snapshot.rename(old)
+    manifest = snapshot.with_name(snapshot.name + backup.MANIFEST_SUFFIX)
+    manifest.rename(old.with_name(old.name + backup.MANIFEST_SUFFIX))
+    return old
+
+
+def test_new_snapshots_use_the_current_prefix_and_both_prefixes_are_listed_newest_first(tmp_path, db_path, capsys):
+    _populate(tmp_path, db_path)
+    code, out, err = _run(["--db", str(db_path), "--json", "backup"], capsys, env_pass=None)
+    first = backup.default_backup_dir(db_path) / json.loads(out)["file"]
+    assert first.name.startswith("disconect-") and first.name.endswith(".db")
+    old = _as_old_build(first)
+    older = old.with_name("hearthbeat-20200101T000000Z.db")
+    import shutil
+    shutil.copy2(old, older)
+    newer = old.with_name("disconect-29990101T000000Z.db")
+    shutil.copy2(old, newer)
+    assert [p.name for p in backup.snapshot_files(old.parent)] == [older.name, old.name, newer.name]
+    listed = backup.list_backups(old.parent)
+    assert len(listed) == 3
+    assert listed[0]["file"] == newer.name and listed[2]["file"] == older.name, "newest stamp first across prefixes"
+
+
+def test_an_old_prefix_plaintext_snapshot_is_still_encrypted_purged_and_rotated(tmp_path, db_path, capsys, monkeypatch):
+    rows = _populate(tmp_path, db_path)
+    code, out, err = _run(["--db", str(db_path), "--json", "backup"], capsys, env_pass=None)
+    old = _as_old_build(backup.default_backup_dir(db_path) / json.loads(out)["file"])
+    assert storage.is_encrypted_file(old) is False
+    _init(db_path, capsys)                                   # encrypt_store: finds the old prefix
+    assert storage.is_encrypted_file(old) is True, "plaintext snapshot left behind"
+    rollback = pathlib.Path(str(old) + encrypt.ROLLBACK_SUFFIX)
+    assert rollback.exists() and storage.is_encrypted_file(rollback) is False
+    code, out, err = _run(["--db", str(db_path), "--json", "encrypt", "--purge-plaintext"], capsys)
+    assert code == 0 and old.name + encrypt.ROLLBACK_SUFFIX in json.loads(out)["removed"] and not rollback.exists()
+    storage._unlocked.clear(); keys.forget_session()
+    key_path = keys.key_path_for(db_path)
+    old_master = keys.unlock_with_passphrase(keys.read_key_file(key_path), PASS)
+    storage._unlocked.clear(); keys.forget_session()
+    code, out, err = _rotate(db_path, capsys, monkeypatch)
+    assert code == 0, err
+    assert json.loads(out)["snapshots"] == [old.name], "rotate-recovery must rekey the old-prefix snapshot"
+    new_master = keys.unlock_with_passphrase(keys.read_key_file(key_path), PASS)
+    with pytest.raises(storage.DatabaseError):
+        storage.connect(old, read_only=True, master=old_master).execute("SELECT count(*) FROM sqlite_master").fetchone()
+    assert backup.verify_backup(old, new_master)["encrypted"] is True

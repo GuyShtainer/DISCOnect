@@ -98,7 +98,7 @@ def encrypt_store(db_path: pathlib.Path, master: bytes) -> dict:
         encrypt_file(db_path, master, replace=True)
         converted["database"] = db_path.name
         converted["plaintext_left"].append(db_path.name + ROLLBACK_SUFFIX)
-        for snapshot in sorted(backup.default_backup_dir(db_path).glob("hearthbeat-*.db")):
+        for snapshot in backup.snapshot_files(backup.default_backup_dir(db_path)):
             if storage.is_encrypted_file(snapshot) is False:
                 encrypt_file(snapshot, master, replace=True)
                 backup.refresh_manifest(snapshot, master)
@@ -123,7 +123,7 @@ def purge_plaintext(db_path: pathlib.Path) -> dict:
     removed = []
     with write_lock(db_path, "purge-plaintext"):
         candidates = list(db_path.parent.glob(db_path.name + ROLLBACK_SUFFIX))
-        candidates += list(backup.default_backup_dir(db_path).glob("hearthbeat-*.db" + ROLLBACK_SUFFIX))
+        candidates += backup.snapshot_files(backup.default_backup_dir(db_path), ROLLBACK_SUFFIX)
         candidates += [p for p in db_path.parent.glob(db_path.name + ".pre-restore-*")
                        if p.suffix not in ("-wal", "-shm") and storage.is_encrypted_file(p) is False]
         candidates += list(db_path.parent.glob(keys.key_path_for(db_path).name + ".replaced"))
@@ -157,7 +157,7 @@ def rekey_store(db_path: pathlib.Path, old_master: bytes, new_master: bytes, new
     db_path = pathlib.Path(db_path)
     key_path = keys.key_path_for(db_path)
     next_path = key_path.with_name(key_path.name + keys.NEXT_SUFFIX)
-    snapshots = [p for p in sorted(backup.default_backup_dir(db_path).glob("hearthbeat-*.db"))
+    snapshots = [p for p in backup.snapshot_files(backup.default_backup_dir(db_path))
                  if storage.is_encrypted_file(p)]
     copies = [p for p in sorted(db_path.parent.glob(db_path.name + ".pre-restore-*"))
               if p.suffix not in ("-wal", "-shm") and storage.is_encrypted_file(p)]
