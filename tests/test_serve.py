@@ -339,7 +339,8 @@ def _calls(export_root):
     unlocked_reads = [("data.health", {"window_days": 3650}),
                       ("data.metric", {"metric": "sleep_score", "scope": "device", "days": 60, "last_day": "2025-06-30"}),
                       ("data.metric", {"metric": "stress", "scope": "device", "days": 30, "last_day": "2025-06-30"}),
-                      ("data.today", {}), ("data.facts", {"days": 7, "baseline_days": 28})]
+                      ("data.today", {}), ("data.facts", {"days": 7, "baseline_days": 28}),
+                      ("sync.status", {}), ("sync.run", {})]
     return ([("app.info", {}), ("key.status", {}), ("bogus.method", {})]
             + unlocked_reads                                    # locked errors
             + [("key.unlock", {"passphrase": WRONG}), ("key.unlock", {"passphrase": PASS}),

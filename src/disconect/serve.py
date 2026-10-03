@@ -34,8 +34,10 @@ from typing import Any, TextIO
 
 from disconect import __version__, contract, coverage, health, identity, insight, queries, storage
 from disconect.ingest import sources
+from disconect.relay import config as relay_config
+from disconect.relay import sync as sync_module
 from disconect.redact import redact_text
-from disconect.storage import keys, migrations, sqlite
+from disconect.storage import home, keys, migrations, sqlite
 
 Id = int | str | None
 
@@ -133,6 +135,7 @@ def _error_for(exc: Exception) -> tuple[str, str]:
 #: First match wins, so subclasses come before their bases.
 _ERROR_CODES: tuple[tuple[type[Exception], str], ...] = (
     (keys.WrongPassphrase, "wrong_passphrase"),
+    (relay_config.UnsupportedTransport, "unsupported_transport"),
     (keys.WeakPassphrase, "weak_passphrase"),
     (keys.KeyFileMissing, "not_encrypted"),
     (keys.Locked, "locked"),
@@ -384,6 +387,70 @@ def import_last(session: Session, call: Call) -> dict:
     return {"runs": runs}
 
 
+# ---- sync ----
+
+@_unlocked_only
+def sync_status(session: Session, call: Call) -> dict:
+    """The relay counts of the store (``sync status``): read-only, so a store older than the relay
+    tables answers what a fresh one would."""
+    with session.reader() as conn:
+        if migrations.has_table(conn, "relay_bundles"):
+            return sync_module.status(conn)
+        return {"bundles": {}, "records_unsent": conn.execute("SELECT count(*) FROM raw_records").fetchone()[0],
+                "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": []}
+
+
+def _sync_event(session: Session, phase: str, state: str, counts: dict | None = None) -> None:
+    with contextlib.suppress(OSError):  # the bridge is gone; EOF on stdin ends the process
+        session.channel.event({"event": "progress", "op": "sync", "phase": phase, "state": state, **(counts or {})})
+
+
+def _run_sync(session: Session, master: bytes, relay: Any) -> dict:
+    """Push, then pull, over one connection and one hold of the write lock (never waiting for it).
+    Counts only: bundle names are random per push and nothing in a UI needs them."""
+    with storage.open_for_write(session.db_path, purpose="sync", timeout_s=0.0) as conn:
+        _sync_event(session, "push", "start")
+        pushed = sync_module.push(conn, master, relay)
+        push = {"bundles": len(pushed.bundles), "records": pushed.records, "ranges": pushed.ranges}
+        _sync_event(session, "push", "done", push)
+        _sync_event(session, "pull", "start")
+        pulled = sync_module.pull(conn, master, relay)
+        pull = {"applied": len(pulled.applied), "rejected": len(pulled.rejected),
+                "records_new": pulled.records_new, "records_duplicate": pulled.records_duplicate,
+                "records_invalid": pulled.records_invalid, "conflicts": pulled.conflicts,
+                "ranges_new": pulled.ranges_new, "gaps": len(pulled.gaps), "status": pulled.status}
+        _sync_event(session, "pull", "done", pull)
+    return {"push": push, "pull": pull}
+
+
+def _sync_worker(session: Session, call: Call, master: bytes, relay: Any) -> None:
+    """The worker thread body: sync, free the slot, then answer the request."""
+    line = _line_for(call.id, lambda: _run_sync(session, master, relay))
+    session.import_slot.release()
+    with contextlib.suppress(OSError):
+        session.channel.write(line)
+
+
+@_unlocked_only
+def sync_run(session: Session, call: Call) -> Any:
+    """Start a push-then-pull over the relay ``relay.json`` names; the answer is sent when it finishes.
+    Checked in this order: unlocked (``locked``), a relay configured (``not_found``), an encrypted store
+    (``not_encrypted``), a transport this core has (``unsupported_transport``), the slot shared with
+    ``import.run`` (``busy``)."""
+    chosen = relay_config.read(session.db_path.parent / home.RELAY_CONFIG_NAME)
+    if chosen is None:
+        raise ServeError("not_found", "no relay is configured (relay.json in the data folder)")
+    master = storage.unlocked_master(session.db_path)
+    if master is None:
+        raise ServeError("not_encrypted", f"the relay needs an encrypted store: run '{identity.COMMAND} key init' first")
+    relay = relay_config.open_relay(*chosen)
+    if not session.import_slot.acquire(blocking=False):
+        raise ServeError("busy", "an import or a sync is already running")
+    session.import_thread = threading.Thread(target=_sync_worker, args=(session, call, master, relay), name="sync")
+    session.import_thread.start()
+    return _DEFERRED
+
+
 #: The protocol's methods. A method exists exactly when it is a key here.
 METHODS: dict[str, Handler] = {
     "app.info": app_info,
@@ -396,6 +463,8 @@ METHODS: dict[str, Handler] = {
     "data.facts": data_facts,
     "import.run": import_run,
     "import.last": import_last,
+    "sync.status": sync_status,
+    "sync.run": sync_run,
 }
 
 

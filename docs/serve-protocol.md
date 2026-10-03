@@ -17,7 +17,9 @@ side is the only process that ever holds the DB key.
   and streams `progress` events; a second `import.run` while one runs → `{"error":{"code":"busy"}}`;
   the CLI importing at the same time → `busy` too (WriteLockBusy).
 - Error codes (strings): `locked`, `wrong_passphrase`, `weak_passphrase`, `not_encrypted`,
-  `busy`, `not_found`, `bad_params`, `unknown_method`, `database`, `internal`. Messages go
+  `busy`, `not_found`, `bad_params`, `unknown_method`, `database`, `internal`, plus (Bet 12 slice B)
+  `unsupported_transport` (`sync.run` with a `lan` relay on the Python core) and `relay_auth_failed`
+  (a LAN relay refused the token; Rust only). Messages go
   through `redact.redact_text`; never a path the user did not pass in this request.
 - Env: honours `DISCONECT_DB` / `--db PATH` and `DISCONECT_KEYS`. The env passphrase path
   (`DISCONECT_PASSPHRASE`) is **ignored** by `serve` (the bridge strips it anyway).
@@ -51,6 +53,8 @@ side is the only process that ever holds the DB key.
 | `data.today` | – | `{"day": "<local today>", "metrics": [{"metric","scope","value","unit","day","status"}]}` — the latest value per (metric, scope) in the contract; when none is stored, `value` **and `day`** are null and `status` comes from `coverage.statuses_on(today)` (`failed`, `source_empty`, `not_covered`) |
 | `data.facts` | `{"days": int=7, "baseline_days": int=28}` | `insight.period_facts(...)` as dict (comparisons carry scope + confidence) |
 | `import.run` | `{"path": str, "transport": "export"|"usb"}` | `{"run_id", "files", "ok", "partial", "duplicate", "failed"}` after completion; progress events meanwhile |
+| `sync.status` | – | `{"bundles": {"<direction>_<status>": n}, "records_unsent": n, "records_seen": n, "conflicts": n, "superseded": n, "gaps": [{"chain","device_seq","missing"}]}`: the counts of `sync status`, read-only (a store older than the relay tables answers what a fresh one would); needs the store unlocked |
+| `sync.run` | – (params ignored) | push, then pull, over the relay `relay.json` beside the store names (`{"folder": ...}`, or `{"lan": "http://host:port"}` on the Rust core), as a worker like `import.run`: `{"push": {"bundles","records","ranges"}, "pull": {"applied","rejected","records_new","records_duplicate","records_invalid","conflicts","ranges_new","gaps","status": "ok"|"partial"}}`, **counts only** (bundle names are random per push and nothing in a UI needs them; the CLI's JSON lists them). Four `progress` events `{"event":"progress","op":"sync","phase":"push"|"pull","state":"start"|"done", …the phase's counts on "done"}` precede the response. Checked in this order: `locked`; no relay configured (`not_found`, "no relay is configured (relay.json in the data folder)"); a plaintext store (`not_encrypted`: the relay account derives from the master); a `lan` relay on the Python core (`unsupported_transport`); a malformed LAN address (`bad_params`); a second `import.run`/`sync.run` while one runs (`busy`, shared slot); another process holding the write lock (`busy`). Failures during the run: an unreachable LAN relay is `not_found` ("the relay is unreachable (retry later)"), a refused token `relay_auth_failed`, any other HTTP status `internal`; database errors `database`. |
 | `import.last` | – | `{"runs": [...]}` — the newest ≤5 `import_runs` rows (`id, started_at, finished_at, transport, status, files_seen, files_imported, files_duplicate, files_failed, records_written, error` — error redacted) each with a `failures` count from `import_failures` (0 on a schema without that table) |
 
 ## Core helpers added for serve (also usable by CLI/MCP)
