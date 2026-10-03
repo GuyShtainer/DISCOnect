@@ -14,6 +14,7 @@ import datetime
 import hashlib
 import json
 import zlib
+from collections.abc import Callable
 
 from disconect.ingest import fit_wellness
 from disconect.ingest.clock import ClockOffsets
@@ -407,16 +408,25 @@ class Writer:
         return row is not None
 
     def write_json_record(self, stream: str, source_key: str, record: dict, decoded: Decoded,
-                          label: str, origin: tuple[str, str] | None = None) -> str:
-        """Retain one JSON record (a Connect export day/night) and its decoded facts."""
+                          label: str, origin: tuple[str, str] | None = None,
+                          before_write: Callable[[], None] | None = None) -> str:
+        """Retain one JSON record (a Connect export day/night) and its decoded facts.
+
+        ``before_write`` (the relay's conflict hook) runs inside this record's own transaction, ahead of
+        the raw row and canonical rows: it retires the stored record the new one replaces, so a storage
+        error anywhere rolls the whole swap back (FAILED, the old record untouched). With a hook the
+        stored row is expected to exist, so the duplicate pre-check is skipped.
+        """
         self.stats.files_seen += 1
-        if self._is_duplicate(stream, source_key):
+        if before_write is None and self._is_duplicate(stream, source_key):
             self.stats.files_duplicate += 1
             return DUPLICATE
         data = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
         summary = {"dropped": decoded.dropped, "warnings": decoded.warnings[:10]}
         try:
             self.conn.execute("BEGIN")
+            if before_write is not None:
+                before_write()
             raw_id = self._store_raw(stream, source_key, decoded.source_scope, decoded.device_id,
                                      decoded.start_utc, decoded.end_utc, "json", data, summary, origin)
             if raw_id is None:
