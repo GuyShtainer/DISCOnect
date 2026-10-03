@@ -70,7 +70,8 @@ def test_design_tokens_css_is_generated_from_json():
 
 
 #: Modules that already print to stderr; no module may join them (serve's stdout is a protocol).
-PRINTERS = {"cli.py", "mcp_server.py", "storage/__init__.py", "storage/keys.py"}
+PRINTERS = {"cli.py", "mcp_server.py", "storage/__init__.py", "storage/home.py",
+            "storage/keys.py"}
 
 
 def test_no_new_print_outside_the_cli():

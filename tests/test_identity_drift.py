@@ -58,7 +58,7 @@ def test_the_keychain_service_names_differ_on_purpose():
 
 
 STRING_NAMES = ("DATA_DIR", "DB_FILENAME", "ENV_PREFIX", "CLI_KEYCHAIN_SERVICE", "MCP_SERVER_NAME", "COMMAND",
-                "BACKUP_PREFIX")
+                "BACKUP_PREFIX", "LEGACY_DB_FILENAME", "LEGACY_ENV_PREFIX")
 LIST_NAMES = ("LEGACY_HOMES", "LEGACY_BACKUP_PREFIXES")
 
 

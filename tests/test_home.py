@@ -1,0 +1,123 @@
+"""Where the data folder is (Bet 02a): pure resolution, the legacy read-through, one stderr hint."""
+
+import pathlib
+
+import pytest
+
+from disconect import cli, identity, storage
+from disconect.storage import home
+
+LEGACY_HINT = "using legacy data folder ~/.hearthbeat; run 'disconect migrate-home' to move it"
+
+
+def _touch_db(folder: pathlib.Path, name: str) -> pathlib.Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / name
+    path.write_bytes(b"")
+    return path
+
+
+def _tree(root: pathlib.Path) -> list[str]:
+    return sorted(str(p.relative_to(root)) for p in root.rglob("*"))
+
+
+def test_the_new_file_wins_over_the_legacy_one(tmp_path):
+    new = _touch_db(tmp_path / ".disconect", "disconect.db")
+    _touch_db(tmp_path / ".hearthbeat", "hearthbeat.db")
+    assert home.resolve_default_db() == (new, None)
+    assert storage.default_db_path() == new
+
+
+def test_the_legacy_file_is_read_through_when_only_it_exists(tmp_path):
+    legacy = _touch_db(tmp_path / ".hearthbeat", "hearthbeat.db")
+    assert home.resolve_default_db() == (legacy, ".hearthbeat")
+    assert storage.default_db_path() == legacy
+
+
+def test_a_db_less_new_folder_does_not_hide_the_legacy_store(tmp_path):
+    """The decision is on the db *file*: `sync --remember` makes ~/.disconect with only relay.json."""
+    (tmp_path / ".disconect").mkdir()
+    (tmp_path / ".disconect" / "relay.json").write_text("{}")
+    legacy = _touch_db(tmp_path / ".hearthbeat", "hearthbeat.db")
+    assert home.resolve_default_db() == (legacy, ".hearthbeat")
+
+
+def test_neither_exists_gives_the_new_path_and_creates_nothing(tmp_path):
+    before = _tree(tmp_path)
+    assert home.resolve_default_db() == (tmp_path / ".disconect" / "disconect.db", None)
+    assert home.relay_config_path() == tmp_path / ".disconect" / "relay.json"
+    assert _tree(tmp_path) == before, "resolution must never mkdir"
+
+
+def test_a_legacy_folder_without_the_db_file_is_not_a_store(tmp_path):
+    (tmp_path / ".hearthbeat").mkdir()
+    (tmp_path / ".hearthbeat" / "relay.json").write_text("{}")
+    assert home.resolve_default_db() == (tmp_path / ".disconect" / "disconect.db", None)
+
+
+def test_the_env_override_wins_and_is_never_a_legacy_read(tmp_path, monkeypatch):
+    _touch_db(tmp_path / ".hearthbeat", "hearthbeat.db")
+    monkeypatch.setenv("DISCONECT_DB", "~/elsewhere/x.db")
+    assert home.resolve_default_db() == (tmp_path / "elsewhere" / "x.db", None)
+    assert home.relay_config_path() == tmp_path / "elsewhere" / "relay.json"
+
+
+def test_relay_config_follows_the_resolved_folder(tmp_path):
+    _touch_db(tmp_path / ".hearthbeat", "hearthbeat.db")
+    assert home.relay_config_path() == tmp_path / ".hearthbeat" / "relay.json"
+    _touch_db(tmp_path / ".disconect", "disconect.db")
+    assert home.relay_config_path() == tmp_path / ".disconect" / "relay.json"
+
+
+def test_the_cli_prints_the_legacy_hint_once_on_stderr_and_moves_nothing(tmp_path, capsys):
+    with storage.open_for_write(tmp_path / ".hearthbeat" / "hearthbeat.db", "test"):
+        pass
+    code = cli.main(["status"])
+    out, err = capsys.readouterr()
+    assert code == 0
+    assert err.count(LEGACY_HINT) == 1 and LEGACY_HINT not in out
+    assert not (tmp_path / ".disconect").exists()
+    assert (tmp_path / ".hearthbeat" / "hearthbeat.db").is_file()
+
+
+def test_no_hint_for_an_explicit_db_for_help_or_for_the_new_folder(tmp_path, capsys):
+    with storage.open_for_write(tmp_path / ".hearthbeat" / "hearthbeat.db", "test"):
+        pass
+    scratch = tmp_path / "other.db"
+    with storage.open_for_write(scratch, "test"):
+        pass
+    assert cli.main(["--db", str(scratch), "status"]) == 0
+    assert LEGACY_HINT not in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        cli.main(["--help"])
+    assert LEGACY_HINT not in capsys.readouterr().err
+    with storage.open_for_write(tmp_path / ".disconect" / "disconect.db", "test"):
+        pass
+    assert cli.main(["status"]) == 0
+    assert LEGACY_HINT not in capsys.readouterr().err
+
+
+def test_a_missing_store_stays_missing_and_no_folder_appears(tmp_path, capsys):
+    assert cli.main(["status"]) == cli.EXIT_NOT_CONFIGURED
+    assert not (tmp_path / ".disconect").exists() and not (tmp_path / ".hearthbeat").exists()
+
+
+def test_old_env_names_warn_once_naming_the_new_one_and_are_not_read(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("HEARTHBEAT_DB", str(tmp_path / "ignored.db"))
+    monkeypatch.setenv("HEARTHBEAT_KEYS", str(tmp_path / "ignored.keys"))
+    assert storage.default_db_path() == tmp_path / ".disconect" / "disconect.db"
+    assert cli.main(["status"]) == cli.EXIT_NOT_CONFIGURED
+    err = capsys.readouterr().err
+    assert err.count("no longer read") == 1
+    assert "HEARTHBEAT_DB, HEARTHBEAT_KEYS are no longer read; set DISCONECT_DB, DISCONECT_KEYS instead" in err
+    monkeypatch.delenv("HEARTHBEAT_KEYS")
+    assert "HEARTHBEAT_DB is no longer read; set DISCONECT_DB instead" == home.legacy_env_warning()[len("warning: "):]
+
+
+def test_no_warning_without_old_env_names():
+    assert home.legacy_env_warning({}) is None
+    assert home.legacy_env_warning({"DISCONECT_DB": "x", "HEARTHBEAT_DB": ""}) is None
+
+
+def test_the_legacy_names_are_the_identity_constants():
+    assert (identity.LEGACY_HOMES, identity.LEGACY_DB_FILENAME) == ([".hearthbeat"], "hearthbeat.db")

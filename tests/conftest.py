@@ -29,7 +29,7 @@ def _isolated_secrets(tmp_path, monkeypatch):
     """Every test: cheap Argon2id, an in-memory keychain, no real HOME, no env passphrase, no unlock cache."""
     import keyring
     import keyring.backend
-    from disconect import storage
+    from disconect import identity, storage
     from disconect.storage import keys
 
     class _MemoryKeyring(keyring.backend.KeyringBackend):
@@ -55,6 +55,9 @@ def _isolated_secrets(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv(keys.PASSPHRASE_ENV, raising=False)
     monkeypatch.delenv(keys.KEYS_ENV, raising=False)
+    monkeypatch.delenv(storage.DEFAULT_DB_ENV, raising=False)
+    for suffix in ("DB", "KEYS", "PASSPHRASE", "RECOVERY_WORDS"):
+        monkeypatch.delenv(identity.LEGACY_ENV_PREFIX + suffix, raising=False)
     storage._unlocked.clear()
     keys.forget_session()
     yield memory

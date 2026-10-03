@@ -22,5 +22,7 @@ MCP_SERVER_NAME = "disconect"
 COMMAND = "disconect"
 #: Folders and backup prefixes of earlier builds, read through (never written) until Bet 2 publishes.
 LEGACY_HOMES = [".hearthbeat"]
+LEGACY_DB_FILENAME = "hearthbeat.db"
+LEGACY_ENV_PREFIX = "HEARTHBEAT_"
 BACKUP_PREFIX = "disconect"
 LEGACY_BACKUP_PREFIXES = ["hearthbeat"]

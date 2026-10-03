@@ -26,6 +26,7 @@ from disconect.ingest import sources
 from disconect.relay import sync as sync_module
 from disconect.relay.folder import FolderRelay
 from disconect.storage import backup as backup_module
+from disconect.storage import home
 from disconect.storage import encrypt as encrypt_module
 from disconect.storage import keys, sqlite
 
@@ -91,22 +92,20 @@ def cmd_import(args: argparse.Namespace) -> int:
     return EXIT_OK if stats.status() == "ok" else EXIT_FAILED
 
 
-RELAY_CONFIG = pathlib.Path("~/.hearthbeat/relay.json").expanduser()
-
-
 def _relay_for(args: argparse.Namespace) -> FolderRelay:
-    """The relay folder from --relay or ~/.hearthbeat/relay.json ({"folder": path}); no secrets live there."""
+    """The relay folder from --relay or ``relay.json`` in the data folder ({"folder": path}); no secrets live there."""
+    config = home.relay_config_path()
     folder = getattr(args, "relay", None)
-    if not folder and RELAY_CONFIG.exists():
+    if not folder and config.exists():
         try:
-            folder = json.loads(RELAY_CONFIG.read_text()).get("folder")
+            folder = json.loads(config.read_text()).get("folder")
         except (OSError, ValueError):
             folder = None
     if not folder:
-        raise FileNotFoundError("no relay folder: pass --relay <folder> or write {\"folder\": ...} to ~/.hearthbeat/relay.json")
+        raise FileNotFoundError(f"no relay folder: pass --relay <folder> or write {{\"folder\": ...}} to {config}")
     if getattr(args, "relay", None) and getattr(args, "remember", False):
-        RELAY_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-        RELAY_CONFIG.write_text(json.dumps({"folder": str(folder)}) + "\n")
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(json.dumps({"folder": str(folder)}) + "\n")
     return FolderRelay(pathlib.Path(folder).expanduser())
 
 
@@ -706,6 +705,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    home.announce_default_resolution(args.db)
     encrypt_module.cleanup_stray(pathlib.Path(args.db))
     try:
         return int(args.func(args))

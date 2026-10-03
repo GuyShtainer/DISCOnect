@@ -22,7 +22,7 @@ from collections.abc import Iterator
 
 from sqlcipher3 import dbapi2 as sqlite
 
-from disconect.storage import keys, migrations
+from disconect.storage import home, keys, migrations
 from disconect.storage._time import iso_utc, parse_iso_utc, utc_now_iso
 from disconect.storage.write_lock import WriteLockBusy, write_lock
 
@@ -63,11 +63,11 @@ class NotEncrypted(StorageError):
 
 
 def default_db_path() -> pathlib.Path:
-    """``$DISCONECT_DB`` if set, else ``~/.hearthbeat/hearthbeat.db``."""
-    override = os.environ.get(DEFAULT_DB_ENV)
-    if override:
-        return pathlib.Path(override).expanduser()
-    return pathlib.Path.home() / ".hearthbeat" / "hearthbeat.db"
+    """``$DISCONECT_DB``, else ``~/.disconect/disconect.db``, else the old folder's file while it exists.
+
+    Pure: no side effects (see :mod:`disconect.storage.home`).
+    """
+    return home.resolve_default_db()[0]
 
 
 def is_encrypted_file(path: pathlib.Path) -> bool | None:
