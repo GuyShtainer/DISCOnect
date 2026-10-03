@@ -393,7 +393,7 @@ class Writer:
             written = self._write_canonical(decoded, raw_id)
             self.conn.execute("COMMIT")
         except sqlite.Error as exc:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             self.stats.files_failed += 1
             self.stats.failures.append({"file": label, "kind": "storage", "error": redact_text(str(exc))})
             self._provenance(decoded.stream, "write", False, "storage", str(exc))
@@ -401,6 +401,17 @@ class Writer:
         self._provenance(decoded.stream, "write", True, records=written)
         self._account(decoded, written)
         return IMPORTED
+
+    def _rollback(self) -> None:
+        """End the open transaction -- unless the error already did (``RAISE(ROLLBACK)``, an I/O error), in
+        which case a second ROLLBACK would raise "no transaction is active" and mask the original error."""
+        if self.conn.in_transaction:
+            self.conn.execute("ROLLBACK")
+
+    def last_failure_is_storage(self) -> bool:
+        """The latest recorded failure is a storage error (the write was refused), as opposed to a decode
+        failure, which every device reaches identically. Call right after a write returned ``FAILED``."""
+        return bool(self.stats.failures) and self.stats.failures[-1]["kind"] == "storage"
 
     def _is_duplicate_fit(self, source_key: str) -> bool:
         row = self.conn.execute(
@@ -436,7 +447,7 @@ class Writer:
             written = self._write_canonical(decoded, raw_id)
             self.conn.execute("COMMIT")
         except sqlite.Error as exc:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             self.stats.files_failed += 1
             self.stats.failures.append({"file": label, "kind": "storage", "error": redact_text(str(exc))})
             self._provenance(stream, "write", False, "storage", str(exc))
@@ -588,7 +599,7 @@ class Writer:
                               (json.dumps(summary, sort_keys=True), raw_id))
             self.conn.execute("COMMIT")
         except sqlite.Error as exc:
-            self.conn.execute("ROLLBACK")
+            self._rollback()
             self.stats.files_failed += 1
             self.stats.failures.append({"file": label, "kind": "storage", "error": redact_text(str(exc))})
             self._provenance(stream, "write", False, "storage", str(exc))

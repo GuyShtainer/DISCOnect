@@ -325,7 +325,7 @@ def test_failed_conflict_write_leaves_the_loser_and_the_retry_converges(tmp_path
                               env=_rust_env(), capture_output=True, text=True, timeout=300)
         assert done.returncode == 6, f"the pull must fail as a database error: {done.returncode} {done.stderr[-300:]}"
     else:
-        with storage.open_for_write(puller.db, "sync") as conn, pytest.raises(sync.ConflictWriteFailed):
+        with storage.open_for_write(puller.db, "sync") as conn, pytest.raises(sync.RecordWriteFailed):
             sync.pull(conn, fleet.master, relay)
     with storage.open_for_write(puller.db, "test") as conn:
         assert conn.execute("SELECT payload_hash FROM raw_records WHERE stream='json:uds'").fetchall() == [(loser,)]

@@ -16,8 +16,9 @@ else the latest daily fact), ties by the larger payload_hash. A pure function of
 so every device converges whatever the arrival order. The loser's bytes go to ``raw_superseded``
 and the decision to ``sync_conflicts``. A winning incoming record retires the stored loser inside its own
 write transaction (``write_json_record(before_write=...)``): a storage error rolls the whole swap back, the
-pull raises ``ConflictWriteFailed`` and the bundle stays ``applying`` until the next pull reapplies it. The relay's own bytes are never trusted before the AEAD
-check, and ``Relay.put`` is called from exactly one place in this module with AEAD output.
+pull raises ``RecordWriteFailed`` and the bundle stays ``applying`` until the next pull reapplies it (so does
+a plain record whose write fails with a storage error; a decode failure does not, every device reaches it
+identically). The relay's own bytes are never trusted before the AEAD check, and ``Relay.put`` is called from exactly one place in this module with AEAD output.
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ from disconect.ingest import connect_export, fit_wellness
 from disconect.ingest.clock import ClockOffsets
 from disconect.ingest.model import Decoded
 from disconect.ingest.sources import rederive_json
-from disconect.ingest.writer import DUPLICATE, IMPORTED, Writer
+from disconect.ingest.writer import DUPLICATE, FAILED, IMPORTED, Writer
 from disconect.relay import bundle as bundle_module
 from disconect.relay.bundle import BundleRejected, account_for, new_name, pack, unpack
 from disconect.relay.folder import Relay
@@ -189,9 +190,10 @@ class _Conflict:
     existing: tuple   # (id, payload, payload_hash, payload_kind, transport, imported_at) of the stored row
 
 
-class ConflictWriteFailed(RuntimeError):
-    """A conflict's winner could not be stored. Everything the decision wrote was rolled back and the
-    losing record is still in place; the bundle stays ``applying`` so the next pull applies it again."""
+class RecordWriteFailed(RuntimeError):
+    """A pulled record could not be stored (a storage error, not a decode failure). Whatever the write
+    covered was rolled back -- for a conflict winner that includes the retirement of the losing record,
+    which is still in place. The bundle stays ``applying`` so the next pull applies it again."""
 
 
 def _decide_conflict(conn: sqlite.Connection, record: dict, incoming: Decoded) -> _Conflict | None:
@@ -239,8 +241,15 @@ def _record_incoming_loser(conn: sqlite.Connection, record: dict, conflict: _Con
                       record["transport"], record["imported_at"], utc_now_iso(), bundle_name))
         conn.execute("COMMIT")
     except sqlite.Error:
-        conn.execute("ROLLBACK")
+        if conn.in_transaction:   # RAISE(ROLLBACK) and I/O errors have already ended it
+            conn.execute("ROLLBACK")
         raise
+
+
+def _conflict_recorded(conn: sqlite.Connection, bundle_name: str, record: dict) -> bool:
+    """This bundle's decision on this record is already in ``sync_conflicts`` (a reapplied bundle)."""
+    return conn.execute("SELECT 1 FROM sync_conflicts WHERE bundle=? AND source_key=? AND stream=?",
+                        (bundle_name, record["source_key"], record["stream"])).fetchone() is not None
 
 
 def _loser_writes(conn: sqlite.Connection, writer: Writer, record: dict, conflict: _Conflict, bundle_name: str):
@@ -304,6 +313,8 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
             for record, data in fits:
                 before = writer.last_raw_id()
                 outcome = writer.write_fit(data, f"relay:{name[-8:]}", origin=(record["transport"], record["imported_at"]))
+                if outcome == FAILED and writer.last_failure_is_storage():
+                    raise RecordWriteFailed(f"{record['stream']} file not stored ({outcome}); nothing it wrote is kept")
                 _mark(conn, writer, before, name, outcome, result)
                 if outcome == DUPLICATE:
                     _mark_existing(conn, record, name)
@@ -319,7 +330,8 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
                 conflict = _decide_conflict(conn, record, decoded_facts)
                 hook = None
                 if conflict is not None and not conflict.incoming_wins:
-                    _record_incoming_loser(conn, record, conflict, name)
+                    if not _conflict_recorded(conn, name, record):   # a reapplied bundle decided this already
+                        _record_incoming_loser(conn, record, conflict, name)
                     result.conflicts += 1
                     continue
                 if conflict is not None:
@@ -327,9 +339,10 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
                 elif conn.execute("SELECT 1 FROM raw_records WHERE stream=? AND source_key=?",
                                   (record["stream"], record["source_key"])).fetchone():
                     # the same bytes are already here (a local import or an earlier bundle)
-                    if conn.execute("SELECT 1 FROM sync_conflicts WHERE bundle=? AND source_key=? AND stream=?",
-                                    (name, record["source_key"], record["stream"])).fetchone():
+                    if _conflict_recorded(conn, name, record):
+                        # a reapplied bundle: the winner is stored, its relay_seen row may not be
                         result.conflicts += 1
+                        _mark_existing(conn, record, name)
                     else:
                         result.records_duplicate += 1
                         _mark_existing(conn, record, name)
@@ -338,11 +351,14 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
                 outcome = writer.write_json_record(record["stream"], record["source_key"], record_dict, decoded_facts,
                                                    f"relay:{name[-8:]}", origin=(record["transport"], record["imported_at"]),
                                                    before_write=hook)
+                if outcome == FAILED and writer.last_failure_is_storage() or hook is not None and outcome != IMPORTED:
+                    raise RecordWriteFailed(f"{record['stream']} record not stored ({outcome}); nothing it wrote is kept")
                 if hook is not None:
-                    if outcome != IMPORTED:
-                        raise ConflictWriteFailed(f"{record['stream']} winner not stored ({outcome}); decision rolled back")
                     result.conflicts += 1
                 _mark(conn, writer, before, name, outcome, result)
+                if hook is not None:
+                    # the winner may have reused the retired loser's rowid (``id > before`` misses it)
+                    _mark_existing(conn, record, name)
             for item in ranges:
                 before = conn.total_changes
                 writer.record_export_range(item["stream"], item["from_day"], item["to_day"])
