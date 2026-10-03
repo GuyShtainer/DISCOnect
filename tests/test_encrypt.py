@@ -124,6 +124,38 @@ def test_keychain_cache_unlocks_without_passphrase(tmp_path, db_path, capsys, _i
     assert code == 0 and not _isolated_secrets.items
 
 
+def test_cache_remove_also_deletes_the_item_an_older_build_left_under_its_service(
+        tmp_path, db_path, capsys, _isolated_secrets):
+    """F4 of the 02a review: the old CLI keychain service ``hearthbeat`` must not keep an orphaned copy of the key."""
+    _populate(tmp_path, db_path)
+    _init(db_path, capsys)
+    assert _run(["--db", str(db_path), "key", "cache"], capsys)[0] == 0
+    (_, key_id), master_hex = next(iter(_isolated_secrets.items.items()))
+    legacy = ("hearthbeat", key_id)
+    _isolated_secrets.items[legacy] = master_hex
+    other = ("hearthbeat", "0" * 32)                       # another account under the old service stays
+    _isolated_secrets.items[other] = "x"
+    code, out, err = _run(["--db", str(db_path), "key", "cache", "--remove"], capsys)
+    assert code == 0, err
+    assert legacy not in _isolated_secrets.items and ("disconect-cli", key_id) not in _isolated_secrets.items
+    assert other in _isolated_secrets.items
+    # nothing cached under either service: ignored, not an error
+    assert _run(["--db", str(db_path), "key", "cache", "--remove"], capsys)[0] == 0
+
+
+def test_rotate_recovery_deletes_the_old_keys_item_under_the_older_service(
+        tmp_path, db_path, capsys, monkeypatch, _isolated_secrets):
+    _populate(tmp_path, db_path)
+    _init(db_path, capsys)
+    old_master = keys.unlock_with_passphrase(keys.read_key_file(keys.key_path_for(db_path)), PASS)
+    old_id = keys.key_id_for(old_master).hex()
+    _isolated_secrets.items[("hearthbeat", old_id)] = old_master.hex()
+    storage._unlocked.clear(); keys.forget_session()
+    code, out, err = _rotate(db_path, capsys, monkeypatch)
+    assert code == 0, err
+    assert ("hearthbeat", old_id) not in _isolated_secrets.items
+
+
 def test_backup_and_restore_stay_encrypted(tmp_path, db_path, capsys):
     rows = _populate(tmp_path, db_path)
     _init(db_path, capsys)

@@ -18,6 +18,9 @@ ENV_PREFIX = "DISCONECT_"
 #: The Python core's keychain service. Distinct from the Rust core's ``KEYCHAIN_SERVICE`` on purpose
 #: (docs/kb/23, class 5: macOS binds an item to the program that made it).
 CLI_KEYCHAIN_SERVICE = "disconect-cli"
+#: Service names an earlier build's Python core stored the master key under; ``key cache --remove`` and
+#: ``key rotate-recovery`` delete these items too so no orphan keeps a copy of the key.
+LEGACY_CLI_KEYCHAIN_SERVICES = ["hearthbeat"]
 MCP_SERVER_NAME = "disconect"
 COMMAND = "disconect"
 #: Folders and backup prefixes of earlier builds, read through (never written) until Bet 2 publishes.

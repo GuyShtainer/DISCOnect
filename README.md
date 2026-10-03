@@ -98,7 +98,7 @@ beside each snapshot). Once a key file exists, a plaintext database in its place
 restore or a stray copy can never downgrade you silently.
 
 Unlock paths, in order: the macOS login keychain (`key cache`; any program running as you can read
-it — undo with `key cache --remove`), or a passphrase prompt in a terminal. `DISCONECT_PASSPHRASE`
+it — undo with `key cache --remove`, which also deletes the item an older build left under the service name `hearthbeat`), or a passphrase prompt in a terminal. `DISCONECT_PASSPHRASE`
 exists for tests and CI only — **never put a passphrase in `claude_desktop_config.json`** or a
 launchd plist; the MCP server unlocks from the keychain at startup and never prompts. Other
 commands: `key change-passphrase` (same database key), `key recover` (words → new passphrase),
