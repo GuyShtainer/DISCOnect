@@ -31,6 +31,7 @@ from disconect import contract, queries, serve  # noqa: E402
 FIXTURES = pathlib.Path(__file__).resolve().parent / "fixtures" / "serve"
 STORE = FIXTURES / "synthetic.hbdb"
 STORE_V1 = FIXTURES / "synthetic-v1.hbdb"
+STORE_LIVE = FIXTURES / "synthetic-live.hbdb"
 STORE_EMPTY = FIXTURES / "empty.hbdb"
 RUST_DEBUG = serve_diff.default_rust_bin(release=False)
 
@@ -106,7 +107,8 @@ def _gunzipped(path: pathlib.Path) -> str:
 
 @pytest.mark.parametrize("store, oracle", [(STORE, "oracle-synthetic.jsonl.gz"),
                                            (STORE_V1, "oracle-synthetic-v1.jsonl.gz"),
-                                           (STORE_EMPTY, "oracle-empty.jsonl.gz")])
+                                           (STORE_EMPTY, "oracle-empty.jsonl.gz"),
+                                           (STORE_LIVE, "oracle-synthetic-live.jsonl.gz")])
 def test_the_committed_oracle_is_what_the_python_core_answers_today(tmp_path, store, oracle):
     out = tmp_path / "oracle.jsonl.gz"
     assert serve_diff.main(["--python-only", "--db", str(store), "--anchors-from", str(STORE),
@@ -219,6 +221,7 @@ def test_the_sync_leg_catches_a_core_that_differs_in_an_event_or_the_response(tm
     (STORE, "synthetic", None),
     (STORE_V1, "synthetic-v1", None),
     (STORE_EMPTY, "synthetic-never-imported", None),
+    (STORE_LIVE, "synthetic-live", None),
     (STORE, "synthetic-watch-ahead", gen_serve_fixtures.OTHER_NOWS[0]),
     (STORE, "synthetic-watch-behind", gen_serve_fixtures.OTHER_NOWS[1]),
     (STORE, "synthetic-years-later", gen_serve_fixtures.OTHER_NOWS[2]),

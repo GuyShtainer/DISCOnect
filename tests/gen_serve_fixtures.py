@@ -4,6 +4,7 @@
     python tests/gen_serve_fixtures.py            # rewrite synthetic.hbdb, synthetic-v1.hbdb, empty.hbdb and the generated script entries
     python tests/gen_serve_fixtures.py --oracle   # also rewrite oracle-synthetic*.jsonl.gz (the Python responses)
     python tests/gen_serve_fixtures.py --keep-stores --oracle   # rewrite the script and the oracles only
+    python tests/gen_serve_fixtures.py --live-only [--oracle]   # (re)build only synthetic-live.hbdb (and its oracle)
 
 The store is entirely synthetic (the privacy test's seed rows plus the synthetic Connect export the
 import tests build: serial and e-mail shapes are fake, plus the rows ``_extend_for_facts`` adds so that
@@ -11,7 +12,9 @@ import tests build: serial and e-mail shapes are fake, plus the rows ``_extend_f
 baselines, every confidence band, sparse metrics, a cancelling series, half-hour and tied clock offsets) and the
 rows ``_extend_for_coverage`` adds so that the coverage ledger meets every branch (see its docstring) and the
 rows ``_extend_for_health`` adds (runs and provenance messages to redact). The v1 store
-is the same data under the schema-v1 migration alone. The clock is pinned with ``DISCONECT_NOW`` so the
+is the same data under the schema-v1 migration alone. ``synthetic-live.hbdb`` is the synthetic store plus two
+live-link session files imported through ``sources.import_path`` (``live_files``: one spans midnight, one
+overlaps a day that has monitoring rows), so the read path is proven unchanged with ``json:live`` present. The clock is pinned with ``DISCONECT_NOW`` so the
 ``imported_at`` stamps are the same every time. ``tools/serve_diff.py`` produces the oracle file.
 """
 
@@ -33,6 +36,7 @@ FIXTURES = pathlib.Path(__file__).resolve().parent / "fixtures" / "serve"
 STORE = FIXTURES / "synthetic.hbdb"
 STORE_V1 = FIXTURES / "synthetic-v1.hbdb"
 STORE_EMPTY = FIXTURES / "empty.hbdb"
+STORE_LIVE = FIXTURES / "synthetic-live.hbdb"
 SCRIPT = FIXTURES / "script.json"
 PINNED_NOW = "2025-07-02T09:30:00Z"
 #: Further clock pins the live gate is run under (``serve_diff.py --now``): the watch ahead of UTC,
@@ -255,8 +259,40 @@ def _extend_for_health(conn) -> None:
                  (_STAMP, "disk full at /var/data/hearthbeat/store.db (123456789 bytes)", streams[1]))
 
 
-def build(target: pathlib.Path) -> None:
-    """Write the synthetic store at ``target`` as one plain file (WAL mode header, no -wal left over)."""
+def live_files(folder: pathlib.Path) -> None:
+    """Write two invented live-link session files into ``folder`` (the readings are made up, not real).
+
+    ``live-a`` runs 2025-06-20T23:55Z..2025-06-21T00:05Z: readings on both sides of a UTC midnight, ``t`` an int
+    and a float in turn. ``live-b`` runs on 2025-06-15 10:00Z.., a day that has monitoring rows for the same metrics.
+    """
+    midnight = int(datetime.datetime(2025, 6, 21, tzinfo=datetime.timezone.utc).timestamp())
+    first = [{"status": "scanning"}]
+    for step, offset in enumerate(range(-300, 301, 60)):
+        t = midnight + offset if step % 2 == 0 else float(midnight + offset) + 0.5
+        first.append({"t": t, "metric": "heart_rate", "value": 60 + step})
+        first.append({"t": t, "metric": "steps", "value": 10 * step})
+    first.append({"t": midnight - 30, "metric": "respiration_rate", "value": 14})
+    first.append({"t": midnight + 30, "metric": "stress", "value": 25})
+    first.append({"status": "stopped", "stop": "LinkClosed"})
+    start = int(datetime.datetime(2025, 6, 15, 10, tzinfo=datetime.timezone.utc).timestamp())
+    second = [{"status": "scanning"}]
+    for step in range(10):
+        t = start + 60 * step
+        second.append({"t": t, "metric": "heart_rate", "value": 90 + step})
+        second.append({"t": float(t) + 0.25, "metric": "steps", "value": 5 * step})
+    second.append({"t": start + 5, "metric": "stress", "value": 40})
+    second.append({"t": start + 6, "metric": "respiration_rate", "value": 16})
+    second.append({"t": start + 7, "metric": "spo2", "value": 97})
+    second.append({"t": start + 8, "metric": "energy_reserve", "value": 55})
+    second.append({"status": "stopped", "stop": "LinkClosed"})
+    for name, lines in (("live-20250620T235500Z.jsonl", first), ("live-20250615T100000Z.jsonl", second)):
+        (folder / name).write_text("".join(json.dumps(line) + "\n" for line in lines))
+
+
+def build(target: pathlib.Path, live: bool = False) -> None:
+    """Write the synthetic store at ``target`` as one plain file (WAL mode header, no -wal left over).
+
+    ``live`` also imports the two ``live_files`` (the ``synthetic-live`` store)."""
     os.environ["DISCONECT_NOW"] = PINNED_NOW
     from disconect import storage
     from disconect.ingest import sources
@@ -266,7 +302,7 @@ def build(target: pathlib.Path) -> None:
     with tempfile.TemporaryDirectory() as folder:
         work = pathlib.Path(folder)
         db_path = work / "synthetic.hbdb"
-        _seed(db_path)
+        _seed(db_path, live=False)
         export = work / "export"
         export.mkdir()
         _build_export(export)
@@ -275,6 +311,12 @@ def build(target: pathlib.Path) -> None:
             _extend_for_facts(conn)
             _extend_for_coverage(conn)
             _extend_for_health(conn)
+            if live:
+                sessions = work / "live"
+                sessions.mkdir()
+                live_files(sessions)
+                stats = sources.import_path(sessions, conn)
+                assert (stats.files_imported, stats.files_failed) == (2, 0), stats
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         for leftover in db_path.parent.glob("synthetic.hbdb-*"):
             assert leftover.stat().st_size == 0, f"{leftover.name} still holds data"
@@ -707,27 +749,33 @@ if __name__ == "__main__":
     parser.add_argument("--keep-stores", action="store_true",
                         help="leave the committed .hbdb stores (and the ledgers built from them) as they are: SQLite "
                              "files are not byte-reproducible, the script and the oracles are")
+    parser.add_argument("--live-only", action="store_true",
+                        help="build only synthetic-live.hbdb (and, with --oracle, its oracle): the six older stores, "
+                             "their ledgers and oracles are left as they are")
     args = parser.parse_args()
     FIXTURES.mkdir(parents=True, exist_ok=True)
-    if not args.keep_stores:
+    if not (args.keep_stores or args.live_only):
         build(STORE)
         build_v1(STORE, STORE_V1)
         build_empty(STORE_EMPTY)
+    if not args.keep_stores:
+        build(STORE_LIVE, live=True)
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
     import serve_diff
     anchors = serve_diff.anchors_for(STORE)
     assert anchors == serve_diff.anchors_for(STORE_V1)
     build_script(anchors)
-    if not args.keep_stores:
+    if not (args.keep_stores or args.live_only):
         build_ledger(STORE, FIXTURES / "ledger-synthetic.json.gz", anchors)
         build_ledger(STORE_V1, FIXTURES / "ledger-synthetic-v1.json.gz", anchors)
-    for store in (STORE, STORE_V1, STORE_EMPTY):
+    for store in (STORE, STORE_V1, STORE_EMPTY, STORE_LIVE):
         print(f"wrote {store.name}: {store.stat().st_size} bytes")
     print(f"wrote {SCRIPT.name}: {len(json.loads(SCRIPT.read_text())['entries'])} entries")
     if args.oracle:
         import subprocess
         tool = pathlib.Path(__file__).resolve().parents[3] / "tools" / "serve_diff.py"
-        for store, oracle in ((STORE, "oracle-synthetic.jsonl.gz"), (STORE_V1, "oracle-synthetic-v1.jsonl.gz"),
-                              (STORE_EMPTY, "oracle-empty.jsonl.gz")):
+        oracles = ((STORE, "oracle-synthetic.jsonl.gz"), (STORE_V1, "oracle-synthetic-v1.jsonl.gz"),
+                   (STORE_EMPTY, "oracle-empty.jsonl.gz"), (STORE_LIVE, "oracle-synthetic-live.jsonl.gz"))
+        for store, oracle in oracles[3:] if args.live_only else oracles:
             subprocess.run([sys.executable, str(tool), "--python-only", "--db", str(store),
                             "--anchors-from", str(STORE), "--oracle-out", str(FIXTURES / oracle)], check=True)

@@ -22,7 +22,9 @@ FORBIDDEN_KEYS = {"device_id", "serial", "serial_number", "path", "email", "raw_
 FORBIDDEN_TEXT = (SERIAL, "/Users/", "/tmp/", "@example.com")
 
 
-def _seed(db_path):
+def _seed(db_path, live=True):
+    """The privacy corpus. ``live`` adds a ``json:live`` raw record (its ``source_key`` is a hash, no stamp, no device);
+    ``gen_serve_fixtures`` passes False so the committed serve stores keep their original rows."""
     import datetime
     utc = datetime.timezone.utc
     with storage.open_for_write(db_path, "test") as conn:
@@ -54,19 +56,11 @@ def _seed(db_path):
                      f"VALUES(1,'fit:sleep','2025-06-20T20:00:00Z','2025-06-21T05:00:00Z','bad /Users/x {SERIAL}',"
                      "'2025-07-01T00:00:00Z')")
         conn.execute("INSERT INTO export_ranges(run_id, stream, from_day, to_day) VALUES(1,'json:uds','2025-06-01','2025-06-30')")
-
-
-def _seed_with_live(db_path):
-    """``_seed`` plus a ``json:live`` raw record: its ``source_key`` is a hash, no stamp, no device.
-
-    Kept apart from ``_seed`` because ``gen_mcp_fixtures`` builds the committed privacy-seed store from it.
-    """
-    _seed(db_path)
-    with storage.open_for_write(db_path, "test") as conn:
-        conn.execute("INSERT INTO raw_records(stream, source_key, source_scope, transport, device_id, start_utc, "
-                     "end_utc, payload_kind, payload, payload_hash, payload_bytes, imported_at) "
-                     "VALUES('json:live','c0ffee','device','ble',NULL,'2025-06-29T10:00:00Z','2025-06-29T10:30:00Z',"
-                     "'json',x'00','c0ffee',1,'2025-07-01T00:00:00Z')")
+        if live:
+            conn.execute("INSERT INTO raw_records(stream, source_key, source_scope, transport, device_id, start_utc, "
+                         "end_utc, payload_kind, payload, payload_hash, payload_bytes, imported_at) "
+                         "VALUES('json:live','c0ffee','device','ble',NULL,'2025-06-29T10:00:00Z','2025-06-29T10:30:00Z',"
+                         "'json',x'00','c0ffee',1,'2025-07-01T00:00:00Z')")
 
 
 def _walk(node, path=""):
@@ -94,7 +88,7 @@ CALLS = [
 
 @pytest.mark.parametrize("tool,args", CALLS, ids=[c[0] for c in CALLS])
 def test_tool_output_carries_no_identifiers(db_path, monkeypatch, tool, args):
-    _seed_with_live(db_path)
+    _seed(db_path)
     monkeypatch.setenv(storage.DEFAULT_DB_ENV, str(db_path))
     from disconect import mcp_server
     result = asyncio.run(mcp_server.server.call_tool(tool, args))
@@ -109,7 +103,7 @@ def test_tool_output_carries_no_identifiers(db_path, monkeypatch, tool, args):
 @pytest.mark.parametrize("tool,args", CALLS, ids=[c[0] for c in CALLS])
 def test_tool_output_names_no_manufacturer(db_path, monkeypatch, tool, args):
     """ADR 0001: ``identity.neutral`` runs over every MCP tool result, as it does over ``serve``'s."""
-    _seed_with_live(db_path)
+    _seed(db_path)
     monkeypatch.setenv(storage.DEFAULT_DB_ENV, str(db_path))
     from disconect import mcp_server
     result = asyncio.run(mcp_server.server.call_tool(tool, args))
@@ -122,7 +116,7 @@ def test_the_manufacturer_is_scrubbed_where_the_contract_names_it(db_path, monke
     from disconect import contract, identity, mcp_server
     assert re.search("garmin", contract.SOURCE_CONVENTION, re.IGNORECASE)
     monkeypatch.setenv(storage.DEFAULT_DB_ENV, str(db_path))
-    _seed_with_live(db_path)
+    _seed(db_path)
     result = asyncio.run(mcp_server.server.call_tool("get_contract", {}))
     assert identity.VENDOR_PLACEHOLDER in json.dumps(result.structured_content)
 
