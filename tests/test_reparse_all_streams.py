@@ -55,7 +55,8 @@ def test_every_imported_stream_has_a_reparse_path(tmp_path, db_path):
     assert stats.files_failed == 0
     before = _counts(db_path)
     json_streams = {s for s in before[2] if s.startswith("json:")}
-    assert json_streams == set(connect_export.RECORD_DECODERS) | set(connect_export.BATCH_STREAMS), \
+    export_decoders = set(connect_export.RECORD_DECODERS) - {"json:live"}   # live files are not in an export
+    assert json_streams == export_decoders | set(connect_export.BATCH_STREAMS), \
         "a stream the importer writes must be registered for reparse"
 
     with storage.open_for_write(db_path, "test") as conn:

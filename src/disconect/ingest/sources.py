@@ -20,15 +20,17 @@ import zipfile
 import zlib
 from collections.abc import Callable, Collection, Iterator
 
-from disconect.ingest import connect_export, fit_wellness
+from disconect.ingest import connect_export, fit_wellness, live
 from disconect.ingest.clock import ClockOffsets
 from disconect.ingest.model import Decoded
 from disconect.ingest.writer import ImportStats, Writer
 from disconect.redact import redact_text
-from disconect.storage import sqlite
+from disconect.storage import sqlite, utc_now_iso
 
 TRANSPORT_CONNECT_EXPORT = "connect_export"
 TRANSPORT_DROP = "drop"
+TRANSPORT_BLE = "ble"
+DROPPED_LIVE_EMPTY = "live_file_without_readings"
 
 #: ``progress(done, total_or_None, note)``; ``note`` is the write outcome (``imported`` | ``duplicate`` | ``failed``) in the FIT phase and the stream name (``json:...``) in the export-JSON phase — never a file name or path.
 ProgressCallback = Callable[[int, int | None, str], None]
@@ -49,6 +51,41 @@ def iter_fit_files(path: pathlib.Path) -> Iterator[tuple[str, bytes]]:
     for candidate in sorted(path.rglob("*")):
         if candidate.is_file() and candidate.suffix.lower() == ".fit":
             yield connect_export.mask_label(str(candidate.relative_to(path))), candidate.read_bytes()
+
+
+def iter_live_files(path: pathlib.Path) -> Iterator[tuple[str, list[list]]]:
+    """(label, readings) for every live-link ``.jsonl`` under ``path`` (a file or a folder).
+
+    A status-only file yields an empty readings list. Files that fail the live rule are not
+    yielded, so the caller can treat them as it does today.
+    """
+    path = pathlib.Path(path)
+    if path.is_file():
+        candidates = [path] if path.suffix.lower() == ".jsonl" else []
+    elif path.is_dir():
+        candidates = [c for c in sorted(path.rglob("*.jsonl")) if c.is_file()]
+    else:
+        candidates = []
+    for candidate in candidates:
+        readings = live.parse_live_file(candidate.read_bytes())
+        if readings is not None:
+            yield connect_export.mask_label(candidate.name), readings
+
+
+def _import_live_batch(files: list[tuple[str, list[list]]], writer: Writer,
+                       progress: ProgressCallback | None = None) -> None:
+    """One ``json:live`` raw record per file; a file without readings is counted and skipped."""
+    for done, (label, readings) in enumerate(files, start=1):
+        if not readings:
+            writer.stats.dropped[DROPPED_LIVE_EMPTY] = writer.stats.dropped.get(DROPPED_LIVE_EMPTY, 0) + 1
+            outcome = "skipped"
+        else:
+            record, _data = live.canonical_payload(readings)
+            source_key, decoded = live.decode_live_record(record)
+            outcome = writer.write_json_record(live.STREAM, source_key, record, decoded, label,
+                                               origin=(TRANSPORT_BLE, utc_now_iso()))
+        if progress is not None:
+            progress(done, len(files), outcome)
 
 
 def _import_fit_batch(files: list[tuple[str, bytes]], writer: Writer,
@@ -84,7 +121,10 @@ def import_path(path: pathlib.Path, conn: sqlite.Connection, transport: str | No
             connect_export.import_connect_export(path, writer, progress)
             rederive_json(conn, writer, _stored_json_streams(conn))
         else:
-            _import_fit_batch(list(iter_fit_files(path)), writer, progress)
+            live_files = list(iter_live_files(path))
+            _import_live_batch(live_files, writer, progress)
+            fit_files = [] if path.is_file() and live_files else list(iter_fit_files(path))
+            _import_fit_batch(fit_files, writer, progress)
     except Exception as exc:  # noqa: BLE001 - recorded, then re-raised for the caller
         writer.finish_run(error=f"{type(exc).__name__}: {exc}")
         raise

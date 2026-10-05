@@ -45,7 +45,7 @@ DEFAULT_HEALTH_DAYS = 90
 DEFAULT_METRIC_DAYS = 90
 LAST_IMPORTS = 5
 #: Protocol transport names -> the names the store records.
-TRANSPORTS = {"export": sources.TRANSPORT_CONNECT_EXPORT, "usb": "usb"}
+TRANSPORTS = {"export": sources.TRANSPORT_CONNECT_EXPORT, "usb": "usb", "ble": sources.TRANSPORT_BLE}
 _DEFERRED = object()
 
 

@@ -21,6 +21,7 @@ import re
 import zipfile
 from collections.abc import Iterator
 
+from disconect.ingest import live
 from disconect.ingest.model import DailyFact, DailyLabel, Decoded, SleepSession
 from disconect.ingest.writer import Writer
 
@@ -355,6 +356,7 @@ RECORD_DECODERS = {
     "json:hill": decode_hill_score_record,
     "json:fitness_age": decode_fitness_age_record,
     "json:biometrics": decode_bio_metrics_record,
+    "json:live": live.decode_live_record,
 }
 #: Streams whose canonical value is decided across all their records at once.
 BATCH_STREAMS = frozenset({"json:readiness"})

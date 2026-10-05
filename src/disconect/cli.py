@@ -631,7 +631,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     imp = commands.add_parser("import", help="import a Connect export (zip/folder), a FIT folder, or a .fit file")
     imp.add_argument("path")
-    imp.add_argument("--transport", choices=["connect_export", "usb", "gadgetbridge", "ciq", "drop"],
+    imp.add_argument("--transport", choices=["connect_export", "usb", "gadgetbridge", "ciq", "drop", "ble"],
                      help="how the files reached this machine (auto-detected for exports)")
     imp.set_defaults(func=cmd_import)
 
