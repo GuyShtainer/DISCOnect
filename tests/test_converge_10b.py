@@ -423,13 +423,13 @@ def test_a_kill_inside_the_import_rederive_is_healed_by_the_retry(tmp_path, monk
 
 
 # ---------------------------------------------------------------- a known class, pinned
-def test_a_damaged_local_record_is_not_repaired_by_the_relay_or_a_reparse(tmp_path):
-    """Pinned known class (BACKLOG: "relay repairs a damaged local copy from a peer").
+def test_a_damaged_local_record_is_repaired_from_the_relays_copy_before_the_pull_decides(tmp_path):
+    """Was the pinned known class "relay repairs a damaged local copy" (BACKLOG, 10b review); DONE 2026-10-05.
 
-    A raw record whose stored bytes no longer decode is kept (decode-before-delete) and the peer's
-    intact copy is a duplicate by hash, so the two devices stay one daily row apart (two entries of the
-    symmetric difference: the row as each device holds it), and
-    ``reparse_all`` cannot heal it: the damaged bytes are all that device has.
+    A raw record whose stored bytes no longer inflate to their hash is kept (decode-before-delete), a peer
+    never pushes a pulled record back, and ``reparse_all`` cannot heal it from the damaged bytes alone. The
+    pull now verifies every record the relay carried and refetches a damaged one from the bundle named in
+    ``relay_seen`` -- before the conflict rule runs, so the key is decided on intact bytes on both devices.
     """
     a, b = tmp_path / "a.db", tmp_path / "b.db"
     relay = FolderRelay(tmp_path / "relay")
@@ -439,7 +439,12 @@ def test_a_damaged_local_record_is_not_repaired_by_the_relay_or_a_reparse(tmp_pa
     with storage.open_for_write(a, "test") as conn:
         conn.execute("UPDATE raw_records SET payload=? WHERE stream='json:training_load'", (b"not zlib",))
     _import(b, _metrics_export(tmp_path / "y", [early]))
-    _push(b, relay), _pull(a, relay), _push(a, relay), _pull(b, relay)
-    assert len(_daily(a) ^ _daily(b)) == 2
+    _push(b, relay)
+    repaired = _pull(a, relay)
+    assert repaired.records_repaired == 1 and repaired.records_new == 1, "repaired first, then the peer's record applied"
+    _push(a, relay), _pull(b, relay)
+    assert _daily(a) == _daily(b), "both devices hold the later observation"
+    with storage.open_read_only(a) as conn:
+        assert conn.execute("SELECT count(*) FROM raw_records WHERE payload=?", (b"not zlib",)).fetchone()[0] == 0
     _reparse(a)
-    assert len(_daily(a) ^ _daily(b)) == 2, "the damaged copy stays damaged"
+    assert _daily(a) == _daily(b)

@@ -109,7 +109,7 @@ def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted,
     assert set(result) == {"push", "pull"}
     assert result["push"]["bundles"] == 1 and result["push"]["records"] > 0
     assert result["pull"] == {"applied": 0, "rejected": 0, "records_new": 0, "records_duplicate": 0,
-                              "records_invalid": 0, "conflicts": 0, "ranges_new": 0, "gaps": 0, "status": "ok"}
+                              "records_invalid": 0, "conflicts": 0, "ranges_new": 0, "records_repaired": 0, "gaps": 0, "status": "ok"}
     done = {e["phase"]: {k: v for k, v in e.items() if k not in ("event", "op", "phase", "state")}
             for e in events if e["state"] == "done"}
     assert done == {"push": result["push"], "pull": result["pull"]}

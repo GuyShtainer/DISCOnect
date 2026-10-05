@@ -555,3 +555,25 @@ def test_conflict_counts_agree_across_devices_whatever_bundles_each_one_met(tmp_
     fleet.rounds([holder, *twins], relay)
     assert [(r["conflicts"], r["superseded"]) for r in (_status(fleet, d) for d in (holder, *twins))] == [(1, 1)] * 3
     _quiet([holder, *twins])
+
+
+@pytest.mark.parametrize("damaged_core,peer_core", CORE_PAIRS)
+def test_a_damaged_copy_is_repaired_from_the_relay_on_either_core(tmp_path, fleet, damaged_core, peer_core):
+    """The record the relay carried is damaged on one device; its next pull refetches the bytes from the
+    bundle named in ``relay_seen`` before deciding the peer's conflicting record, so both converge."""
+    late, early = _load(_day(4), 5 * 3600_000, 175), _load(_day(4), 0, 190)
+    damaged, peer = fleet.device("damaged", damaged_core), fleet.device("peer", peer_core)
+    fleet.do_import(damaged, _metrics_export(tmp_path / "x", [late]))
+    relay = FolderRelay(tmp_path / "relay")
+    fleet.push(damaged, relay), fleet.pull(peer, relay)
+    with storage.open_for_write(damaged.db, "test") as conn:
+        conn.execute("UPDATE raw_records SET payload=? WHERE stream='json:training_load'", (b"not zlib",))
+        conn.commit()
+    fleet.do_import(peer, _metrics_export(tmp_path / "y", [early]))
+    fleet.push(peer, relay)
+    fleet.pull(damaged, relay)
+    with storage.open_read_only(damaged.db) as conn:
+        assert _count(conn, "SELECT count(*) FROM raw_records WHERE payload=X'6e6f74207a6c6962'") == 0, "the damaged bytes are gone"
+    fleet.rounds([damaged, peer], relay)
+    _converged([damaged, peer])
+    _quiet([damaged, peer])

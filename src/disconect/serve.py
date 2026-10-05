@@ -419,7 +419,8 @@ def _run_sync(session: Session, master: bytes, relay: Any) -> dict:
         pull = {"applied": len(pulled.applied), "rejected": len(pulled.rejected),
                 "records_new": pulled.records_new, "records_duplicate": pulled.records_duplicate,
                 "records_invalid": pulled.records_invalid, "conflicts": pulled.conflicts,
-                "ranges_new": pulled.ranges_new, "gaps": len(pulled.gaps), "status": pulled.status}
+                "ranges_new": pulled.ranges_new, "records_repaired": pulled.records_repaired,
+                "gaps": len(pulled.gaps), "status": pulled.status}
         _sync_event(session, "pull", "done", pull)
     return {"push": push, "pull": pull}
 

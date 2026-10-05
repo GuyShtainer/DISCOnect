@@ -63,6 +63,7 @@ class PullResult:
     records_invalid: int = 0
     conflicts: int = 0
     ranges_new: int = 0
+    records_repaired: int = 0   # stored copies whose bytes no longer matched their hash, refetched from the relay
     gaps: list[dict] = dataclasses.field(default_factory=list)
     status: str = "ok"
 
@@ -273,10 +274,49 @@ def _loser_writes(conn: sqlite.Connection, writer: Writer, record: dict, conflic
     return hook
 
 
+def _repair_damaged(conn: sqlite.Connection, master: bytes, relay: Relay, result: PullResult) -> None:
+    """Every stored record the relay has carried (``relay_seen``) is checked against its hash; a copy whose
+    bytes no longer inflate to it is refetched from the bundle that carried it and the streams it feeds are
+    re-derived. Without this a damaged copy stays damaged forever: a peer never pushes a pulled record back,
+    and the conflict rule, meeting bytes that do not decode, would hand the key to whatever arrives next.
+    A bundle the relay no longer has leaves the record as it is (nothing fails)."""
+    damaged: dict[str, list[tuple[int, str, str]]] = {}
+    for raw_id, payload, digest, stream, bundle_name in conn.execute(
+            "SELECT r.id, r.payload, r.payload_hash, r.stream, s.bundle FROM raw_records r "
+            "JOIN relay_seen s ON s.raw_record_id = r.id ORDER BY r.id").fetchall():
+        try:
+            intact = hashlib.sha256(zlib.decompress(payload)).hexdigest() == digest
+        except zlib.error:
+            intact = False
+        if not intact:
+            damaged.setdefault(bundle_name, []).append((raw_id, digest, stream))
+    streams: set[str] = set()
+    for bundle_name, wanted in damaged.items():
+        try:
+            _header, records, _ranges = unpack(master, bundle_name, relay.get(bundle_name))
+        except (BundleRejected, OSError, ValueError):
+            continue
+        by_hash = {r["payload_hash"]: r for r in records if _verify(r) is not None}
+        for raw_id, digest, stream in wanted:
+            record = by_hash.get(digest)
+            if record is None:
+                continue
+            conn.execute("UPDATE raw_records SET payload=? WHERE id=?", (record["payload"], raw_id))
+            conn.execute("DELETE FROM import_failures WHERE raw_record_id=?", (raw_id,))
+            result.records_repaired += 1
+            streams.add(stream)
+    if streams:
+        conn.commit()
+        from disconect.ingest import sources  # noqa: PLC0415 - avoid an import cycle at module load
+        sources.reparse_all(conn, streams=sorted(streams), force=True)
+
+
 def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
-    """Fetch and apply every bundle on the relay this store has not applied yet."""
+    """Fetch and apply every bundle on the relay this store has not applied yet. Stored copies the relay
+    carried are verified first and repaired from it when damaged (``records_repaired``)."""
     account = account_for(master)
     result = PullResult()
+    _repair_damaged(conn, master, relay, result)
     known = {row[0] for row in conn.execute("SELECT name FROM relay_bundles WHERE status='applied'").fetchall()}
     half_applied = {row[0] for row in conn.execute("SELECT name FROM relay_bundles WHERE status='applying'").fetchall()}
     pending = [name for name in relay.list(account) if name not in known]
