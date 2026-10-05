@@ -52,6 +52,9 @@ the **larger payload_hash**. A pure function of the two rows under one decoder v
 device running the same core converges whatever the arrival order; for streams whose decoder
 yields no time (the readiness batch, bare labels) the rule is the hash alone. The loser's bytes go to `raw_superseded`, the decision to `sync_conflicts` — per-bundle journals; the reported counts are by content (distinct versions that lost), the only form that converges across devices.
 Local import stays first-wins (BACKLOG). FIT never conflicts (its key is its hash).
+**Damaged local copies:** before applying anything, a pull verifies every stored record the relay has
+carried (`relay_seen`) against its hash and refetches a damaged one from the bundle that carried it
+(`records_repaired`); the relay is the copy of last resort, since a pulled record is never pushed back.
 
 The conflict rule converges the **raw set** only. Daily rows converge because every import and
 every pull ends by re-deriving the touched JSON streams from the raw records now stored, in the
