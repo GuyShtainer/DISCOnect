@@ -50,7 +50,7 @@ later one). Same `(stream, source_key)`, different `payload_hash`: the record wh
 carry the **later observed time** wins (`end_utc`, else the latest daily fact's time); ties go to
 the **larger payload_hash**. A pure function of the two rows under one decoder version, so every
 device running the same core converges whatever the arrival order; for streams whose decoder
-yields no time (the readiness batch, bare labels) the rule is the hash alone. The loser's bytes go to `raw_superseded`, the decision to `sync_conflicts`.
+yields no time (the readiness batch, bare labels) the rule is the hash alone. The loser's bytes go to `raw_superseded`, the decision to `sync_conflicts` — per-bundle journals; the reported counts are by content (distinct versions that lost), the only form that converges across devices.
 Local import stays first-wins (BACKLOG). FIT never conflicts (its key is its hash).
 
 The conflict rule converges the **raw set** only. Daily rows converge because every import and

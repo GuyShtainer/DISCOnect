@@ -502,3 +502,56 @@ def test_f6_corrupt_record_reparse_failures_carry_the_same_keys(tmp_path, fleet)
     for key in ("file", "kind", "stream"):
         assert py[0][key] == rs[0][key], key   # the error wording differs (kb/22 #9)
     assert payloads["py"]["status"] == payloads["rs"]["status"] == "failed"
+
+
+# ---- Phase 5 hardening: the conflict counts are a content fact, not an arrival fact (BACKLOG, 2026-10-05) ----
+
+def _status(fleet: Fleet, device: Device) -> dict:
+    if device.core == "rs":
+        done = subprocess.run([str(BINARY), "--db", str(device.db), "--json", "sync", "status"], env=_rust_env(),
+                              capture_output=True, text=True, timeout=300)
+        assert done.returncode == 0, done.stderr[-300:]
+        return json.loads(done.stdout)
+    with storage.open_for_write(device.db, "sync") as conn:
+        return sync.status(conn)
+
+
+def _journal(db: pathlib.Path) -> tuple[int, int]:
+    """Raw row counts of the two per-bundle journals (arrival-dependent by design)."""
+    conn = storage.open_read_only(db)
+    try:
+        return (_count(conn, "SELECT count(*) FROM sync_conflicts"), _count(conn, "SELECT count(*) FROM raw_superseded"))
+    finally:
+        conn.close()
+
+
+@pytest.mark.parametrize("holder_core,twin_core", CORE_PAIRS)
+def test_conflict_counts_agree_across_devices_whatever_bundles_each_one_met(tmp_path, fleet, holder_core, twin_core):
+    """Two devices imported the same early record (identical bytes) and a third holds the later one. The
+    holder meets the losing bytes twice (two bundles), a twin meets its own bytes once (a no-op) and the
+    winner once. The journals legitimately differ, the reported counts must not: one version lost."""
+    early = _uds("2025-06-15", EARLY_STEPS, 50)
+    early["wellnessEndTimeGmt"] = "2025-06-15T12:00:00.0"
+    late = _uds("2025-06-15", LATE_STEPS, 50)
+    late["wellnessEndTimeGmt"] = "2025-06-15T21:00:00.0"
+    holder = fleet.device("holder", holder_core)
+    twins = [fleet.device(f"twin{i}", twin_core) for i in (1, 2)]
+    fleet.do_import(holder, _store_with(tmp_path / "late", late))
+    for i, twin in enumerate(twins):
+        fleet.do_import(twin, _store_with(tmp_path / f"early{i}", early))
+    relay = FolderRelay(tmp_path / "relay")
+    for device in (holder, *twins):
+        fleet.push(device, relay)
+    for device in (holder, *twins):
+        fleet.pull(device, relay)
+    rows = _converged([holder, *twins])
+    assert {row[5] for row in rows if row[2] == "steps" and row[3] == "vendor_cloud"} == {float(LATE_STEPS)}
+    assert _journal(holder.db) == (2, 2), "the holder recorded the same loser once per bundle that carried it"
+    # a twin's journal depends on which bundle it met first: its sibling's bytes (a no-op, then the winner:
+    # one row) or the winner (then the sibling's bytes lose again: two rows) -- the arrival dependence itself
+    assert {_journal(twin.db) for twin in twins} <= {(1, 1), (2, 2)}
+    reports = [_status(fleet, device) for device in (holder, *twins)]
+    assert [(r["conflicts"], r["superseded"]) for r in reports] == [(1, 1)] * 3, "one version lost, on every device"
+    fleet.rounds([holder, *twins], relay)
+    assert [(r["conflicts"], r["superseded"]) for r in (_status(fleet, d) for d in (holder, *twins))] == [(1, 1)] * 3
+    _quiet([holder, *twins])

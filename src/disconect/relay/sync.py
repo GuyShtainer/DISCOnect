@@ -433,8 +433,16 @@ def _report_gaps(conn: sqlite.Connection, result: PullResult) -> None:
                 result.gaps.append({"chain": device_id, "device_seq": seq, "missing": prev})
 
 
+#: The content view of the conflict history: one row per version of a record that lost, whatever the
+#: arrival order and however many bundles carried it. ``sync_conflicts`` itself is the per-bundle journal
+#: (it keeps a reapplied bundle idempotent), so its row count depends on arrival -- never compare that.
+CONFLICTS_BY_CONTENT = "SELECT count(*) FROM (SELECT DISTINCT stream, source_key, loser_hash FROM sync_conflicts)"
+SUPERSEDED_BY_CONTENT = "SELECT count(*) FROM (SELECT DISTINCT stream, source_key, payload_hash FROM raw_superseded)"
+
+
 def status(conn: sqlite.Connection) -> dict:
-    """Counts only: bundles pushed/pulled/rejected, records seen, conflicts, chain gaps."""
+    """Counts only: bundles pushed/pulled/rejected, records seen, conflicts, chain gaps. ``conflicts`` and
+    ``superseded`` count by content (the versions that lost), so converged devices report the same numbers."""
     counts = {row[0] + "_" + row[1]: row[2] for row in conn.execute(
         "SELECT direction, status, count(*) FROM relay_bundles GROUP BY 1, 2").fetchall()}
     unsent = conn.execute("SELECT count(*) FROM raw_records r LEFT JOIN relay_seen s ON s.raw_record_id=r.id "
@@ -443,8 +451,8 @@ def status(conn: sqlite.Connection) -> dict:
     _report_gaps(conn, result)
     return {"bundles": counts, "records_unsent": unsent,
             "records_seen": conn.execute("SELECT count(*) FROM relay_seen").fetchone()[0],
-            "conflicts": conn.execute("SELECT count(*) FROM sync_conflicts").fetchone()[0],
-            "superseded": conn.execute("SELECT count(*) FROM raw_superseded").fetchone()[0],
+            "conflicts": conn.execute(CONFLICTS_BY_CONTENT).fetchone()[0],
+            "superseded": conn.execute(SUPERSEDED_BY_CONTENT).fetchone()[0],
             "gaps": result.gaps}
 
 
