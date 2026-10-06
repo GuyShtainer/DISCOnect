@@ -79,6 +79,10 @@ def test_a_write_open_marks_a_dead_writers_running_run_interrupted(db_path):
     with storage.open_for_write(db_path, "test") as conn:
         row = [tuple(r) for r in conn.execute("SELECT status, finished_at, error FROM import_runs")]
         assert row == [("interrupted", None, None)]
+        # committed before the connection is handed out: a reader opened meanwhile sees it
+        peek = storage.open_read_only(db_path)
+        assert [r[0] for r in peek.execute("SELECT status FROM import_runs")] == ["interrupted"]
+        peek.close()
         # a run begun after the open stays running: the UPDATE runs only at open time
         conn.execute("INSERT INTO import_runs(started_at, transport, status) VALUES('2026-01-02T00:00:00Z','export','running')")
         conn.commit()
