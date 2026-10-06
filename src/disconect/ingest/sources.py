@@ -31,6 +31,7 @@ TRANSPORT_CONNECT_EXPORT = "connect_export"
 TRANSPORT_DROP = "drop"
 TRANSPORT_BLE = "ble"
 DROPPED_LIVE_EMPTY = "live_file_without_readings"
+DROPPED_LIVE_CUT_OFF = "live_file_cut_off"
 
 #: ``progress(done, total_or_None, note)``; ``note`` is the write outcome (``imported`` | ``duplicate`` | ``failed``) in the FIT phase and the live phase (which also says `skipped` for a live file with no readings) and the stream name (``json:...``) in the export-JSON phase — never a file name or path.
 ProgressCallback = Callable[[int, int | None, str], None]
@@ -53,11 +54,12 @@ def iter_fit_files(path: pathlib.Path) -> Iterator[tuple[str, bytes]]:
             yield connect_export.mask_label(str(candidate.relative_to(path))), candidate.read_bytes()
 
 
-def iter_live_files(path: pathlib.Path) -> Iterator[tuple[str, list[list]]]:
-    """(label, readings) for every live-link ``.jsonl`` under ``path`` (a file or a folder).
+def iter_live_files(path: pathlib.Path) -> Iterator[tuple[str, list[list], bool]]:
+    """(label, readings, cut_off) for every live-link ``.jsonl`` under ``path`` (a file or a folder).
 
-    A status-only file yields an empty readings list. Files that fail the live rule are not
-    yielded, so the caller can treat them as it does today.
+    A status-only file yields an empty readings list; a file cut off mid-line yields the readings
+    of its whole lines with ``cut_off`` True. Files that fail the live rule are not yielded, so
+    the caller can treat them as it does today.
     """
     path = pathlib.Path(path)
     if path.is_file():
@@ -67,15 +69,19 @@ def iter_live_files(path: pathlib.Path) -> Iterator[tuple[str, list[list]]]:
     else:
         candidates = []
     for candidate in candidates:
-        readings = live.parse_live_file(candidate.read_bytes())
-        if readings is not None:
-            yield connect_export.mask_label(candidate.name), readings
+        parsed = live.read_live_file(candidate.read_bytes())
+        if parsed is not None:
+            readings, cut_off = parsed
+            yield connect_export.mask_label(candidate.name), readings, cut_off
 
 
-def _import_live_batch(files: list[tuple[str, list[list]]], writer: Writer,
+def _import_live_batch(files: list[tuple[str, list[list], bool]], writer: Writer,
                        progress: ProgressCallback | None = None) -> None:
-    """One ``json:live`` raw record per file; a file without readings is counted and skipped."""
-    for done, (label, readings) in enumerate(files, start=1):
+    """One ``json:live`` raw record per file; a file without readings is counted and skipped, a
+    file cut off mid-line is counted and its whole lines imported."""
+    for done, (label, readings, cut_off) in enumerate(files, start=1):
+        if cut_off:
+            writer.stats.dropped[DROPPED_LIVE_CUT_OFF] = writer.stats.dropped.get(DROPPED_LIVE_CUT_OFF, 0) + 1
         if not readings:
             writer.stats.dropped[DROPPED_LIVE_EMPTY] = writer.stats.dropped.get(DROPPED_LIVE_EMPTY, 0) + 1
             outcome = "skipped"

@@ -37,7 +37,8 @@ def _lines(path, lines):
 
 def _live_source(base: pathlib.Path) -> pathlib.Path:
     """A folder of synthetic live files: one spanning midnight (float and int ``t``), one that overlaps a
-    monitoring day, a status-only file (skipped, counted) and a frame log (not live, not FIT)."""
+    monitoring day, a status-only file (skipped, counted), a frame log (not live, not FIT) and a file cut off
+    mid-line (its whole lines imported, counted)."""
     folder = base / "ble"
     folder.mkdir()
     _lines(folder / "live-a.jsonl", [
@@ -56,6 +57,10 @@ def _live_source(base: pathlib.Path) -> pathlib.Path:
     ])
     _lines(folder / "live-empty.jsonl", [{"status": "scanning"}, {"stop": "x"}])
     _lines(folder / "frames.jsonl", [{"frame": "0a0b", "dir": "rx"}])
+    _lines(folder / "live-cut.jsonl", [{"status": "scanning"}, {"t": MIDNIGHT + 7200, "metric": "spo2", "value": 96},
+                                      {"t": MIDNIGHT + 7260, "metric": "heart_rate", "value": 66}])
+    with (folder / "live-cut.jsonl").open("ab") as cut:   # the lab killed mid-write: a partial last line
+        cut.write(b'{"t": ' + str(MIDNIGHT + 7320).encode() + b', "metric": "hea')
     return folder
 
 
@@ -98,7 +103,7 @@ def test_core_diff_is_zero_in_each_import_order(tmp_path, order):
     for source in steps:
         _py_import(p_db, source)
         _rs_import(r_db, source)
-    assert _live_count(p_db) == _live_count(r_db) == 2
+    assert _live_count(p_db) == _live_count(r_db) == 3   # live-a, live-b and the cut-off file
     report = _assert_identical(p_db, r_db)
     assert report["tables"]["raw_records"]["rows_p"] == report["tables"]["raw_records"]["rows_r"]
 
@@ -127,6 +132,6 @@ def test_core_diff_is_zero_import_last_vs_pull_last_through_the_relay(tmp_path, 
             stores[core] = (pull_last, import_last)
         for index in (0, 1):
             _assert_identical(stores["py"][index].db, stores["rs"][index].db)
-        assert _live_count(stores["py"][0].db) == _live_count(stores["py"][1].db) == 2
+        assert _live_count(stores["py"][0].db) == _live_count(stores["py"][1].db) == 3
     finally:
         fleet.close()

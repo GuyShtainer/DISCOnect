@@ -82,6 +82,30 @@ def test_status_only_file_is_skipped_with_a_counted_reason(tmp_path, db_path):
     assert _live_rows(db_path) == []
 
 
+def test_a_file_cut_off_mid_line_keeps_its_whole_lines_and_is_counted(tmp_path, db_path):
+    """The lab killed mid-write leaves a partial last line: the session before it is imported, once,
+    as the same pinned record the whole file gives, and the loss is counted (9b-2 review O1)."""
+    (tmp_path / "whole").mkdir()
+    (tmp_path / "cut").mkdir()
+    whole = _write_lines(tmp_path / "whole" / "live-x.jsonl", LIVE_LINES)
+    path = tmp_path / "cut" / "live-x.jsonl"
+    path.write_bytes(whole.read_bytes() + b'{"t": 1750000003.0, "metric": "heart_')
+    assert live.read_live_file(path.read_bytes()) == (live.parse_live_file(whole.read_bytes()), True)
+    assert live.parse_live_file(path.read_bytes()) is None
+    stats = _import(path, db_path)
+    assert (stats.files_seen, stats.files_imported, stats.files_failed) == (1, 1, 0)
+    assert stats.dropped == {sources.DROPPED_LIVE_CUT_OFF: 1}
+    assert zlib.decompress(_live_rows(db_path)[0][8]) == PINNED_PAYLOAD
+    assert _import(whole, db_path).files_duplicate == 1   # the whole file is the same record
+    # the whole lines must pass the live rule, and at least one must precede the partial line
+    assert live.read_live_file(b'{"t": 1, "metric": "x", "value": 1}\n{"frame": "0a0b"}\n{"t": 2, "metr') is None
+    assert live.read_live_file(b'{"t": 2, "metr') is None
+    assert live.read_live_file(b'{"frame": "0a0b"}\n') is None   # well-formed and not live stays not live
+    assert live.read_live_file(b'{"status": "scanning"}\n{"t": 2, "metr') == ([], True)
+    assert live.read_live_file(b'{"status": "scanning"}\n{"t": 1, "metric": "x", "value": 1}\r\n   \n{"t":') \
+        == ([[1, "x", 1]], True)
+
+
 def test_frame_log_and_malformed_files_are_not_live_files(tmp_path):
     lines = [{"status": "scanning"}, {"frame": "0a0b", "dir": "rx"}]
     assert live.parse_live_file("\n".join(json.dumps(x) for x in lines).encode()) is None

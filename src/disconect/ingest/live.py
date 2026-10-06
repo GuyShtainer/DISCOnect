@@ -83,6 +83,31 @@ def parse_live_file(data: bytes) -> list[list] | None:
     return readings
 
 
+def read_live_file(data: bytes) -> tuple[list[list], bool] | None:
+    """``(readings, cut_off)`` of a live file, or None when ``data`` is not one.
+
+    A file whose last non-empty line is not JSON (the lab killed mid-write) is still a live file
+    when at least one line precedes it and those lines pass the live rule: the readings are
+    theirs and ``cut_off`` is True, so the caller can count the loss. A last line that is
+    well-formed JSON but not a reading or status line keeps the file "not live" (a frame log).
+    """
+    readings = parse_live_file(data)
+    if readings is not None:
+        return readings, False
+    try:
+        lines = [line for line in data.decode("utf-8").splitlines() if line.strip()]
+    except UnicodeDecodeError:
+        return None
+    if len(lines) < 2:
+        return None
+    try:
+        json.loads(lines[-1])
+    except ValueError:
+        readings = parse_live_file("\n".join(lines[:-1]).encode("utf-8"))
+        return None if readings is None else (readings, True)
+    return None
+
+
 def canonical_payload(readings: list[list]) -> tuple[dict, bytes]:
     """(record, bytes): the readings sorted by ``(t, metric, value)``, compact sorted-key JSON."""
     record = {"readings": sorted(readings, key=lambda r: (r[0], r[1], r[2]))}
