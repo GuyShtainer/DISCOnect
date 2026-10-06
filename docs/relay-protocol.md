@@ -77,7 +77,7 @@ runner-up it hid contributes again. Reparse after an import or a pull changes 0 
 with one known exception: a stored record whose bytes no longer decode keeps the rows it has, and
 the relay does not repair it (the hash still matches, so a peer's copy counts as a duplicate);
 such a device can differ by that record's rows until the bytes are restored (BACKLOG). An import
-re-derives every JSON stream in the store, so an interrupted import is healed by running it again.
+re-derives every JSON stream in the store, so an interrupted import is healed by running it again (its run row is marked `interrupted` on the next write open).
 
 ## Echo prevention and ordering
 `relay_seen` marks every record pushed **or received**; push = records not in it (pulled rows keep

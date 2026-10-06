@@ -223,6 +223,9 @@ def open_for_write(path: pathlib.Path, purpose: str, timeout_s: float = 10.0
             conn.execute("PRAGMA foreign_keys = ON")
             _check_not_too_new(conn)
             migrations.migrate(conn)
+            # the OS write lock is ours, so no other writer is alive: a run still `running` belongs to a dead process
+            conn.execute("UPDATE import_runs SET status='interrupted' WHERE status='running'")
+            conn.commit()
             yield conn
         finally:
             conn.close()
