@@ -352,6 +352,24 @@ def test_sleep_needs_the_store_unlocked(encrypted):
     assert encrypted.error_code("data.sleep") == "locked"
 
 
+def test_contract_lists_the_numeric_metrics_with_their_declared_scopes_and_answers_locked(encrypted, tmp_path):
+    for rig in (encrypted, Rig(_store_copy(tmp_path))):   # reads nothing from the store: a locked one answers the same
+        reply = rig.result("data.contract")
+        assert reply["scopes"] == list(contract.SOURCE_SCOPES)
+        rows = reply["metrics"]
+        declared = {m for (m, _s) in contract.STREAMS_FOR if contract.cadence_for(m) is not None}
+        assert [r["metric"] for r in rows] == [m.metric for m in contract.METRICS if m.metric in declared]
+        for row in rows:
+            assert set(row) == {"metric", "unit", "cadence", "scopes"}
+            assert row["unit"] == contract.unit_for(row["metric"]) and row["cadence"] == contract.cadence_for(row["metric"])
+            assert row["scopes"] == [s for s in contract.SOURCE_SCOPES if (row["metric"], s) in contract.STREAMS_FOR]
+            assert row["scopes"] and row["cadence"] in ("daily", "sample")
+        by = {r["metric"]: r for r in rows}
+        assert by["heart_rate"]["cadence"] == "sample" and by["stress"]["cadence"] == "sample"
+        assert by["steps"]["cadence"] == "daily"
+        assert rows[0]["metric"] == contract.METRICS[0].metric
+
+
 def test_live_day_merges_overlapping_records_and_keeps_a_midnight_session_on_both_days(tmp_path):
     db = tmp_path / "live.hbdb"
     db.write_bytes(LIVE_STORE.read_bytes())  # a copy: the committed store is never opened for writing
@@ -484,7 +502,7 @@ def _calls(export_root):
     unlocked_reads = [("data.health", {"window_days": 3650}),
                       ("data.metric", {"metric": "sleep_score", "scope": "device", "days": 60, "last_day": "2025-06-30"}),
                       ("data.metric", {"metric": "stress", "scope": "device", "days": 30, "last_day": "2025-06-30"}),
-                      ("data.today", {}), ("data.live", {"day": "2025-06-30"}), ("data.sleep", {}),
+                      ("data.today", {}), ("data.live", {"day": "2025-06-30"}), ("data.sleep", {}), ("data.contract", {}),
                       ("data.facts", {"days": 7, "baseline_days": 28}),
                       ("sync.status", {}), ("sync.run", {}),
                       ("relay.addresses", {}), ("relay.serve", {"on": False}),

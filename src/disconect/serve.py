@@ -314,6 +314,18 @@ def data_today(session: Session, call: Call) -> dict:
     return {"day": today, "metrics": rows}
 
 
+def data_contract(session: Session, call: Call) -> dict:
+    """The contract's numeric metrics with their unit, cadence and declared scopes, in contract order.
+    Reads nothing from the store (so it answers on a locked one) — the Trend screen's metric list."""
+    declared = {key for key in contract.STREAMS_FOR if contract.cadence_for(key[0]) is not None}
+    metrics = []
+    for item in contract.METRICS:
+        scopes = [scope for scope in contract.SOURCE_SCOPES if (item.metric, scope) in declared]
+        if scopes:
+            metrics.append({"metric": item.metric, "unit": item.unit, "cadence": item.cadence, "scopes": scopes})
+    return {"scopes": list(contract.SOURCE_SCOPES), "metrics": metrics}
+
+
 @_unlocked_only
 def data_live(session: Session, call: Call) -> dict:
     """The live link on one local day (default today): its sessions and, per folded metric, the
@@ -598,6 +610,7 @@ METHODS: dict[str, Handler] = {
     "data.today": data_today,
     "data.live": data_live,
     "data.sleep": data_sleep,
+    "data.contract": data_contract,
     "data.facts": data_facts,
     "import.run": import_run,
     "import.last": import_last,

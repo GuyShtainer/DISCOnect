@@ -204,6 +204,13 @@
    }
   },
   {
+   "name": "gen: data.contract while locked",
+   "send": {
+    "id": 12116,
+    "method": "data.contract"
+   }
+  },
+  {
    "name": "gen: import.last while locked",
    "send": {
     "id": 12103,
@@ -19509,6 +19516,31 @@
   {
    "name": "gen: data.sleep params array",
    "raw": "{\"id\":12309,\"method\":\"data.sleep\",\"params\":[]}"
+  },
+  {
+   "name": "gen: data.contract plain",
+   "send": {
+    "id": 12400,
+    "method": "data.contract"
+   }
+  },
+  {
+   "name": "gen: data.contract ignores extra params",
+   "send": {
+    "id": 12401,
+    "method": "data.contract",
+    "params": {
+     "x": 1
+    }
+   }
+  },
+  {
+   "name": "gen: data.contract params null",
+   "raw": "{\"id\":12402,\"method\":\"data.contract\",\"params\":null}"
+  },
+  {
+   "name": "gen: data.contract params array",
+   "raw": "{\"id\":12403,\"method\":\"data.contract\",\"params\":[]}"
   },
   {
    "name": "gen: data.health plain",

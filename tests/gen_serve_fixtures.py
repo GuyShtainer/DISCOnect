@@ -782,6 +782,16 @@ def _sleep_entries() -> list[dict]:
     ]
 
 
+def _contract_entries() -> list[dict]:
+    """``data.contract``: no params, so the same reply on every store; extra params and the malformed params. Ids 12400 up."""
+    return [
+        {"name": "gen: data.contract plain", "send": {"id": 12400, "method": "data.contract"}},
+        {"name": "gen: data.contract ignores extra params", "send": {"id": 12401, "method": "data.contract", "params": {"x": 1}}},
+        {"name": "gen: data.contract params null", "raw": '{"id":12402,"method":"data.contract","params":null}'},
+        {"name": "gen: data.contract params array", "raw": '{"id":12403,"method":"data.contract","params":[]}'},
+    ]
+
+
 def build_script(anchors: dict[str, str]) -> None:
     """Regenerate the ``gen:`` entries of ``script.json`` (every other entry is hand-written and kept)."""
     script = json.loads(SCRIPT.read_text())
@@ -792,6 +802,7 @@ def build_script(anchors: dict[str, str]) -> None:
               {"name": "gen: data.health while locked", "send": {"id": 12102, "method": "data.health"}},
               {"name": "gen: data.live while locked", "send": {"id": 12104, "method": "data.live"}},
               {"name": "gen: data.sleep while locked", "send": {"id": 12115, "method": "data.sleep"}},
+              {"name": "gen: data.contract while locked", "send": {"id": 12116, "method": "data.contract"}},
               {"name": "gen: import.last while locked", "send": {"id": 12103, "method": "import.last"}},
               # locked on an encrypted store; plaintext stores are open, so these answer as unlocked ones do
               {"name": "gen: sync.status while locked", "send": {"id": 12105, "method": "sync.status"}},
@@ -816,7 +827,7 @@ def build_script(anchors: dict[str, str]) -> None:
     entries: list[dict] = []
     for entry in kept:
         if entry["name"] == "import.last":
-            entries += _metric_entries() + _today_entries() + _live_entries() + _sleep_entries() + _health_entries() + _import_entries() + _sync_entries() + _relay_entries() + _tools_entries()
+            entries += _metric_entries() + _today_entries() + _live_entries() + _sleep_entries() + _contract_entries() + _health_entries() + _import_entries() + _sync_entries() + _relay_entries() + _tools_entries()
         entries.append(entry)
         if entry["name"] == "data.facts while locked":
             entries += locked
