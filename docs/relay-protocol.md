@@ -148,8 +148,10 @@ devices that hold the same master (a paired phone and the Mac) therefore derive 
 - *Replay.* A request captured on the LAN can be replayed for 300 s: a replayed `PUT` rewrites the same bytes, a
   replayed `GET` shows ciphertext the sniffer already has, a replayed `DELETE` removes the object again. Nothing
   re-pushes a bundle that was pushed, and nothing deletes anything today (the trait has `delete` for the pairing and
-  pruning slices to come), so a replayed `DELETE` has no victim yet. **Slice 12-E must not put single-use offers on
-  this API without a seen-tag cache** (the server keeps none): within the window, any request is replayable.
+  pruning slices to come), so a replayed `DELETE` has no victim yet. The pairing offer (12-E) is single-use
+  but needs no seen-tag cache (12-B review D1): its routes are not token-authenticated at all, a replay of the
+  joiner's POST carries the same public key and gets the identical `202` (idempotent), a different key aborts the
+  offer, and nothing is read before the declared length is checked ("Pairing routes" below).
 - *Slow peers (Bet 12 review F1).* The first version read the body before it could check the tag, so four
   connections with a well-formed forged header, `Content-Length: 1000000` and no body held every worker and
   `/v1/health` timed out. Now the pre-tag refuses a peer without the key on the head alone (`401` at once,
@@ -172,3 +174,32 @@ retries (a bundle whose records had begun to land is `applying`, which the next 
 does after a crash). The CLI exits 5 for an unreachable relay. `relay.json` is `{"folder": path}` or
 `{"lan": "http://host:port"}` (a non-empty `lan` wins); `--relay http://host:port` selects LAN, and
 `https://` or a URL with a path is a usage error.
+
+## Pairing routes (Bet 12-E): one offer slot on the same server
+Only a server started by `disconect-core pair offer` (or a library caller that attaches an offer) carries these
+routes; a plain `relay-serve` answers `404` to all of them. The protocol (offer text, key schedule, tags, the six
+digits, the sealed payload) is ADR 0011; the constants and vectors are `docs/kb/24-wire-constants.md`. **No
+`X-Disconect-Auth` header**: the joiner holds no master yet, and possession of the offer's secret `s` is the proof.
+`<id>` is the offer's 32 lowercase hex characters. Checks run top to bottom; the first that fails answers, with an
+empty body.
+
+| request | answer |
+|---|---|
+| any pair route with no offer in the process, a foreign `<id>`, or a path other than the two below | `404` |
+| `GET /v1/pair/<id>` or `POST /v1/pair/<id>/payload` (wrong method) | `405` |
+| `POST /v1/pair/<id>`, declared `Content-Length` absent or not exactly 64 | `400`, **nothing read** (one status for shorter and longer: no `413`) |
+| `POST /v1/pair/<id>`, offer expired (`now > exp`) or aborted | `410` |
+| `POST /v1/pair/<id>`, body `joiner_pub (32) ‖ HMAC(K_confirm, "confirm") (32)`, wrong tag or a low-order key | `401`, the offer untouched |
+| same, tag valid, offer open | `202`, body = the 32-byte offerer tag `HMAC(K_offerer, "offerer")`; the offer is bound to `joiner_pub` |
+| same, tag valid, offer already bound to the same `joiner_pub` | `202`, the identical body (idempotent) |
+| same, tag valid, offer already bound to a different `joiner_pub` | `410` and the offer is aborted: every later request is `410` |
+| `GET /v1/pair/<id>/payload`, declared `Content-Length` present and not 0 | `400`, nothing read (a GET with no length is the normal case) |
+| same, offer expired or aborted | `410` |
+| same, not bound, or bound but the offerer has not released | `202`, empty |
+| same, released | `200`, the cached sealed payload (`ChaCha20-Poly1305`, AAD = transcript), on **every** GET until expiry or process exit |
+
+A body that stops arriving after a good declared length is `408`, as everywhere. `202` ("Accepted") and `410`
+("Gone") have their own reason phrases. The access log is the server's: method and status only; the offer text, the
+code, a public key, a tag and a peer address are never logged. The offerer releases only when the typed digits equal
+its code and the offer is neither aborted nor expired at that moment (re-checked under the slot's lock); the payload
+is sealed once and cached.
