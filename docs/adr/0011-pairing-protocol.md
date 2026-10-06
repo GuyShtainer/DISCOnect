@@ -7,7 +7,7 @@
 ## Decision
 - **Transport:** the LAN relay's server (`relay/lan_server.rs`, ADR 0005's self-hosted adapter) carries
   the pairing messages under `/v1/pair/<id>` without the token header; the relay's objects stay behind
-  the token; the pair routes are `404` while no offer is live and read no body before the declared length
+  the token; the pair routes are `404` when no offer is attached to the server (an ended, expired or aborted, offer answers `410`) and read no body before the declared length
   is checked. `pair offer` is `relay-serve` plus one offer slot: it pushes the store first and keeps
   serving after the offer ends. The Python core keeps refusing `lan`; it twins only the pure functions,
   written from this text.
@@ -60,7 +60,7 @@
   `x25519-dalek` + `curve25519-dalek` (BSD-3) join the core's dependencies **and the app bundle** (the app
   links the core in-process) — notices booked in BACKLOG 02b.
 - The routes and status semantics (`401` wrong tag, `202` bound with the offerer tag, `410` aborted or
-  expired, `404` no offer, `200` cached payload, exact declared lengths) are frozen in
+  expired, `404` no offer attached, `200` cached payload, exact declared lengths) are frozen in
   `relay-protocol.md`; the phone's pairing (Bet 12 slice E on iOS, Bet 14) is a client of this protocol and
   of those routes: scan → the same join → the same SAS; nothing depends on the device class. Pairing from
   the Mac app means the app runs the LAN server — a decision for the app follow-up.
