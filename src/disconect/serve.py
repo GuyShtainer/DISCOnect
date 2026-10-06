@@ -401,10 +401,10 @@ def sync_status(session: Session, call: Call) -> dict:
     tables answers what a fresh one would."""
     with session.reader() as conn:
         if migrations.has_table(conn, "relay_bundles"):
-            return sync_module.status(conn)
+            return {**sync_module.status(conn), "serving": None}
         return {"bundles": {}, "records_unsent": conn.execute("SELECT count(*) FROM raw_records").fetchone()[0],
                 "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [], "last_pushed_at": None,
-                "last_pulled_at": None}
+                "last_pulled_at": None, "serving": None}
 
 
 def _sync_event(session: Session, phase: str, state: str, counts: dict | None = None) -> None:
@@ -459,6 +459,90 @@ def sync_run(session: Session, call: Call) -> Any:
     return _DEFERRED
 
 
+# ---- relay and pairing (this core runs no LAN server) ----
+
+NO_SERVER = "this core runs no LAN server"
+
+
+def _relay_prefix(session: Session) -> None:
+    """The checks the five relay/pair methods share, in the Rust core's order: unlocked (``locked``, the
+    decorator); a relay configured (``not_found``); a ``lan`` relay serves nothing (``bad_params``); an
+    encrypted store (``not_encrypted``); no ``<keys>.next`` rotation file (``busy``). Parameter shapes follow."""
+    chosen = relay_config.read(session.db_path.parent / home.RELAY_CONFIG_NAME)
+    if chosen is None:
+        raise ServeError("not_found", "no relay is configured (relay.json in the data folder)")
+    if chosen[0] == "lan":
+        raise ServeError("bad_params", "this device is a joiner; it serves nothing")
+    if storage.unlocked_master(session.db_path) is None:
+        raise ServeError("not_encrypted", f"the relay needs an encrypted store: run '{identity.COMMAND} key init' first")
+    key_path = keys.key_path_for(session.db_path)
+    if key_path.with_name(key_path.name + keys.NEXT_SUFFIX).exists():
+        raise ServeError("busy", "a key rotation is in progress; finish it first")
+
+
+def _listen_param(params: dict) -> tuple | None:
+    """``listen``: absent or null is None; anything else must be a string ``parse_listen`` accepts."""
+    value = params.get("listen")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ServeError("bad_params", "listen must be a non-empty string")
+    try:
+        return relay_config.parse_listen(value)
+    except ValueError as exc:
+        raise ServeError("bad_params", str(exc)) from None
+
+
+def _required_listen(params: dict) -> tuple:
+    found = _listen_param(params)
+    if found is None:
+        raise ServeError("bad_params", "listen must be a non-empty string")
+    return found
+
+
+@_unlocked_only
+def relay_addresses(session: Session, call: Call) -> Any:
+    """The Mac's addresses (Rust only): after the shared prefix, ``unsupported_transport``."""
+    _relay_prefix(session)
+    raise relay_config.UnsupportedTransport(NO_SERVER)
+
+
+@_unlocked_only
+def relay_serve(session: Session, call: Call) -> Any:
+    """The serve switch (Rust only): prefix, ``on`` (bool), ``listen`` (needed when ``on``), then ``unsupported_transport``."""
+    _relay_prefix(session)
+    on = _bool_param(call.params, "on")
+    listen = _listen_param(call.params)
+    if on and listen is None:
+        raise ServeError("bad_params", "listen must be a non-empty string")
+    raise relay_config.UnsupportedTransport(NO_SERVER)
+
+
+@_unlocked_only
+def pair_offer(session: Session, call: Call) -> Any:
+    """Open a pairing offer (Rust only): prefix, ``listen``, then ``unsupported_transport``."""
+    _relay_prefix(session)
+    _required_listen(call.params)
+    raise relay_config.UnsupportedTransport(NO_SERVER)
+
+
+@_unlocked_only
+def pair_confirm(session: Session, call: Call) -> Any:
+    """Confirm the typed digits (Rust only): prefix, ``digits`` (exactly six ASCII digits), then ``unsupported_transport``."""
+    _relay_prefix(session)
+    digits = call.params.get("digits")
+    if not (isinstance(digits, str) and len(digits) == 6 and all(c in "0123456789" for c in digits)):
+        raise ServeError("bad_params", "digits must be exactly six digits")
+    raise relay_config.UnsupportedTransport(NO_SERVER)
+
+
+@_unlocked_only
+def pair_cancel(session: Session, call: Call) -> Any:
+    """End the open offer (Rust only): after the shared prefix, ``unsupported_transport``."""
+    _relay_prefix(session)
+    raise relay_config.UnsupportedTransport(NO_SERVER)
+
+
 # ---- tools ----
 
 @_unlocked_only
@@ -507,6 +591,11 @@ METHODS: dict[str, Handler] = {
     "import.last": import_last,
     "sync.status": sync_status,
     "sync.run": sync_run,
+    "relay.addresses": relay_addresses,
+    "relay.serve": relay_serve,
+    "pair.offer": pair_offer,
+    "pair.confirm": pair_confirm,
+    "pair.cancel": pair_cancel,
     "tools.call": tools_call,
 }
 

@@ -1,0 +1,171 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""The five relay/pair methods on the Python oracle: the shared check prefix, the parameter shapes, then
+``unsupported_transport`` (this core runs no server); ``parse_listen``'s rules, with the vectors the Rust core's
+``serve_pair_test`` uses. ``tools/serve_diff.py`` compares the two cores on the refusals they share."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from disconect import serve
+from disconect.relay import config as relay_config
+from disconect.storage import keys
+from test_serve import Rig, _encrypt
+from test_privacy import _seed
+
+NO_RELAY = {"code": "not_found", "message": "no relay is configured (relay.json in the data folder)"}
+GOOD = {"relay.addresses": {}, "relay.serve": {"on": False}, "pair.offer": {"listen": "192.168.1.20:24816"},
+        "pair.confirm": {"digits": "123456"}, "pair.cancel": {}}
+
+
+@pytest.fixture
+def plain(db_path):
+    _seed(db_path)
+    return Rig(db_path)
+
+
+@pytest.fixture
+def encrypted(db_path, monkeypatch, capsys):
+    _seed(db_path)
+    _encrypt(db_path, monkeypatch)
+    capsys.readouterr()
+    rig = Rig(db_path)
+    from test_serve import PASS
+    assert rig.result("key.unlock", passphrase=PASS) == {"unlocked": True}
+    return rig
+
+
+def _relay_json(db_path, body) -> None:
+    (db_path.parent / "relay.json").write_text(json.dumps(body))
+
+
+def test_the_methods_are_registered_after_sync_run_and_before_tools_call():
+    names = list(serve.METHODS)
+    start = names.index("sync.run") + 1
+    assert names[start:start + 6] == ["relay.addresses", "relay.serve", "pair.offer", "pair.confirm", "pair.cancel",
+                                      "tools.call"]
+
+
+def test_a_locked_store_answers_locked_before_anything_else(db_path, monkeypatch, capsys):
+    _seed(db_path)
+    _encrypt(db_path, monkeypatch)
+    capsys.readouterr()
+    rig = Rig(db_path)
+    _relay_json(db_path, {"lan": "http://127.0.0.1:1"})
+    for method in GOOD:
+        assert rig.error_code(method) == "locked", method
+
+
+def test_no_relay_is_not_found_before_the_parameters_are_looked_at(plain):
+    for method in GOOD:
+        assert plain.send(method)["error"] == NO_RELAY, method
+        assert plain.send(method, junk=[1])["error"] == NO_RELAY, method
+    assert plain.send("relay.serve", on="yes")["error"] == NO_RELAY
+
+
+def test_a_lan_relay_is_a_joiner_and_serves_nothing(plain, db_path):
+    _relay_json(db_path, {"lan": "http://127.0.0.1:1"})
+    for method, params in GOOD.items():
+        assert plain.send(method, **params)["error"] == {
+            "code": "bad_params", "message": "this device is a joiner; it serves nothing"}, method
+
+
+def test_a_plaintext_store_with_a_folder_relay_is_not_encrypted(plain, db_path, tmp_path):
+    _relay_json(db_path, {"folder": str(tmp_path / "relay")})
+    for method, params in GOOD.items():
+        error = plain.send(method, **params)["error"]
+        assert error["code"] == "not_encrypted", method
+        assert error["message"] == f"the relay needs an encrypted store: run '{serve.identity.COMMAND} key init' first"
+
+
+def test_a_key_rotation_in_progress_is_busy_before_the_parameters(encrypted, db_path, tmp_path):
+    _relay_json(db_path, {"folder": str(tmp_path / "relay")})
+    key_path = keys.key_path_for(db_path)
+    key_path.with_name(key_path.name + keys.NEXT_SUFFIX).write_text("{}")
+    for method in GOOD:
+        assert encrypted.send(method, junk=1)["error"] == {
+            "code": "busy", "message": "a key rotation is in progress; finish it first"}, method
+    assert encrypted.send("relay.serve", on="yes")["error"]["code"] == "busy"
+
+
+@pytest.mark.parametrize("method, params, message", [
+    ("relay.serve", {}, "on must be true or false"),
+    ("relay.serve", {"on": "yes"}, "on must be true or false"),
+    ("relay.serve", {"on": 1}, "on must be true or false"),
+    ("relay.serve", {"on": None}, "on must be true or false"),
+    ("relay.serve", {"on": True}, "listen must be a non-empty string"),
+    ("relay.serve", {"on": True, "listen": None}, "listen must be a non-empty string"),
+    ("relay.serve", {"on": True, "listen": ""}, "listen must be a non-empty string"),
+    ("relay.serve", {"on": False, "listen": 24816}, "listen must be a non-empty string"),
+    ("relay.serve", {"on": False, "listen": "localhost:1"}, "listen must be an IP address and a port"),
+    ("pair.offer", {}, "listen must be a non-empty string"),
+    ("pair.offer", {"listen": None}, "listen must be a non-empty string"),
+    ("pair.offer", {"listen": ["127.0.0.1:1"]}, "listen must be a non-empty string"),
+    ("pair.offer", {"listen": "0.0.0.0:1"}, "listen needs a concrete address"),
+    ("pair.confirm", {}, "digits must be exactly six digits"),
+    ("pair.confirm", {"digits": "12345"}, "digits must be exactly six digits"),
+    ("pair.confirm", {"digits": "1234567"}, "digits must be exactly six digits"),
+    ("pair.confirm", {"digits": "12345a"}, "digits must be exactly six digits"),
+    ("pair.confirm", {"digits": 123456}, "digits must be exactly six digits"),
+])
+def test_the_parameter_shapes_are_bad_params_with_the_rust_texts(encrypted, db_path, tmp_path, method, params, message):
+    _relay_json(db_path, {"folder": str(tmp_path / "relay")})
+    error = encrypted.send(method, **params)["error"]
+    assert error["code"] == "bad_params" and error["message"].startswith(message), error
+
+
+def test_after_the_prefix_and_the_shape_every_method_is_unsupported_transport(encrypted, db_path, tmp_path):
+    _relay_json(db_path, {"folder": str(tmp_path / "relay")})
+    for method, params in GOOD.items():
+        assert encrypted.send(method, **params)["error"] == {
+            "code": "unsupported_transport", "message": "this core runs no LAN server"}, method
+    assert encrypted.send("relay.serve", on=True, listen="[2001:db8::1]:24816")["error"]["code"] == "unsupported_transport"
+
+
+def test_sync_status_has_serving_null_on_a_plain_store(plain):
+    assert plain.result("sync.status")["serving"] is None
+
+
+def test_sync_status_has_serving_null_on_an_encrypted_store(encrypted):
+    assert encrypted.result("sync.status")["serving"] is None
+
+
+ACCEPTED = [("192.168.77.5:24816", "192.168.77.5", 24816), ("127.0.0.1:1", "127.0.0.1", 1),
+            ("10.0.0.1:65535", "10.0.0.1", 65535), ("[::1]:24816", "::1", 24816),
+            ("[2001:db8::1]:80", "2001:db8::1", 80)]
+
+#: The Rust core's ``listen_refusals_name_the_rule_and_never_the_address`` vectors (serve_pair_test.rs).
+REFUSED = [
+    ("localhost:24816", "listen must be an IP address and a port"),
+    ("192.168.77.5", "listen must be an IP address and a port"),
+    ("192.168.77.5:", "listen needs an explicit port"),
+    ("192.168.77.5:0", "listen needs an explicit port"),
+    ("192.168.77.5:024816", "listen needs an explicit port"),
+    ("192.168.77.5:65536", "listen needs an explicit port"),
+    ("192.168.77.5:+4816", "listen needs an explicit port"),
+    ("0.0.0.0:24816", "listen needs a concrete address"),
+    ("[::]:24816", "listen needs a concrete address"),
+    ("[fe80::1]:24816", "listen cannot carry a zone id"),
+    ("[fe80::1%en0]:24816", "listen cannot carry a zone id"),
+    ("169.254.9.9:24816", "listen cannot carry a zone id"),
+    ("::1:24816", "listen must be an IP address and a port"),
+    ("[::1]24816", "listen must be an IP address and a port"),
+]
+
+
+@pytest.mark.parametrize("text, ip, port", ACCEPTED)
+def test_parse_listen_accepts_a_literal_and_an_explicit_port(text, ip, port):
+    found = relay_config.parse_listen(text)
+    assert (str(found[0]), found[1]) == (ip, port)
+
+
+@pytest.mark.parametrize("text, rule", REFUSED)
+def test_parse_listen_names_the_rule_and_never_the_input(text, rule):
+    with pytest.raises(ValueError) as caught:
+        relay_config.parse_listen(text)
+    message = str(caught.value)
+    assert message.startswith(rule), message
+    for fragment in ("192.168.77", "169.254.9", "fe80", "localhost", "en0"):
+        assert fragment not in message

@@ -218,6 +218,50 @@
    }
   },
   {
+   "name": "gen: relay.addresses while locked",
+   "send": {
+    "id": 12110,
+    "method": "relay.addresses"
+   }
+  },
+  {
+   "name": "gen: relay.serve while locked",
+   "send": {
+    "id": 12111,
+    "method": "relay.serve",
+    "params": {
+     "on": false
+    }
+   }
+  },
+  {
+   "name": "gen: pair.offer while locked",
+   "send": {
+    "id": 12112,
+    "method": "pair.offer",
+    "params": {
+     "listen": "192.168.1.20:24816"
+    }
+   }
+  },
+  {
+   "name": "gen: pair.confirm while locked",
+   "send": {
+    "id": 12113,
+    "method": "pair.confirm",
+    "params": {
+     "digits": "123456"
+    }
+   }
+  },
+  {
+   "name": "gen: pair.cancel while locked",
+   "send": {
+    "id": 12114,
+    "method": "pair.cancel"
+   }
+  },
+  {
    "name": "gen: tools.call while locked",
    "send": {
     "id": 12107,
@@ -20014,6 +20058,155 @@
   {
    "name": "gen: sync.run params array",
    "raw": "{\"id\":16103,\"method\":\"sync.run\",\"params\":[]}"
+  },
+  {
+   "name": "gen: relay.addresses plain (no relay configured)",
+   "send": {
+    "id": 16200,
+    "method": "relay.addresses"
+   }
+  },
+  {
+   "name": "gen: relay.addresses ignores params",
+   "send": {
+    "id": 16201,
+    "method": "relay.addresses",
+    "params": {
+     "limit": 1,
+     "x": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: relay.addresses params null",
+   "raw": "{\"id\":16202,\"method\":\"relay.addresses\",\"params\":null}"
+  },
+  {
+   "name": "gen: relay.addresses params array",
+   "raw": "{\"id\":16203,\"method\":\"relay.addresses\",\"params\":[]}"
+  },
+  {
+   "name": "gen: relay.serve plain (no relay configured)",
+   "send": {
+    "id": 16210,
+    "method": "relay.serve",
+    "params": {
+     "on": false
+    }
+   }
+  },
+  {
+   "name": "gen: relay.serve ignores params",
+   "send": {
+    "id": 16211,
+    "method": "relay.serve",
+    "params": {
+     "limit": 1,
+     "x": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: relay.serve params null",
+   "raw": "{\"id\":16212,\"method\":\"relay.serve\",\"params\":null}"
+  },
+  {
+   "name": "gen: relay.serve params array",
+   "raw": "{\"id\":16213,\"method\":\"relay.serve\",\"params\":[]}"
+  },
+  {
+   "name": "gen: pair.offer plain (no relay configured)",
+   "send": {
+    "id": 16220,
+    "method": "pair.offer",
+    "params": {
+     "listen": "192.168.1.20:24816"
+    }
+   }
+  },
+  {
+   "name": "gen: pair.offer ignores params",
+   "send": {
+    "id": 16221,
+    "method": "pair.offer",
+    "params": {
+     "limit": 1,
+     "x": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: pair.offer params null",
+   "raw": "{\"id\":16222,\"method\":\"pair.offer\",\"params\":null}"
+  },
+  {
+   "name": "gen: pair.offer params array",
+   "raw": "{\"id\":16223,\"method\":\"pair.offer\",\"params\":[]}"
+  },
+  {
+   "name": "gen: pair.confirm plain (no relay configured)",
+   "send": {
+    "id": 16230,
+    "method": "pair.confirm",
+    "params": {
+     "digits": "123456"
+    }
+   }
+  },
+  {
+   "name": "gen: pair.confirm ignores params",
+   "send": {
+    "id": 16231,
+    "method": "pair.confirm",
+    "params": {
+     "limit": 1,
+     "x": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: pair.confirm params null",
+   "raw": "{\"id\":16232,\"method\":\"pair.confirm\",\"params\":null}"
+  },
+  {
+   "name": "gen: pair.confirm params array",
+   "raw": "{\"id\":16233,\"method\":\"pair.confirm\",\"params\":[]}"
+  },
+  {
+   "name": "gen: pair.cancel plain (no relay configured)",
+   "send": {
+    "id": 16240,
+    "method": "pair.cancel"
+   }
+  },
+  {
+   "name": "gen: pair.cancel ignores params",
+   "send": {
+    "id": 16241,
+    "method": "pair.cancel",
+    "params": {
+     "limit": 1,
+     "x": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: pair.cancel params null",
+   "raw": "{\"id\":16242,\"method\":\"pair.cancel\",\"params\":null}"
+  },
+  {
+   "name": "gen: pair.cancel params array",
+   "raw": "{\"id\":16243,\"method\":\"pair.cancel\",\"params\":[]}"
   },
   {
    "name": "gen: tools.call get_data_health with its defaults",

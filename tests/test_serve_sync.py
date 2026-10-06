@@ -64,7 +64,8 @@ def test_a_plaintext_store_reports_empty_counts_and_cannot_run(plain, db_path, t
     assert plain.result("sync.status")["bundles"] == {}
     status = plain.result("sync.status")
     assert set(status) == {"bundles", "records_unsent", "records_seen", "conflicts", "superseded", "gaps",
-                           "last_pushed_at", "last_pulled_at"}
+                           "last_pushed_at", "last_pulled_at", "serving"}
+    assert status["serving"] is None
     assert status["records_unsent"] > 0 and status["gaps"] == []
     assert status["last_pushed_at"] is None and status["last_pulled_at"] is None
     response = plain.send("sync.run")
@@ -94,7 +95,7 @@ def test_a_store_older_than_the_relay_tables_answers_like_a_fresh_one(db_path):
     conn.close()
     status = Rig(db_path).result("sync.status")
     assert status == {"bundles": {}, "records_unsent": 0, "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [],
-                      "last_pushed_at": None, "last_pulled_at": None}
+                      "last_pushed_at": None, "last_pulled_at": None, "serving": None}
 
 
 def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted, db_path, tmp_path):

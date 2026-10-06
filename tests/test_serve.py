@@ -377,7 +377,10 @@ def _calls(export_root):
                       ("data.metric", {"metric": "sleep_score", "scope": "device", "days": 60, "last_day": "2025-06-30"}),
                       ("data.metric", {"metric": "stress", "scope": "device", "days": 30, "last_day": "2025-06-30"}),
                       ("data.today", {}), ("data.live", {"day": "2025-06-30"}), ("data.facts", {"days": 7, "baseline_days": 28}),
-                      ("sync.status", {}), ("sync.run", {})]
+                      ("sync.status", {}), ("sync.run", {}),
+                      ("relay.addresses", {}), ("relay.serve", {"on": False}),
+                      ("pair.offer", {"listen": "192.168.1.20:24816"}), ("pair.confirm", {"digits": "123456"}),
+                      ("pair.cancel", {})]
     unlocked_reads += [("tools.call", {"name": name, "arguments": arguments}) for name, arguments in
                        (("get_data_health", {}), ("get_metric_series", {"metrics": ["steps", "heart_rate"]}),
                         ("get_sleep_detail", {}), ("list_activities", {"limit": 5}), ("get_period_facts", {}),

@@ -483,6 +483,30 @@ def _sync_entries() -> list[dict]:
     return entries
 
 
+#: The five relay/pair methods, with the params that reach their parameter checks; ids 16200 up.
+_RELAY_METHODS = (("relay.addresses", None), ("relay.serve", {"on": False}),
+                  ("pair.offer", {"listen": "192.168.1.20:24816"}), ("pair.confirm", {"digits": "123456"}),
+                  ("pair.cancel", None))
+
+
+def _relay_entries() -> list[dict]:
+    """``relay.addresses``, ``relay.serve``, ``pair.offer``, ``pair.confirm`` and ``pair.cancel`` on the plaintext
+    oracle stores: no ``relay.json`` exists beside them, so every entry answers ``not_found`` on both cores (the
+    shared prefix's second check). The refusals that come after it run in the sync leg."""
+    entries: list[dict] = []
+    for index, (method, params) in enumerate(_RELAY_METHODS):
+        base = 16200 + index * 10
+        entries += [
+            {"name": f"gen: {method} plain (no relay configured)",
+             "send": {"id": base, "method": method, **({"params": params} if params else {})}},
+            {"name": f"gen: {method} ignores params",
+             "send": {"id": base + 1, "method": method, "params": {"limit": 1, "x": [1]}}},
+            {"name": f"gen: {method} params null", "raw": '{"id":%d,"method":"%s","params":null}' % (base + 2, method)},
+            {"name": f"gen: {method} params array", "raw": '{"id":%d,"method":"%s","params":[]}' % (base + 3, method)},
+        ]
+    return entries
+
+
 def _tools_entries() -> list[dict]:
     """``tools.call``: each of the six tools with defaults and with every parameter, the day anchors, the clamps,
     every parameter badly typed (the cores' argument coercion must agree), the tool failures and the failures
@@ -735,6 +759,13 @@ def build_script(anchors: dict[str, str]) -> None:
               # locked on an encrypted store; plaintext stores are open, so these answer as unlocked ones do
               {"name": "gen: sync.status while locked", "send": {"id": 12105, "method": "sync.status"}},
               {"name": "gen: sync.run while locked", "send": {"id": 12106, "method": "sync.run"}},
+              {"name": "gen: relay.addresses while locked", "send": {"id": 12110, "method": "relay.addresses"}},
+              {"name": "gen: relay.serve while locked", "send": {"id": 12111, "method": "relay.serve", "params": {"on": False}}},
+              {"name": "gen: pair.offer while locked",
+               "send": {"id": 12112, "method": "pair.offer", "params": {"listen": "192.168.1.20:24816"}}},
+              {"name": "gen: pair.confirm while locked",
+               "send": {"id": 12113, "method": "pair.confirm", "params": {"digits": "123456"}}},
+              {"name": "gen: pair.cancel while locked", "send": {"id": 12114, "method": "pair.cancel"}},
               # locked on an encrypted store; the tool's answer on a plaintext one
               {"name": "gen: tools.call while locked",
                "send": {"id": 12107, "method": "tools.call", "params": {"name": "get_contract", "arguments": {}}}},
@@ -748,7 +779,7 @@ def build_script(anchors: dict[str, str]) -> None:
     entries: list[dict] = []
     for entry in kept:
         if entry["name"] == "import.last":
-            entries += _metric_entries() + _today_entries() + _live_entries() + _health_entries() + _import_entries() + _sync_entries() + _tools_entries()
+            entries += _metric_entries() + _today_entries() + _live_entries() + _health_entries() + _import_entries() + _sync_entries() + _relay_entries() + _tools_entries()
         entries.append(entry)
         if entry["name"] == "data.facts while locked":
             entries += locked
