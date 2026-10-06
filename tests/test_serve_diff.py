@@ -93,7 +93,8 @@ def test_the_copied_privacy_constants_match_the_privacy_test():
 def test_the_script_covers_every_protocol_method_and_the_malformed_line_classes():
     entries = json.loads(serve_diff.SCRIPT.read_text())["entries"]
     methods = {e["send"]["method"] for e in entries if "send" in e}
-    assert set(serve.METHODS) <= methods and serve_diff.DEFERRED <= methods
+    assert set(serve.METHODS) - serve_diff.PHONE_ONLY <= methods and serve_diff.DEFERRED <= methods
+    assert not serve_diff.PHONE_ONLY & methods, "a phone-only method is never sent: on a phone build it would erase the store"
     assert serve_diff.DEFERRED == set(), "slice 3D ported the last deferred methods"
     names = " ".join(e["name"] for e in entries)
     for needle in ("not JSON", "JSON array", "id: missing", "params null", "unknown method", "id: beyond u64",

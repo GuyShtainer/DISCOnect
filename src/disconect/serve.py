@@ -567,6 +567,14 @@ def pair_cancel(session: Session, call: Call) -> Any:
     raise ServeError("not_found", "there is no offer to cancel")
 
 
+# ---- the phone's own method ----
+
+def phone_forget(session: Session, call: Call) -> Any:
+    """``pair.forget`` is the phone app's method (Rust only): this core is never a phone, so it always refuses, with
+    no ``locked`` check first and whatever the params are."""
+    raise ServeError("unsupported_transport", "this core is not a phone; there is nothing to forget")
+
+
 # ---- tools ----
 
 @_unlocked_only
@@ -623,6 +631,7 @@ METHODS: dict[str, Handler] = {
     "pair.confirm": pair_confirm,
     "pair.cancel": pair_cancel,
     "tools.call": tools_call,
+    "pair.forget": phone_forget,
 }
 
 
