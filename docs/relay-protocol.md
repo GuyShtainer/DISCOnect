@@ -170,7 +170,7 @@ byte**, then the body (exactly the declared length, at most one bundle), then th
 without a `Content-Length` has an empty body, which is never read; chunked uploads are refused (`400`). Two
 devices that hold the same master (a paired phone and the Mac) therefore derive the same key with no exchange.
 
-**Response tag (12-RA).** Every answer of the object routes, whatever its status (200, 204 and every refusal), carries
+**Response tag (12-RA).** Every answer from `handle()` except `/v1/health` and `/v1/pair*`, whatever its status (200, 204 and every refusal), carries
 `X-Disconect-Resp: v1.<server unix seconds>.<rtag>` with
 `rtag = HMAC(token_key, "resp" ‖ "\n" ‖ METHOD ‖ "\n" ‖ target ‖ "\n" ‖ <the request's X-Disconect-Auth value as the server
 received it, SP/HTAB-trimmed, empty when there was none> ‖ "\n" ‖ <server unix seconds, decimal> ‖ "\n" ‖ <status, decimal> ‖ "\n" ‖
@@ -185,9 +185,10 @@ starts with an upper-case method, the pre-tag with `pre`, the response with `res
 bundle) and verifies the tag in constant time over its own method, target, sent header, the header's seconds, the status and
 the body. Missing, repeated, malformed or wrong is `Unverified`: not the relay this device paired with, the relay was set up
 again with a new key (pair again from it), the network altered the answer, or the connection broke; the client takes no
-automatic action (it never re-pairs, never books, never lists). A verified `401` is `Unauthorized`: the relay holds this
-device's key but refused the request, so the date and time on the two devices should be checked (the server's seconds are in
-the header). Server and client ship together in one core; a client of this version against a server without the tag sees
+automatic action (it never re-pairs, never books, never lists). A verified `401` whose server seconds differ from the
+client's sent timestamp by more than 300 s is `Unauthorized` (the relay holds this device's key but refused the request: the
+clocks disagree; the text carries the offset in minutes, "check the date and time on both devices"). A verified `401` within
+300 s cannot be a clock problem (the request a middlebox altered, replayed as a re-pair lure) and is `Unverified`. Server and client ship together in one core; a client of this version against a server without the tag sees
 `Unverified` on every call (the Mac updates first).
 
 **Limits, stated.**
@@ -219,15 +220,18 @@ the header). Server and client ship together in one core; a client of this versi
   from a list and names are random. A tag proves a holder of the account key, not this particular relay (Bet 14 pins a
   relay id at pairing and binds it into the tag). Nothing may act on health beyond "something answers".
 - Time-skewed phones get a tagged `401` (`relay_auth_failed`, "check the date and time on both devices") until their clock is right.
+- *An unverified `PUT` that landed (12-RA review).* The retry reuses `(device_id, seq, prev)`, so the relay then holds two
+  sibling bundles with the same `seq`. `gaps()` ignores it today; a future fork or tamper check (Bet 14, pruning) must allow
+  it. The pusher later pulls its own orphan back as duplicates.
 
 **Client errors** (`RelayError`): unreachable (connect, name lookup, time-out, broken answer) is
-`Unreachable`, retryable; a verified `401` is `Unauthorized` (text `relay_auth_failed: ... check the date and time on both
-devices`, reason `authentication_failed`); an answer with no valid response tag is `Unverified` (reason and text
+`Unreachable`, retryable; a verified `401` outside the skew window is `Unauthorized { skew_s }` (text `relay_auth_failed: ... this device's clock is N
+minutes off the relay's; check the date and time on both devices`, reason `relay_auth_failed`); an answer with no valid response tag is `Unverified` (reason and text
 `relay_unverified`); `404` on a read or delete is `FileNotFoundError`; `400` `bad object name`; `413` `too_large`; any other
 status is `Status(n)` (only the number is kept). A pull stops at the first of the transient ones (unreachable,
 unauthorized, unverified, a status) without booking the bundle `rejected`: nothing is marked, the next pull
 retries (a bundle whose records had begun to land is `applying`, which the next pull repairs as it
-does after a crash). The CLI exits 5 for an unreachable or unverified relay. `relay.json` is `{"folder": path}` or
+does after a crash). The CLI exits 5 for an unreachable, unverified or clock-refused relay. `relay.json` is `{"folder": path}` or
 `{"lan": "http://host:port"}` (a non-empty `lan` wins); `--relay http://host:port` selects LAN, and
 `https://` or a URL with a path is a usage error.
 
