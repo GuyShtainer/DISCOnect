@@ -214,7 +214,7 @@ def test_metric_is_calendar_filled_with_statuses(plain, db_path):
     assert [d["day"] for d in days][0] == "2025-06-20" and days[-1]["day"] == "2025-07-03" and len(days) == 14
     assert result["unit"] == contract.unit_for("sleep_score") and result["scope"] == "device"
     by_day = {d["day"]: d for d in days}
-    assert by_day["2025-06-30"] == {"day": "2025-06-30", "value": 100, "status": "present"}
+    assert by_day["2025-06-30"] == {"day": "2025-06-30", "value": 100, "status": "present", "completeness": None}
     assert by_day["2025-06-21"]["value"] is None and by_day["2025-06-21"]["status"] == "failed"
     for late in ("2025-07-01", "2025-07-02", "2025-07-03"):
         assert by_day[late]["value"] is None and by_day[late]["status"] in STATUSES - {"present"}

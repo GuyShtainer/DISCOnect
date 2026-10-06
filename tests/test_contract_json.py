@@ -46,8 +46,10 @@ def snapshot() -> dict:
             "sources": contract.SOURCE_CONVENTION,
             "privacy": contract.PRIVACY_NOTE,
             "coverage": contract.COVERAGE_CONVENTION,
+            "completeness": contract.COMPLETENESS_CONVENTION,
         },
         "source_scopes": list(contract.SOURCE_SCOPES),
+        "per_minute_metrics": list(contract.PER_MINUTE_METRICS),
         "metrics": [dataclasses.asdict(item) for item in contract.METRICS],
         "labels": [dataclasses.asdict(item) for item in contract.LABELS],
         "streams_for": [{"metric": metric, "source_scope": scope, "streams": list(streams)}

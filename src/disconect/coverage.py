@@ -15,6 +15,7 @@ dates, counts and stream names only.
 
 from __future__ import annotations
 
+import bisect
 import dataclasses
 import datetime
 
@@ -27,6 +28,13 @@ PRESENT = "present"
 FAILED = "failed"
 SOURCE_EMPTY = "source_empty"
 NOT_COVERED = "not_covered"
+
+#: Two consecutive readings of a per-minute metric at most this many seconds apart span worn time
+#: between them (five minutes bridges a short unmeasurable spell; a charger hour shows as a gap).
+WORN_GAP_S = 300
+#: The seconds a reading accounts for on its own (the per-minute cadence): the last of a run, or one
+#: whose next reading is farther than ``WORN_GAP_S``.
+READING_S = 60
 
 MAX_WINDOW_DAYS = 3650  # the status window; gap lists, not the window, are what is capped
 MAX_GAPS = 20
@@ -300,3 +308,116 @@ def ledger(conn: sqlite.Connection, last_day: str, window_days: int) -> dict:
                         "upgrades the schema; re-importing the export records its windows"),
         "refinements_available": analysis.refinements,
     }
+
+
+# ---- completeness (7b-12): how much of a day a per-minute metric's mean rests on -------------
+
+UTC = datetime.timezone.utc
+
+
+def _epoch(moment: datetime.datetime) -> int:
+    return int(moment.timestamp())
+
+
+def _day_bounds(window: _Window, offsets: ClockOffsets) -> list[int]:
+    """Epoch seconds each window day starts at, plus the end of the last one (``window.days + 1`` entries).
+
+    Local midnight is read under the offset nearest to it, so a day across an offset change is as long
+    as the watch's clock made it; UTC is assumed where no offset is known, as ``local_date`` does.
+    """
+    bounds = []
+    for position in range(window.days + 1):
+        midnight = datetime.datetime.combine(window.first + position * _DAY, datetime.time(), tzinfo=UTC)
+        bounds.append(_epoch(midnight) - (offsets.offset_at(midnight) or 0))
+    return bounds
+
+
+def _add_clipped(start: int, end: int, bounds: list[int], seconds: list[int]) -> None:
+    """Add the seconds of ``[start, end)`` that fall inside each window day to ``seconds`` (one slot per day)."""
+    position = max(bisect.bisect_right(bounds, start) - 1, 0)
+    start = max(start, bounds[0])
+    while position < len(seconds) and start < end:
+        piece_end = min(end, bounds[position + 1])
+        seconds[position] += piece_end - start
+        start = piece_end
+        position += 1
+
+
+def _merged(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Overlapping or touching spans folded into one each, in time order."""
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _covered_seconds(conn: sqlite.Connection, window: _Window, streams: tuple[str, ...], bounds: list[int],
+                     refinements: bool) -> list[int]:
+    """Per window day, the seconds some retained file of ``streams`` spans (a claimed window covers whole days)."""
+    spans = []
+    for stream in streams:
+        if stream in contract.SESSION_STREAMS:
+            continue  # a session claims no day
+        for start_utc, end_utc in conn.execute("SELECT start_utc, end_utc FROM raw_records WHERE stream=?", (stream,)):
+            if start_utc and end_utc:
+                spans.append((_epoch(parse_iso_utc(start_utc)), _epoch(parse_iso_utc(end_utc))))
+    seconds = [0] * window.days
+    for start, end in _merged(spans):
+        _add_clipped(start, end, bounds, seconds)
+    if refinements:
+        claimed = bytearray(window.days)
+        for stream in streams:
+            for from_day, to_day in conn.execute("SELECT from_day, to_day FROM export_ranges WHERE stream=?", (stream,)):
+                window.mark(claimed, from_day, to_day)
+        for position, flag in enumerate(claimed):
+            if flag:
+                seconds[position] = bounds[position + 1] - bounds[position]
+    return seconds
+
+
+def _worn_seconds(conn: sqlite.Connection, metric: str, scope: str, window: _Window, bounds: list[int]) -> list[int]:
+    """Per window day, the seconds a reading accounts for: its own minute, and the gap to the next
+    reading when that is at most ``WORN_GAP_S``."""
+    # a run of readings can start the day before the window and the last window day can end 14 h after
+    # its UTC namesake: over-fetch as the aggregates do and let the clipping sort it out
+    lo = (window.first - _DAY).isoformat()
+    hi = (window.last + 2 * _DAY).isoformat()
+    seconds = [0] * window.days
+    previous: int | None = None
+    for (ts_utc,) in conn.execute(
+            "SELECT ts_utc FROM metric_samples WHERE metric=? AND source_scope=? AND ts_utc >= ? AND ts_utc < ? "
+            "ORDER BY ts_utc", (metric, scope, lo, hi)):
+        moment = _epoch(parse_iso_utc(ts_utc))
+        if previous is not None:
+            _add_clipped(previous, moment if moment - previous <= WORN_GAP_S else previous + READING_S, bounds, seconds)
+        previous = moment
+    if previous is not None:
+        _add_clipped(previous, previous + READING_S, bounds, seconds)
+    return seconds
+
+
+def day_completeness(conn: sqlite.Connection, metric: str, scope: str, first_day: str,
+                     last_day: str) -> dict[str, int | None]:
+    """Per local day, the share (0-100) of the covered seconds a reading accounts for (its minute, and
+    the gap to the next reading when at most ``WORN_GAP_S``; ``contract.COMPLETENESS_CONVENTION``);
+    None for a pair that is not per-minute,
+    for a session scope, and for a day no file of the pair's streams spans. Raises ValueError for a
+    malformed or inverted range.
+    """
+    window = _Window(first_day, last_day)
+    if window.days < 1:
+        raise ValueError("last_day must not be before first_day")
+    days = [window.day(position) for position in range(window.days)]
+    if metric not in contract.PER_MINUTE_METRICS or scope in contract.SESSION_SCOPES:
+        return dict.fromkeys(days)
+    offsets = ClockOffsets.load(conn)
+    streams_for, _drift = _declared_and_drift(conn)
+    streams = tuple(sorted(streams_for.get((metric, scope), ())))
+    bounds = _day_bounds(window, offsets)
+    covered = _covered_seconds(conn, window, streams, bounds, migrations.has_table(conn, "export_ranges"))
+    worn = _worn_seconds(conn, metric, scope, window, bounds)
+    return {day: (min(100, 100 * worn[position] // covered[position]) if covered[position] > 0 else None)
+            for position, day in enumerate(days)}

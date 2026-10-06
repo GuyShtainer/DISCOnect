@@ -64,6 +64,22 @@ COVERAGE_CONVENTION = (
     "is derived from the retained raw files each time it is asked for; it is never guessed."
 )
 
+COMPLETENESS_CONVENTION = (
+    "Completeness marks how much of a day a per-minute metric's mean rests on: the share, 0-100, of "
+    "the day's covered seconds that a reading accounts for (its own minute, and the gap to the next "
+    "reading when that is at most 5 minutes). "
+    "Covered seconds are the ones a retained file of the metric's streams spans inside the local day "
+    "(a claimed export window covers its days whole). It is measured here from the readings' times and "
+    "the files' spans, never from a wearing-time figure of the watch's, and it says nothing about a "
+    "reading's accuracy. It is null for metrics that are not per-minute (five-minute HRV, periodic "
+    "pulse oximetry), for daily metrics, for the live link, and for a day no file spans."
+)
+
+#: The sample-cadence metrics the watch writes once a minute while worn (heart rate every minute
+#: or two): the only ones a day's completeness is measured for. HRV is five-minute and sleep-only,
+#: pulse oximetry periodic, so neither has a per-minute expectation.
+PER_MINUTE_METRICS = ("heart_rate", "stress", "respiration_rate", "energy_reserve")
+
 SOURCE_SCOPES = ("device", "vendor_cloud", "local", "live")
 
 #: Daily metrics computed here that answer the same question as a vendor_cloud metric under
@@ -343,7 +359,9 @@ def as_dict() -> dict:
         "sources": SOURCE_CONVENTION,
         "privacy": PRIVACY_NOTE,
         "coverage": COVERAGE_CONVENTION,
+        "completeness": COMPLETENESS_CONVENTION,
         "source_scopes": list(SOURCE_SCOPES),
+        "per_minute_metrics": list(PER_MINUTE_METRICS),
         "streams_for": [{"metric": metric, "source_scope": scope, "streams": list(streams)}
                         for (metric, scope), streams in STREAMS_FOR.items()],
         "session_streams": list(SESSION_STREAMS),

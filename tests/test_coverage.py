@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from disconect import contract, coverage, health, storage
+from disconect import contract, coverage, health, queries, storage
 from disconect.ingest import connect_export, sources
 from disconect.storage import migrations
 from test_import import _build_export
@@ -268,4 +268,90 @@ def test_half_hour_zone_samples_land_on_their_local_day(db_path):
     ledger = coverage.ledger(conn, "2025-06-02", 2)
     assert _row(ledger, "stress", "device")["gaps"] == [{"from": "2025-06-02", "to": "2025-06-02", "status": "source_empty"}]
     assert _row(ledger, "heart_rate", "device")["gaps"] == [{"from": "2025-06-01", "to": "2025-06-01", "status": "source_empty"}]
+    conn.close()
+
+
+# ---- completeness (7b-12) --------------------------------------------------------------------
+
+def _minutes(conn, raw, metric, start, end, step_s=60, scope="device"):
+    """One reading of ``metric`` every ``step_s`` from ``start`` up to (excluding) ``end``."""
+    moment = start
+    rows = []
+    while moment < end:
+        rows.append((metric, moment.strftime("%Y-%m-%dT%H:%M:%SZ"), 60, scope, raw))
+        moment += datetime.timedelta(seconds=step_s)
+    conn.executemany("INSERT INTO metric_samples(metric, ts_utc, value, source_scope, raw_record_id) VALUES(?,?,?,?,?)", rows)
+
+
+def _utc(day, hour=0, minute=0):
+    return datetime.datetime(2025, 6, day, hour, minute, tzinfo=UTC)
+
+
+def test_completeness_full_day_gap_sparse_and_partial(db_path):
+    with storage.open_for_write(db_path, "test") as conn:
+        full = _raw(conn, "fit:monitoring_b", "2025-06-01T00:00:00Z", "2025-06-02T00:00:00Z")
+        _minutes(conn, full, "heart_rate", _utc(1), _utc(2))                    # 06-01: every minute -> 100
+        twenty = _raw(conn, "fit:monitoring_b", "2025-06-02T00:00:00Z", "2025-06-02T20:00:00Z")
+        _minutes(conn, twenty, "heart_rate", _utc(2), _utc(2, 8))              # 06-02: 8 h, 4 h off, 8 h of 20 h -> 80
+        _minutes(conn, twenty, "heart_rate", _utc(2, 12), _utc(2, 20))
+        hour = _raw(conn, "fit:monitoring_b", "2025-06-03T00:00:00Z", "2025-06-03T01:00:00Z")
+        _minutes(conn, hour, "heart_rate", _utc(3), _utc(3, 1), step_s=360)    # 06-03: ten readings 6 min apart -> 16
+        today = _raw(conn, "fit:monitoring_b", "2025-06-04T00:00:00Z", "2025-06-04T10:00:00Z")
+        _minutes(conn, today, "heart_rate", _utc(4), _utc(4, 10))               # 06-04: a partial file, worn throughout -> 100
+    conn = storage.open_read_only(db_path)
+    got = coverage.day_completeness(conn, "heart_rate", "device", "2025-05-31", "2025-06-05")
+    assert got == {"2025-05-31": None, "2025-06-01": 100, "2025-06-02": 80, "2025-06-03": 16, "2025-06-04": 100,
+                   "2025-06-05": None}
+    # the calendar carries it next to the status, and a day no file spans has neither
+    calendar = {row["day"]: (row["status"], row["completeness"])
+                for row in queries.metric_calendar(conn, "heart_rate", "device", "2025-05-31", "2025-06-02")}
+    assert calendar == {"2025-05-31": ("not_covered", None), "2025-06-01": ("present", 100), "2025-06-02": ("present", 80)}
+    conn.close()
+
+
+def test_completeness_counts_overlapping_files_once_and_is_null_off_the_per_minute_set(db_path):
+    with storage.open_for_write(db_path, "test") as conn:
+        first = _raw(conn, "fit:monitoring_b", "2025-06-01T00:00:00Z", "2025-06-01T13:00:00Z")
+        _raw(conn, "fit:monitoring_b", "2025-06-01T11:00:00Z", "2025-06-02T00:00:00Z")
+        _minutes(conn, first, "heart_rate", _utc(1), _utc(1, 12))               # 12 h of 24 (not of 26) -> 50
+        _minutes(conn, first, "hrv_rmssd", _utc(1), _utc(1, 12), step_s=300)
+        conn.execute("INSERT INTO daily_metrics(date, metric, value, source_scope, raw_record_id) "
+                     "VALUES('2025-06-01','steps',100,'device',?)", (first,))
+    conn = storage.open_read_only(db_path)
+    assert coverage.day_completeness(conn, "heart_rate", "device", "2025-06-01", "2025-06-01") == {"2025-06-01": 50}
+    assert coverage.day_completeness(conn, "hrv_rmssd", "device", "2025-06-01", "2025-06-01") == {"2025-06-01": None}
+    assert coverage.day_completeness(conn, "steps", "device", "2025-06-01", "2025-06-01") == {"2025-06-01": None}
+    assert coverage.day_completeness(conn, "heart_rate", "live", "2025-06-01", "2025-06-01") == {"2025-06-01": None}
+    with pytest.raises(ValueError, match="last_day must not be before first_day"):
+        coverage.day_completeness(conn, "heart_rate", "device", "2025-06-02", "2025-06-01")
+    conn.close()
+
+
+def test_completeness_claimed_export_window_covers_the_whole_day(db_path):
+    """A stream the ledger sees only through an export window (no datable file) covers its days whole."""
+    with storage.open_for_write(db_path, "test") as conn:
+        conn.execute("INSERT INTO import_runs(id, started_at, transport, status) VALUES(1,'2025-07-01T00:00:00Z','connect_export','ok')")
+        raw = conn.execute(
+            "INSERT INTO raw_records(stream, source_key, source_scope, transport, payload_kind, payload, payload_hash, "
+            "payload_bytes, imported_at) VALUES('json:hr','k','vendor_cloud','connect_export','json',x'00','h',1,"
+            "'2025-07-01T00:00:00Z')").lastrowid
+        conn.execute("INSERT INTO export_ranges(run_id, stream, from_day, to_day) VALUES(1,'json:hr','2025-06-01','2025-06-01')")
+        _minutes(conn, raw, "heart_rate", _utc(1), _utc(1, 6), scope="vendor_cloud")   # 6 h of a claimed day -> 25
+    conn = storage.open_read_only(db_path)
+    assert coverage.day_completeness(conn, "heart_rate", "vendor_cloud", "2025-06-01", "2025-06-02") == {
+        "2025-06-01": 25, "2025-06-02": None}
+    conn.close()
+
+
+def test_completeness_follows_the_watch_clock(db_path):
+    """On a +5:30 watch the local day 06-01 is 05-31T18:30Z..06-01T18:30Z; a file and readings over exactly that are 100."""
+    from disconect.ingest.clock import ClockOffsets
+    from disconect.ingest.model import ClockOffset
+    with storage.open_for_write(db_path, "test") as conn:
+        raw = _raw(conn, "fit:monitoring_b", "2025-05-31T18:30:00Z", "2025-06-01T18:30:00Z")
+        ClockOffsets.persist(conn, [ClockOffset(datetime.datetime(2025, 6, 1, 6, tzinfo=UTC), 19800)], None, raw)
+        _minutes(conn, raw, "stress", datetime.datetime(2025, 5, 31, 18, 30, tzinfo=UTC), _utc(1, 18, 30))
+    conn = storage.open_read_only(db_path)
+    assert coverage.day_completeness(conn, "stress", "device", "2025-05-31", "2025-06-02") == {
+        "2025-05-31": None, "2025-06-01": 100, "2025-06-02": None}
     conn.close()

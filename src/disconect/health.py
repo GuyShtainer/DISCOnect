@@ -166,6 +166,7 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
             "missing_values": contract.MISSING_VALUE_CONVENTION,
             "sources": contract.SOURCE_CONVENTION,
             "coverage": contract.COVERAGE_CONVENTION,
+            "completeness": contract.COMPLETENESS_CONVENTION,
         },
     }
 
