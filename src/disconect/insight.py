@@ -98,7 +98,8 @@ def _round(value: float | None, digits: int = 2) -> float | None:
 
 def _latest_stored_date(conn: sqlite.Connection) -> str | None:
     daily = conn.execute("SELECT MAX(date) FROM daily_metrics").fetchone()[0]
-    sample = conn.execute("SELECT MAX(substr(ts_utc, 1, 10)) FROM metric_samples").fetchone()[0]
+    # a live-link session today must not move every device fact's window (its rows are scope 'live')
+    sample = conn.execute("SELECT MAX(substr(ts_utc, 1, 10)) FROM metric_samples WHERE source_scope != 'live'").fetchone()[0]
     candidates = [d for d in (daily, sample) if d]
     return max(candidates) if candidates else None
 
@@ -161,13 +162,15 @@ def period_facts(conn: sqlite.Connection, window_days: int = DEFAULT_WINDOW_DAYS
     so an old archive still answers. Metrics without any data in either range
     are omitted unless explicitly requested, in which case they appear with
     ``reason_code = "no_data"``. Unknown metric names land in ``ignored_metrics``.
-    Evidence lists the window's dates; ``include_points`` adds their values.
+    Evidence lists the window's dates; ``include_points`` adds their values. With no
+    ``source_scope`` the session scope ``live`` is left out; name it to get its facts.
     """
     window_days = max(1, min(int(window_days), MAX_WINDOW_DAYS))
     baseline_days = max(1, min(int(baseline_days), MAX_BASELINE_DAYS))
     if source_scope is not None and source_scope not in contract.SOURCE_SCOPES:
         raise ValueError(f"source_scope must be one of {contract.SOURCE_SCOPES}")
-    scopes = (source_scope,) if source_scope else contract.SOURCE_SCOPES
+    # a session scope (live) answers only when asked for: a link's minutes never shape the default facts (9b-2)
+    scopes = (source_scope,) if source_scope else contract.DEFAULT_FACT_SCOPES
     if end_date:
         queries.parse_day(end_date, "end_date")
     as_of = end_date or _latest_stored_date(conn)

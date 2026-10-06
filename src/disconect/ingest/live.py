@@ -1,8 +1,12 @@
-"""Live-link session files (``live-*.jsonl``) as one retained raw record each; nothing is derived.
+"""Live-link session files (``live-*.jsonl``) as one retained raw record each, and the fold (bet 9b-2).
 
 A live file holds one JSON object per line: a reading ``{"t": unix seconds, "metric": str,
 "value": int}`` or a status line (a ``status`` or ``stop`` key). The record keeps the readings
-only, so the bytes can be re-derived the day a fold exists (bet 9b-2).
+only; the decoder itself derives nothing. The fold (:func:`fold_records`) is a pure function of
+every ``json:live`` record in the store, run by ``Writer.derive_live_samples`` after each import,
+pull and reparse: readings of the five sample-cadence metrics become one ``metric_samples`` row
+per UTC minute at source scope ``live``, sentinels dropped with the FIT decoder's rules, readings
+de-duplicated across records by ``(t, metric, value)``.
 """
 
 from __future__ import annotations
@@ -10,10 +14,24 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
+import math
 
 from disconect.ingest.model import Decoded
 
 STREAM = "json:live"
+
+#: The source scope of the folded rows (``contract.SOURCE_SCOPES``); raw rows keep ``device``.
+SCOPE = "live"
+
+#: Metrics the fold keeps, with the FIT decoder's sentinel rule (a reading that fails it is dropped
+#: under the named reason, prefixed ``live_``). ``steps`` and unknown names are ignored by the fold.
+SENTINEL_RULES: dict[str, tuple[str, object]] = {
+    "heart_rate": ("heart_rate_zero", lambda v: v > 0),
+    "stress": ("stress_sentinel", lambda v: v >= 0),
+    "respiration_rate": ("respiration_sentinel", lambda v: v >= 0),
+    "spo2": ("spo2_off_wrist_or_zero", lambda v: v > 0),
+    "energy_reserve": ("energy_reserve_out_of_range", lambda v: 0 <= v <= 100),
+}
 
 
 #: Exclusive upper bound of a reading's ``t`` (unix seconds, 10000-01-01Z): a millisecond stamp falls outside.
@@ -83,3 +101,53 @@ def decode_live_record(record: dict) -> tuple[str, Decoded] | None:
     decoded.start_utc = datetime.datetime.fromtimestamp(first, datetime.timezone.utc)
     decoded.end_utc = datetime.datetime.fromtimestamp(last, datetime.timezone.utc)
     return hashlib.sha256(data).hexdigest(), decoded
+
+
+def minute_floor(t: float) -> int:
+    """The UTC minute a reading belongs to, as unix seconds: ``floor(t) - floor(t) mod 60``."""
+    whole = math.floor(t)
+    return whole - whole % 60
+
+
+def lower_median(values: list[int]) -> int:
+    """The lower median: element ``(n - 1) // 2`` of the ascending order."""
+    ordered = sorted(values)
+    return ordered[(len(ordered) - 1) // 2]
+
+
+def fold_records(records: list[tuple[int, list[list]]]) -> tuple[list[tuple[str, str, int, int]], dict[str, int]]:
+    """Thin the readings of every live record into one sample per metric and UTC minute.
+
+    ``records`` is ``(raw_id, readings)`` in content order (``sources._raw_ids_by_stream``).
+    Returns ``(rows, dropped)``: rows ``(metric, ts_utc, value, raw_id)`` sorted by (metric, ts_utc),
+    where ``value`` is the lower median of the minute's valid readings and ``raw_id`` the record
+    that contributed the minute's first reading in content order; ``dropped`` counts sentinel
+    readings by reason. A reading is one ``(float(t), metric, value)`` triple however many records
+    carry it (a partial file stored before the full one), so two overlapping records fold as one.
+    """
+    seen: set[tuple[float, str, int]] = set()
+    minutes: dict[tuple[str, int], tuple[int, list[int]]] = {}
+    dropped: dict[str, int] = {}
+    for raw_id, readings in records:
+        for t, metric, value in readings:
+            rule = SENTINEL_RULES.get(metric)
+            if rule is None:
+                continue
+            key = (float(t), metric, value)
+            if key in seen:
+                continue
+            seen.add(key)
+            reason, valid = rule
+            if not valid(value):
+                dropped[f"live_{reason}"] = dropped.get(f"live_{reason}", 0) + 1
+                continue
+            bucket = minutes.get((metric, minute_floor(t)))
+            if bucket is None:
+                minutes[(metric, minute_floor(t))] = (raw_id, [value])
+            else:
+                bucket[1].append(value)
+    rows = []
+    for (metric, minute), (raw_id, values) in sorted(minutes.items()):
+        ts_utc = datetime.datetime.fromtimestamp(minute, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        rows.append((metric, ts_utc, lower_median(values), raw_id))
+    return rows, dropped

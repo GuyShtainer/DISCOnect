@@ -120,11 +120,13 @@ def import_path(path: pathlib.Path, conn: sqlite.Connection, transport: str | No
             _import_fit_batch(fits, writer, progress)
             connect_export.import_connect_export(path, writer, progress)
             rederive_json(conn, writer, _stored_json_streams(conn))
+            writer.derive_live_samples()
         else:
             live_files = list(iter_live_files(path))
             _import_live_batch(live_files, writer, progress)
             fit_files = [] if path.is_file() and live_files else list(iter_fit_files(path))
             _import_fit_batch(fit_files, writer, progress)
+            writer.derive_live_samples()
     except Exception as exc:  # noqa: BLE001 - recorded, then re-raised for the caller
         writer.finish_run(error=f"{type(exc).__name__}: {exc}")
         raise
@@ -403,6 +405,7 @@ def reparse_all(conn: sqlite.Connection, streams: list[str] | None = None,
             _reparse_readiness(conn, writer)
         writer.derive_daily_steps()
         writer.derive_daily_from_samples()
+        writer.derive_live_samples()
     except Exception as exc:  # noqa: BLE001 - recorded, then re-raised for the caller
         writer.finish_run(error=f"{type(exc).__name__}: {exc}")
         raise

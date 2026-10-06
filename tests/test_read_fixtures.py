@@ -67,7 +67,7 @@ def test_every_function_and_every_store_is_covered_and_each_error_class_occurs()
     # the Python text a ToolError carries
     texts = {case["result"]["error"] for case in CASES if case["result"].get("class") == "ValueError"}
     assert {"end_date must be YYYY-MM-DD", "date must be YYYY-MM-DD",
-            "source_scope must be one of ('device', 'vendor_cloud', 'local')"} <= texts
+            "source_scope must be one of ('device', 'vendor_cloud', 'local', 'live')"} <= texts
 
 
 def test_the_hazards_of_the_pitch_are_in_the_cases():

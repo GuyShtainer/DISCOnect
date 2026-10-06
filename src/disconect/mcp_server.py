@@ -226,7 +226,7 @@ def get_data_health(window_days: int = 30) -> dict[str, Any]:
 def get_metric_series(metrics: list[str], days: int = 90, source_scope: str | None = None,
                       end_date: str | None = None) -> dict[str, Any]:
     """metrics: names from the contract; days: 1-1825 (sample metrics capped at 366);
-    source_scope: device | vendor_cloud | local | omitted for all; end_date: YYYY-MM-DD."""
+    source_scope: device | vendor_cloud | local | live | omitted for all; end_date: YYYY-MM-DD."""
     _require_metrics(metrics)
     with _db() as conn:
         return _metric_series(conn, metrics, days, source_scope, end_date)
@@ -266,7 +266,7 @@ def get_period_facts(window_days: int = 7, baseline_days: int = 28, end_date: st
                      metrics: list[str] | None = None, source_scope: str | None = None,
                      include_points: bool = False) -> dict[str, Any]:
     """window_days 1-31; baseline_days 1-365; end_date YYYY-MM-DD; metrics: contract names or omitted
-    for all; source_scope: device | vendor_cloud | local | omitted for all; include_points adds the
+    for all; source_scope: device | vendor_cloud | local | live | omitted for every scope but live; include_points adds the
     window's per-day values to each fact's evidence (dates are always included)."""
     with _db() as conn:
         return _period_facts(conn, window_days, baseline_days, end_date, metrics, source_scope, include_points)

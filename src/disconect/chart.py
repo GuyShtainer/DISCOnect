@@ -34,6 +34,7 @@ SCOPE_COLORS: dict[str, RGB] = {
     "device": (26, 92, 168),
     "vendor_cloud": (214, 118, 32),
     "local": (38, 142, 92),
+    "live": (150, 60, 170),
 }
 STAGE_COLORS: dict[str, RGB] = {
     "deep": (26, 62, 130),
@@ -64,7 +65,8 @@ MARGIN_BOTTOM = 46.0
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 SCOPE_LEGEND = ("device = decoded from the watch's own FIT files   "
-                "vendor_cloud = Garmin Connect's figures   local = computed here")
+                "vendor_cloud = Garmin Connect's figures   local = computed here   "
+                "live = sent over the Bluetooth link")
 
 
 @dataclasses.dataclass

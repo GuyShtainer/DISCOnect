@@ -92,6 +92,8 @@ def _covered_by_stream(conn: sqlite.Connection, window: _Window, offsets: ClockO
     covered: dict[str, bytearray] = {}
     undatable = 0
     for stream, start_utc, end_utc in conn.execute("SELECT stream, start_utc, end_utc FROM raw_records"):
+        if stream in contract.SESSION_STREAMS:
+            continue  # a session claims no day
         span = _span_days(offsets, start_utc, end_utc)
         if span is None:
             undatable += 1
@@ -118,6 +120,8 @@ def _failed_by_stream(conn: sqlite.Connection, window: _Window, offsets: ClockOf
     for stream, start_utc, end_utc, raw_start, raw_end in conn.execute(
             "SELECT f.stream, f.start_utc, f.end_utc, r.start_utc, r.end_utc FROM import_failures f "
             "LEFT JOIN raw_records r ON r.id = f.raw_record_id"):
+        if stream in contract.SESSION_STREAMS:
+            continue  # a refused session record is a failed raw record, not a failed day
         span = _span_days(offsets, start_utc or raw_start, end_utc or raw_end)
         if stream is None or span is None:
             unattributed += 1
@@ -207,11 +211,18 @@ class _Analysis:
 
 
 def _declared_and_drift(conn: sqlite.Connection) -> tuple[dict[tuple[str, str], set[str]], list[dict]]:
-    """Declared streams per (metric, scope), plus any observed stream the declaration lacks."""
+    """Declared streams per (metric, scope), plus any observed stream the declaration lacks.
+
+    A session pair (``contract.SESSION_STREAMS_FOR``) joins the ledger only once the store holds
+    rows for it, so a store that never saw a live link shows no live rows at all; it is never drift.
+    """
     streams_for: dict[tuple[str, str], set[str]] = {
         key: set(streams) for key, streams in contract.STREAMS_FOR.items()}
     drift = []
     for metric, scope, stream in sorted(_observed_map(conn)):
+        if stream in contract.SESSION_STREAMS_FOR.get((metric, scope), ()):
+            streams_for.setdefault((metric, scope), set()).update(contract.SESSION_STREAMS_FOR[(metric, scope)])
+            continue
         if stream not in streams_for.setdefault((metric, scope), set()):
             streams_for[(metric, scope)].add(stream)
             drift.append({"metric": metric, "source_scope": scope, "stream": stream})

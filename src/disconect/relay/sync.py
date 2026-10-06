@@ -436,6 +436,7 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
         rederive_json(conn, writer, list(writer.stats.streams))
         writer.derive_daily_steps()
         writer.derive_daily_from_samples()
+        writer.derive_live_samples()
         if reparse_streams:
             from disconect.ingest import sources  # noqa: PLC0415 - avoid an import cycle at module load
             sources.reparse_all(conn, streams=sorted(reparse_streams))

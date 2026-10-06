@@ -160,7 +160,15 @@ def test_the_script_asks_for_every_contract_metric_in_every_scope():
              if "send" in e and e["send"]["method"] == "data.metric"
              for params in [e["send"].get("params")] if isinstance(params, dict)
              and isinstance(params.get("metric"), str) and isinstance(params.get("scope"), str)}
-    assert {(item.metric, scope) for item in contract.METRICS for scope in contract.SOURCE_SCOPES} <= asked
+    # a session scope (live) is asked only for the metrics the contract declares in it, plus one
+    # "absent" probe (steps) — the full cross-product would pass the script's 2000-entry ceiling
+    wanted = {(item.metric, scope) for item in contract.METRICS for scope in contract.SOURCE_SCOPES
+              if scope not in contract.SESSION_SCOPES or (item.metric, scope) in contract.SESSION_STREAMS_FOR}
+    assert wanted <= asked
+    numeric = {item.metric for item in contract.METRICS}
+    for scope in contract.SESSION_SCOPES:
+        assert ("steps", scope) in asked
+        assert {(m, s) for m, s in asked if s == scope and m in numeric} - wanted == {("steps", scope)}
 
 
 FAKE_CORE = textwrap.dedent('''\

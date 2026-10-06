@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 
-CONTRACT_VERSION = "1"
+CONTRACT_VERSION = "2"
 
 TIME_CONVENTION = (
     "Sample timestamps (ts_utc) are RFC 3339 in UTC with a trailing 'Z'. Daily "
@@ -38,6 +38,8 @@ SOURCE_CONVENTION = (
     "the watch's own FIT bytes, whichever way they arrived (USB, a Connect "
     "account export, Gadgetbridge). 'vendor_cloud' is a figure Garmin Connect "
     "computed and delivered as JSON. 'local' is computed here from device data. "
+    "'live' is a reading the watch sent over the Bluetooth link during a session: the same "
+    "sensor, read live, kept apart so a session never passes for a day of monitoring. "
     "The scopes are stored side by side and never merged; every value says "
     "which scope it belongs to."
 )
@@ -57,11 +59,12 @@ COVERAGE_CONVENTION = (
     "(no import has ever covered the day). Metrics marked sparse are recorded only on some days "
     "by nature (a VO2max update, a weigh-in), so their 'source_empty' days are normal. The watch "
     "writes sleep, HRV and skin-temperature files only for nights it recorded, so a day the all-day "
-    "monitoring files cover counts as covered for them too. Coverage "
+    "monitoring files cover counts as covered for them too. A live-link session claims no day: in "
+    "the 'live' scope a day without a session is 'not_covered'. Coverage "
     "is derived from the retained raw files each time it is asked for; it is never guessed."
 )
 
-SOURCE_SCOPES = ("device", "vendor_cloud", "local")
+SOURCE_SCOPES = ("device", "vendor_cloud", "local", "live")
 
 #: Daily metrics computed here that answer the same question as a vendor_cloud metric under
 #: another name. ``health.source_agreement`` compares these pairs besides identical ids.
@@ -133,6 +136,18 @@ STREAMS_FOR: dict[tuple[str, str], tuple[str, ...]] = {
     ("fitness_age", "vendor_cloud"): ("json:fitness_age",),
     ("weight_kg", "vendor_cloud"): ("json:biometrics",),
 }
+
+#: Streams that carry a session, not a day: a retained record of one claims no day for coverage, so
+#: its (metric, scope) pairs live apart from ``STREAMS_FOR`` and enter the ledger only once rows exist.
+SESSION_STREAMS = ("json:live",)
+_LIVE = ("json:live",)
+SESSION_STREAMS_FOR: dict[tuple[str, str], tuple[str, ...]] = {
+    ("heart_rate", "live"): _LIVE, ("stress", "live"): _LIVE, ("respiration_rate", "live"): _LIVE,
+    ("spo2", "live"): _LIVE, ("energy_reserve", "live"): _LIVE,
+}
+# The scopes a session stream writes; left out of the default period facts (name one to get its facts).
+SESSION_SCOPES: tuple[str, ...] = tuple(dict.fromkeys(scope for _, scope in SESSION_STREAMS_FOR))
+DEFAULT_FACT_SCOPES: tuple[str, ...] = tuple(scope for scope in SOURCE_SCOPES if scope not in SESSION_SCOPES)
 
 #: Metrics that exist only on the days an event produced them; their empty days are not gaps.
 SPARSE_METRICS = frozenset({
@@ -331,6 +346,9 @@ def as_dict() -> dict:
         "source_scopes": list(SOURCE_SCOPES),
         "streams_for": [{"metric": metric, "source_scope": scope, "streams": list(streams)}
                         for (metric, scope), streams in STREAMS_FOR.items()],
+        "session_streams": list(SESSION_STREAMS),
+        "session_streams_for": [{"metric": metric, "source_scope": scope, "streams": list(streams)}
+                                for (metric, scope), streams in SESSION_STREAMS_FOR.items()],
         "sparse_metrics": sorted(SPARSE_METRICS),
         "metrics": [dataclasses.asdict(item) for item in METRICS],
         "labels": [dataclasses.asdict(item) for item in LABELS],

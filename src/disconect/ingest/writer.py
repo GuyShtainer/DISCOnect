@@ -16,7 +16,7 @@ import json
 import zlib
 from collections.abc import Callable
 
-from disconect.ingest import fit_wellness
+from disconect.ingest import fit_wellness, live
 from disconect.ingest.clock import ClockOffsets
 from disconect.ingest.model import Decoded, SleepSession
 from disconect.redact import redact_text
@@ -109,6 +109,7 @@ class Writer:
         self._interval_devices: set[str | None] = set()
         self._sample_span: tuple[datetime.datetime, datetime.datetime] | None = None
         self._sample_devices: set[str | None] = set()
+        self._live_ids: set[int] = set()  # json:live raw records this run stored (their drops are counted once)
 
     # ---- run bookkeeping ----
     def begin_run(self) -> int:
@@ -453,6 +454,8 @@ class Writer:
             self.stats.failures.append({"file": label, "kind": "storage", "error": redact_text(str(exc))})
             self._provenance(stream, "write", False, "storage", str(exc))
             return FAILED
+        if stream == live.STREAM:
+            self._live_ids.add(raw_id)
         self._provenance(stream, "parse", True)
         self._provenance(stream, "write", True, records=written)
         self._account(decoded, written)
@@ -614,6 +617,45 @@ class Writer:
                                            round(REDUCERS[reducer](readings), 3), observed, "local", device, raw_id)
                         days += 1
         return days
+
+    def derive_live_samples(self) -> int:
+        """Rebuild the ``live``-scope samples from every ``json:live`` record in the store (bet 9b-2).
+
+        A pure function of the raw set, run after every import, pull and reparse: the rows are
+        deleted and rebuilt from all live records in content order (``sources._raw_ids_by_stream``),
+        so a sweep, a pull and a reparse land on the same rows whatever order the records arrived in.
+        A record the decoder refuses is skipped (it stays a failed raw record); its rows, if any, go
+        with the rebuild. Rows are written directly, not through ``_write_canonical``: the live
+        minutes must not widen the FIT sample span and re-derive device dailies. Sentinel drops are
+        counted only for the records this run stored. Returns the rows written.
+        """
+        records: list[tuple[int, list[list]]] = []
+        for raw_id, blob in self.conn.execute(
+                "SELECT id, payload FROM raw_records WHERE stream=? "
+                "ORDER BY start_utc, payload_hash, stream, source_key", (live.STREAM,)):
+            try:
+                _key, _decoded = live.decode_live_record(json.loads(zlib.decompress(blob)))
+                records.append((raw_id, json.loads(zlib.decompress(blob))["readings"]))
+            except (ValueError, zlib.error, TypeError, KeyError):
+                continue
+        rows, dropped = live.fold_records(records)
+        self.conn.execute("BEGIN")
+        try:
+            self.conn.execute("DELETE FROM metric_samples WHERE source_scope=?", (live.SCOPE,))
+            self.conn.executemany(
+                "INSERT INTO metric_samples(metric, ts_utc, value, source_scope, device_id, raw_record_id) "
+                "VALUES(?,?,?,?,NULL,?)",
+                [(metric, ts_utc, float(value), live.SCOPE, raw_id) for metric, ts_utc, value, raw_id in rows])
+            self.conn.execute("COMMIT")
+        except sqlite.Error:
+            self._rollback()
+            raise
+        if self._live_ids:
+            _own, own_dropped = live.fold_records([(raw_id, readings) for raw_id, readings in records
+                                                   if raw_id in self._live_ids])
+            for reason, count in own_dropped.items():
+                self.stats.dropped[reason] = self.stats.dropped.get(reason, 0) + count
+        return len(rows)
 
     def rewrite_canonical(self, raw_id: int, stream: str, decoded: Decoded, summary: dict) -> str:
         """Replace every canonical row ``raw_id`` produced with freshly decoded facts.

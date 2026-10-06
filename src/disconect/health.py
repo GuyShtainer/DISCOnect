@@ -99,13 +99,19 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
         for key in ("last_parse_error_message", "last_write_error_message"):
             row[key] = redact_text(row[key])
 
+    # sample counts keep FIT's "day with data" meaning: a live-link session (scope 'live') is not a day of monitoring
     samples_total = {row[0]: {"days_with_data": row[1], "first_day": row[2], "last_day": row[3]}
                      for row in conn.execute(
                          "SELECT metric, COUNT(DISTINCT substr(ts_utc,1,10)), MIN(substr(ts_utc,1,10)), "
-                         "MAX(substr(ts_utc,1,10)) FROM metric_samples GROUP BY metric")}
+                         "MAX(substr(ts_utc,1,10)) FROM metric_samples WHERE source_scope != 'live' GROUP BY metric")}
     samples_window = {row[0]: row[1] for row in conn.execute(
         "SELECT metric, COUNT(DISTINCT substr(ts_utc,1,10)) FROM metric_samples "
-        "WHERE substr(ts_utc,1,10) >= ? GROUP BY metric", (since,))}
+        "WHERE source_scope != 'live' AND substr(ts_utc,1,10) >= ? GROUP BY metric", (since,))}
+    live_records = conn.execute("SELECT COUNT(*) FROM raw_records WHERE stream='json:live'").fetchone()[0]
+    live_samples, live_first, live_last = conn.execute(
+        "SELECT COUNT(*), MIN(substr(ts_utc,1,10)), MAX(substr(ts_utc,1,10)) FROM metric_samples "
+        "WHERE source_scope = 'live'").fetchone()
+    live = {"records": live_records, "samples": live_samples, "first_day": live_first, "last_day": live_last}
 
     daily_total = {}
     for metric, scope, days, first, last in conn.execute(
@@ -150,6 +156,7 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
         "provenance": provenance,
         "metrics": metrics,
         "sleep": sleep,
+        "live": live,
         "activities": activities,
         "clock_offsets_known": offsets,
         "source_agreement": source_agreement(conn),
@@ -194,6 +201,10 @@ def summarize_for_humans(health: dict) -> str:
                              f"{info['first_day']} .. {info['last_day']}   [{scope}] window: {window}")
     for scope, info in health["sleep"].items():
         lines.append(f"sleep [{scope}]: {info['nights']} nights  {info['first_day']} .. {info['last_day']}")
+    live = health.get("live")
+    if live and live["records"]:
+        lines.append(f"live link: {live['records']} session records, {live['samples']} minute samples [live]  "
+                     f"{live['first_day'] or '?'} .. {live['last_day'] or '?'}")
     lines.append(f"activities: {health['activities']}   clock offsets known: {health['clock_offsets_known']}")
     if health.get("source_agreement"):
         lines.append("source agreement (same day, two sources; 'vs' names the vendor's id for our figure):")

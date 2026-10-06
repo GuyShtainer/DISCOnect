@@ -52,6 +52,9 @@ def snapshot() -> dict:
         "labels": [dataclasses.asdict(item) for item in contract.LABELS],
         "streams_for": [{"metric": metric, "source_scope": scope, "streams": list(streams)}
                         for (metric, scope), streams in contract.STREAMS_FOR.items()],
+        "session_streams": list(contract.SESSION_STREAMS),
+        "session_streams_for": [{"metric": metric, "source_scope": scope, "streams": list(streams)}
+                                for (metric, scope), streams in contract.SESSION_STREAMS_FOR.items()],
         "sparse_metrics": sorted(contract.SPARSE_METRICS),
         "comparison_targets": [{"metric": metric, "source_scope": scope, "compared_with": other,
                                 "compared_scope": other_scope}
@@ -77,7 +80,8 @@ def test_the_snapshot_is_not_empty_where_the_rust_core_relies_on_it():
     data = snapshot()
     assert data["metrics"] and data["labels"] and data["streams_for"] and data["comparison_targets"]
     assert [band["label"] for band in data["insight"]["confidence_bands"]] == ["high", "medium", "low"]
-    assert data["source_scopes"] == ["device", "vendor_cloud", "local"]
+    assert data["source_scopes"] == ["device", "vendor_cloud", "local", "live"]
+    assert data["session_streams"] == ["json:live"] and len(data["session_streams_for"]) == 5
     assert data["coverage_refinements"]["available"] != data["coverage_refinements"]["unavailable"]
 
 

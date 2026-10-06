@@ -18,7 +18,7 @@ def test_the_missing_value_promise_stays_explicit():
     # Product constraint enforced as a test: changing it must be a conscious act.
     assert "never filled with 0" in contract.MISSING_VALUE_CONVENTION
     assert "no network" in contract.PRIVACY_NOTE.lower()
-    assert set(contract.SOURCE_SCOPES) == {"device", "vendor_cloud", "local"}
+    assert set(contract.SOURCE_SCOPES) == {"device", "vendor_cloud", "local", "live"}
 
 
 def test_lookup_helpers():

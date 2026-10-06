@@ -1,4 +1,5 @@
-"""Bet 9b slice 1: a live-link session file is kept as one `json:live` raw record and derives nothing."""
+"""Bet 9b slice 1: a live-link session file is kept as one `json:live` raw record; the decoder derives nothing
+(the 9b-2 fold writes `live`-scope samples from the retained records, counted apart here)."""
 
 import datetime
 import hashlib
@@ -47,7 +48,8 @@ def _live_rows(db_path):
 
 def _canonical_counts(db_path):
     conn = storage.open_read_only(db_path)
-    return {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+    # the 9b-2 fold writes `live`-scope samples; everything else must stay as it was
+    return {t: conn.execute(f"SELECT COUNT(*) FROM {t}" + (" WHERE source_scope != 'live'" if t == "metric_samples" else "")).fetchone()[0]
             for t in ("metric_samples", "daily_metrics", "daily_labels", "monitoring_intervals", "activities")}
 
 

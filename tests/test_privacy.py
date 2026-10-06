@@ -57,10 +57,18 @@ def _seed(db_path, live=True):
                      "'2025-07-01T00:00:00Z')")
         conn.execute("INSERT INTO export_ranges(run_id, stream, from_day, to_day) VALUES(1,'json:uds','2025-06-01','2025-06-30')")
         if live:
+            # real bytes (a 9b-shaped record), so the 9b-2 fold produces 'live' rows the corpus walks
+            import zlib
+            from disconect.ingest import live as live_module
+            base = int(datetime.datetime(2025, 6, 29, 10, tzinfo=utc).timestamp())
+            readings = [[base + 60 * i, "heart_rate", 70 + i] for i in range(30)] + [[base + 5.5, "stress", 33]]
+            _record, data = live_module.canonical_payload(readings)
             conn.execute("INSERT INTO raw_records(stream, source_key, source_scope, transport, device_id, start_utc, "
                          "end_utc, payload_kind, payload, payload_hash, payload_bytes, imported_at) "
                          "VALUES('json:live','c0ffee','device','ble',NULL,'2025-06-29T10:00:00Z','2025-06-29T10:30:00Z',"
-                         "'json',x'00','c0ffee',1,'2025-07-01T00:00:00Z')")
+                         "'json',?,'c0ffee',?,'2025-07-01T00:00:00Z')", (zlib.compress(data), len(data)))
+            from disconect.ingest.writer import Writer
+            Writer(conn, ClockOffsets.load(conn), "test").derive_live_samples()
 
 
 def _walk(node, path=""):

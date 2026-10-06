@@ -12,9 +12,9 @@ import tests build: serial and e-mail shapes are fake, plus the rows ``_extend_f
 baselines, every confidence band, sparse metrics, a cancelling series, half-hour and tied clock offsets) and the
 rows ``_extend_for_coverage`` adds so that the coverage ledger meets every branch (see its docstring) and the
 rows ``_extend_for_health`` adds (runs and provenance messages to redact). The v1 store
-is the same data under the schema-v1 migration alone. ``synthetic-live.hbdb`` is the synthetic store plus two
-live-link session files imported through ``sources.import_path`` (``live_files``: one spans midnight, one
-overlaps a day that has monitoring rows), so the read path is proven unchanged with ``json:live`` present. The clock is pinned with ``DISCONECT_NOW`` so the
+is the same data under the schema-v1 migration alone. ``synthetic-live.hbdb`` is the synthetic store plus three
+live-link session files imported through ``sources.import_path`` (``live_files``: one spans midnight, two
+overlap a day that has monitoring rows), so the fold's ``live`` rows are in the differential. The clock is pinned with ``DISCONECT_NOW`` so the
 ``imported_at`` stamps are the same every time. ``tools/serve_diff.py`` produces the oracle file.
 """
 
@@ -263,10 +263,11 @@ def _extend_for_health(conn) -> None:
 
 
 def live_files(folder: pathlib.Path) -> None:
-    """Write two invented live-link session files into ``folder`` (the readings are made up, not real).
+    """Write three invented live-link session files into ``folder`` (the readings are made up, not real).
 
     ``live-a`` runs 2025-06-20T23:55Z..2025-06-21T00:05Z: readings on both sides of a UTC midnight, ``t`` an int
     and a float in turn. ``live-b`` runs on 2025-06-15 10:00Z.., a day that has monitoring rows for the same metrics.
+    ``live-c`` is ``live-b`` again, longer (bet 9b-2: the fold's de-duplication, median and sentinel cases).
     """
     midnight = int(datetime.datetime(2025, 6, 21, tzinfo=datetime.timezone.utc).timestamp())
     first = [{"status": "scanning"}]
@@ -288,14 +289,27 @@ def live_files(folder: pathlib.Path) -> None:
     second.append({"t": start + 7, "metric": "spo2", "value": 97})
     second.append({"t": start + 8, "metric": "energy_reserve", "value": 55})
     second.append({"status": "stopped", "stop": "LinkClosed"})
-    for name, lines in (("live-20250620T235500Z.jsonl", first), ("live-20250615T100000Z.jsonl", second)):
+    # live-c: the same session as live-b stored again in full plus four more minutes (the partial-then-full
+    # case the fold de-duplicates), a minute holding two different heart-rate values (the lower median
+    # decides), and two sentinels the fold drops.
+    third = [line for line in second if "status" not in line]
+    for step in range(10, 14):
+        t = start + 60 * step
+        third.append({"t": t, "metric": "heart_rate", "value": 100 + step})
+        third.append({"t": float(t) + 0.25, "metric": "steps", "value": 5 * step})
+    third.append({"t": start + 60 * 11 + 30, "metric": "heart_rate", "value": 120})
+    third.append({"t": start + 60 * 12 + 1, "metric": "stress", "value": -1})
+    third.append({"t": start + 60 * 12 + 2, "metric": "spo2", "value": 0})
+    third.append({"status": "stopped", "stop": "LinkClosed"})
+    for name, lines in (("live-20250620T235500Z.jsonl", first), ("live-20250615T100000Z.jsonl", second),
+                        ("live-20250615T100001Z.jsonl", third)):
         (folder / name).write_text("".join(json.dumps(line) + "\n" for line in lines))
 
 
 def build(target: pathlib.Path, live: bool = False) -> None:
     """Write the synthetic store at ``target`` as one plain file (WAL mode header, no -wal left over).
 
-    ``live`` also imports the two ``live_files`` (the ``synthetic-live`` store)."""
+    ``live`` also imports the three ``live_files`` (the ``synthetic-live`` store)."""
     os.environ["DISCONECT_NOW"] = PINNED_NOW
     from disconect import storage
     from disconect.ingest import sources
@@ -319,7 +333,7 @@ def build(target: pathlib.Path, live: bool = False) -> None:
                 sessions.mkdir()
                 live_files(sessions)
                 stats = sources.import_path(sessions, conn)
-                assert (stats.files_imported, stats.files_failed) == (2, 0), stats
+                assert (stats.files_imported, stats.files_failed) == (3, 0), stats
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         for leftover in db_path.parent.glob("synthetic.hbdb-*"):
             assert leftover.stat().st_size == 0, f"{leftover.name} still holds data"
@@ -589,6 +603,12 @@ def _metric_entries() -> list[dict]:
     numeric = [item.metric for item in contract.METRICS]
     entries: list[dict] = []
 
+    def scopes_for(metric: str) -> tuple[str, ...]:
+        """A session scope (``live``) only for the metrics the contract declares in it; every other
+        (metric, session scope) pair answers "absent" and one probe below covers that path."""
+        return tuple(scope for scope in contract.SOURCE_SCOPES
+                     if scope not in contract.SESSION_SCOPES or (metric, scope) in contract.SESSION_STREAMS_FOR)
+
     def add(label: str, **params) -> None:
         entries.append(_request(10000 + len(entries), f"gen: data.metric {label}", **params))
 
@@ -596,16 +616,16 @@ def _metric_entries() -> list[dict]:
         return f"{name} last={last_day if last_day is not None else 'absent'}"
 
     for metric in numeric:
-        for scope in contract.SOURCE_SCOPES:
+        for scope in scopes_for(metric):
             add(f"{metric}/{scope} days=30 mid", metric=metric, scope=scope, days=30, last_day="$MID")
     for metric in numeric:
-        for scope in contract.SOURCE_SCOPES:
+        for scope in scopes_for(metric):
             add(f"{metric}/{scope} days=60 last stored", metric=metric, scope=scope, days=60, last_day="$LAST")
     for metric in numeric:
-        for scope in contract.SOURCE_SCOPES:
+        for scope in scopes_for(metric):
             add(f"{metric}/{scope} days=7 today", metric=metric, scope=scope, days=7)
     for metric in FOCUS_METRICS:
-        for scope in contract.SOURCE_SCOPES:
+        for scope in scopes_for(metric):
             for days in (1, 7, 90, 0, -1):
                 for last_day in LAST_DAYS:
                     params = {"metric": metric, "scope": scope, "days": days}
@@ -613,13 +633,15 @@ def _metric_entries() -> list[dict]:
                         params["last_day"] = last_day
                     add(tagged(f"{metric}/{scope} days={days}", last_day), **params)
     for metric in BIG_METRICS:
-        for scope in contract.SOURCE_SCOPES:
+        for scope in scopes_for(metric):
             for days in (1825, 1826):
                 for last_day in (None, "$MID"):
                     params = {"metric": metric, "scope": scope, "days": days}
                     if last_day is not None:
                         params["last_day"] = last_day
                     add(tagged(f"{metric}/{scope} days={days}", last_day), **params)
+    for scope in contract.SESSION_SCOPES:   # a session scope asked for a metric it never carries: absent
+        add(f"steps/{scope} days=7 today (not a session metric)", metric="steps", scope=scope, days=7)
     for last_day in BAD_LAST_DAYS:
         for metric in ("heart_rate", "steps", "nope", "hrv_status"):
             add(f"last_day={last_day!r} {metric}", metric=metric, scope="device", days=7, last_day=last_day)
