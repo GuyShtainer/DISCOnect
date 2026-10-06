@@ -215,11 +215,19 @@ _SLEEP_COLUMNS = (
 )
 
 
-def sleep_detail(conn: sqlite.Connection, date: str | None = None) -> dict:
+def _hhmm(moment: str, offset_s: int) -> str:
+    """``HH:MM`` of a UTC instant on a clock ``offset_s`` seconds ahead of UTC."""
+    return (parse_iso_utc(moment) + datetime.timedelta(seconds=offset_s)).strftime("%H:%M")
+
+
+def sleep_detail(conn: sqlite.Connection, date: str | None = None, local: bool = False) -> dict:
     """Every source's record of one night (default: the latest night stored), with stages.
 
     Durations are reported in minutes; a stage or score the source did not
     state is absent, never 0. Sessions from different scopes sit side by side.
+    ``local`` (``data.sleep``) adds per session ``utc_offset_s`` (the stored offset nearest the
+    session's end, its start when it has no end) and per stage ``start_local``/``end_local`` as
+    ``HH:MM`` on that offset; all of it is absent while no offset is stored.
     """
     if date is not None:
         parse_day(date, "date")
@@ -229,6 +237,7 @@ def sleep_detail(conn: sqlite.Connection, date: str | None = None) -> dict:
         if date is None:
             return {"date": None, "sessions": [], "reason": "no sleep stored yet",
                     "missing_values": contract.MISSING_VALUE_CONVENTION}
+    offsets = ClockOffsets.load(conn) if local else None
     sessions = []
     for row in conn.execute(
             f"SELECT {', '.join(_SLEEP_COLUMNS)} FROM sleep_sessions WHERE date=? ORDER BY source_scope",
@@ -246,6 +255,15 @@ def sleep_detail(conn: sqlite.Connection, date: str | None = None) -> dict:
                   for stage, start, end in conn.execute(
                       "SELECT stage, start_utc, end_utc FROM sleep_stages WHERE sleep_id=? ORDER BY start_utc",
                       (sleep_id,))]
+        offset = None
+        anchor = record["end_utc"] or record["start_utc"]
+        if offsets is not None and anchor:
+            offset = offsets.offset_at(parse_iso_utc(anchor))
+        if offset is not None:
+            entry["utc_offset_s"] = offset
+            for stage in stages:
+                stage["start_local"] = _hhmm(stage["start_utc"], offset)
+                stage["end_local"] = _hhmm(stage["end_utc"], offset)
         if stages:
             entry["stages"] = stages
         sessions.append(entry)

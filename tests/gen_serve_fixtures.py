@@ -760,6 +760,28 @@ def _live_entries() -> list[dict]:
     ]
 
 
+def _sleep_entries() -> list[dict]:
+    """``data.sleep``: the latest night (on the empty store: none stored), the store's nights on the watch's
+    +03:00 / +03:30 clock, a night nobody recorded, the bad dates and the malformed params. Ids 12300 up."""
+    return [
+        {"name": "gen: data.sleep latest night", "send": {"id": 12300, "method": "data.sleep"}},
+        {"name": "gen: data.sleep named night, two sources", "send": {"id": 12301, "method": "data.sleep",
+                                                                       "params": {"date": "2025-06-15"}}},
+        {"name": "gen: data.sleep second night", "send": {"id": 12302, "method": "data.sleep",
+                                                           "params": {"date": "2025-06-16"}}},
+        {"name": "gen: data.sleep night with no record", "send": {"id": 12303, "method": "data.sleep",
+                                                                   "params": {"date": "2025-06-20"}}},
+        {"name": "gen: data.sleep ignores extra params", "send": {"id": 12304, "method": "data.sleep",
+                                                                   "params": {"date": "2025-06-30", "x": 1}}},
+        {"name": "gen: data.sleep compact date", "send": {"id": 12305, "method": "data.sleep", "params": {"date": "20250615"}}},
+        {"name": "gen: data.sleep date not a string", "send": {"id": 12306, "method": "data.sleep", "params": {"date": 5}}},
+        {"name": "gen: data.sleep date empty", "send": {"id": 12307, "method": "data.sleep", "params": {"date": ""}}},
+        {"name": "gen: data.sleep not a day", "send": {"id": 12310, "method": "data.sleep", "params": {"date": "2025-02-30"}}},
+        {"name": "gen: data.sleep params null", "raw": '{"id":12308,"method":"data.sleep","params":null}'},
+        {"name": "gen: data.sleep params array", "raw": '{"id":12309,"method":"data.sleep","params":[]}'},
+    ]
+
+
 def build_script(anchors: dict[str, str]) -> None:
     """Regenerate the ``gen:`` entries of ``script.json`` (every other entry is hand-written and kept)."""
     script = json.loads(SCRIPT.read_text())
@@ -769,6 +791,7 @@ def build_script(anchors: dict[str, str]) -> None:
               {"name": "gen: data.today while locked", "send": {"id": 12101, "method": "data.today"}},
               {"name": "gen: data.health while locked", "send": {"id": 12102, "method": "data.health"}},
               {"name": "gen: data.live while locked", "send": {"id": 12104, "method": "data.live"}},
+              {"name": "gen: data.sleep while locked", "send": {"id": 12115, "method": "data.sleep"}},
               {"name": "gen: import.last while locked", "send": {"id": 12103, "method": "import.last"}},
               # locked on an encrypted store; plaintext stores are open, so these answer as unlocked ones do
               {"name": "gen: sync.status while locked", "send": {"id": 12105, "method": "sync.status"}},
@@ -793,7 +816,7 @@ def build_script(anchors: dict[str, str]) -> None:
     entries: list[dict] = []
     for entry in kept:
         if entry["name"] == "import.last":
-            entries += _metric_entries() + _today_entries() + _live_entries() + _health_entries() + _import_entries() + _sync_entries() + _relay_entries() + _tools_entries()
+            entries += _metric_entries() + _today_entries() + _live_entries() + _sleep_entries() + _health_entries() + _import_entries() + _sync_entries() + _relay_entries() + _tools_entries()
         entries.append(entry)
         if entry["name"] == "data.facts while locked":
             entries += locked

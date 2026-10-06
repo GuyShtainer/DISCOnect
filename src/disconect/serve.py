@@ -324,6 +324,14 @@ def data_live(session: Session, call: Call) -> dict:
 
 
 @_unlocked_only
+def data_sleep(session: Session, call: Call) -> dict:
+    """One night (default the latest stored), every source's record, stages also on the watch's clock."""
+    date = _text_param(call.params, "date", required=False)
+    with session.reader() as conn:
+        return queries.sleep_detail(conn, date, local=True)
+
+
+@_unlocked_only
 def data_facts(session: Session, call: Call) -> dict:
     """The recent window against this person's own baseline, as facts with confidence."""
     days = _int_param(call.params, "days", insight.DEFAULT_WINDOW_DAYS)
@@ -589,6 +597,7 @@ METHODS: dict[str, Handler] = {
     "data.metric": data_metric,
     "data.today": data_today,
     "data.live": data_live,
+    "data.sleep": data_sleep,
     "data.facts": data_facts,
     "import.run": import_run,
     "import.last": import_last,

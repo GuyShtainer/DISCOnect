@@ -197,6 +197,13 @@
    }
   },
   {
+   "name": "gen: data.sleep while locked",
+   "send": {
+    "id": 12115,
+    "method": "data.sleep"
+   }
+  },
+  {
    "name": "gen: import.last while locked",
    "send": {
     "id": 12103,
@@ -19406,6 +19413,102 @@
   {
    "name": "gen: data.live params array",
    "raw": "{\"id\":12209,\"method\":\"data.live\",\"params\":[]}"
+  },
+  {
+   "name": "gen: data.sleep latest night",
+   "send": {
+    "id": 12300,
+    "method": "data.sleep"
+   }
+  },
+  {
+   "name": "gen: data.sleep named night, two sources",
+   "send": {
+    "id": 12301,
+    "method": "data.sleep",
+    "params": {
+     "date": "2025-06-15"
+    }
+   }
+  },
+  {
+   "name": "gen: data.sleep second night",
+   "send": {
+    "id": 12302,
+    "method": "data.sleep",
+    "params": {
+     "date": "2025-06-16"
+    }
+   }
+  },
+  {
+   "name": "gen: data.sleep night with no record",
+   "send": {
+    "id": 12303,
+    "method": "data.sleep",
+    "params": {
+     "date": "2025-06-20"
+    }
+   }
+  },
+  {
+   "name": "gen: data.sleep ignores extra params",
+   "send": {
+    "id": 12304,
+    "method": "data.sleep",
+    "params": {
+     "date": "2025-06-30",
+     "x": 1
+    }
+   }
+  },
+  {
+   "name": "gen: data.sleep compact date",
+   "send": {
+    "id": 12305,
+    "method": "data.sleep",
+    "params": {
+     "date": "20250615"
+    }
+   }
+  },
+  {
+   "name": "gen: data.sleep date not a string",
+   "send": {
+    "id": 12306,
+    "method": "data.sleep",
+    "params": {
+     "date": 5
+    }
+   }
+  },
+  {
+   "name": "gen: data.sleep date empty",
+   "send": {
+    "id": 12307,
+    "method": "data.sleep",
+    "params": {
+     "date": ""
+    }
+   }
+  },
+  {
+   "name": "gen: data.sleep not a day",
+   "send": {
+    "id": 12310,
+    "method": "data.sleep",
+    "params": {
+     "date": "2025-02-30"
+    }
+   }
+  },
+  {
+   "name": "gen: data.sleep params null",
+   "raw": "{\"id\":12308,\"method\":\"data.sleep\",\"params\":null}"
+  },
+  {
+   "name": "gen: data.sleep params array",
+   "raw": "{\"id\":12309,\"method\":\"data.sleep\",\"params\":[]}"
   },
   {
    "name": "gen: data.health plain",

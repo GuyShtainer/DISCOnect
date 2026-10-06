@@ -261,6 +261,71 @@ def test_live_day_lists_sessions_and_folded_minutes(plain):
     assert plain.error_code("data.live", day=5) == "bad_params"
 
 
+def _store_copy(tmp_path):
+    db = tmp_path / "sleep.hbdb"
+    db.write_bytes(LIVE_STORE.read_bytes())  # a copy: the committed store is never opened for writing
+    return db
+
+
+def test_sleep_night_latest_named_and_in_the_watchs_own_clock(tmp_path):
+    rig = Rig(_store_copy(tmp_path))
+    latest = rig.result("data.sleep")
+    assert latest["date"] == "2025-06-30" and latest["time"] and latest["missing_values"]
+    # the offset nearest the session's end (04:00Z on 06-30) is the +03:30 one stored on 06-20
+    (device,) = latest["sessions"]
+    assert device["utc_offset_s"] == 12600
+    assert [(g["start_local"], g["end_local"]) for g in device["stages"]] == [("00:30", "01:30")]
+    named = rig.result("data.sleep", date="2025-06-15")
+    assert [s["source_scope"] for s in named["sessions"]] == ["device", "vendor_cloud"]
+    assert named["sessions"][0]["utc_offset_s"] == 10800
+    assert [(g["start_local"], g["end_local"]) for g in named["sessions"][0]["stages"]] == [
+        ("23:00", "00:00"), ("00:00", "02:00"), ("02:00", "06:00")]
+    # a session with scores only (no stages) still carries its offset, and no stage keys
+    assert "stages" not in named["sessions"][1] and named["sessions"][1]["utc_offset_s"] == 10800
+    # the same night through the MCP read keeps UTC and no local keys
+    assert "utc_offset_s" not in json.dumps(rig.result("tools.call", name="get_sleep_detail", arguments={"date": "2025-06-15"}))
+
+
+def test_sleep_night_with_no_record_or_no_sleep_says_why(tmp_path):
+    rig = Rig(_store_copy(tmp_path))
+    none = rig.result("data.sleep", date="2025-06-20")
+    assert none["sessions"] == [] and none["reason"] == "no record of that night from any source"
+    assert none["date"] == "2025-06-20" and "units" in none
+    db = tmp_path / "nosleep.hbdb"
+    db.write_bytes(LIVE_STORE.read_bytes())
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("DELETE FROM sleep_sessions")
+    empty = Rig(db).result("data.sleep")
+    assert empty["date"] is None and empty["sessions"] == [] and empty["reason"] == "no sleep stored yet"
+
+
+def test_sleep_night_bad_date_and_params(tmp_path):
+    rig = Rig(_store_copy(tmp_path))
+    for bad in ("20250615", "2025-02-30", "", 5):
+        assert rig.error_code("data.sleep", date=bad) == "bad_params", bad
+
+
+def test_sleep_night_without_a_stored_offset_has_no_local_keys_and_a_stage_can_cross_midnight(tmp_path):
+    db = _store_copy(tmp_path)
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("UPDATE sleep_stages SET start_utc='2025-06-14T20:30:00Z', end_utc='2025-06-14T21:30:00Z' "
+                     "WHERE stage='light' AND sleep_id LIKE '2025-06-15|device%'")
+    rig = Rig(db)
+    crossing = rig.result("data.sleep", date="2025-06-15")["sessions"][0]["stages"][0]
+    assert (crossing["start_local"], crossing["end_local"]) == ("23:30", "00:30")  # +03:00: over local midnight
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("DELETE FROM clock_offsets")
+    bare = rig.result("data.sleep", date="2025-06-15")
+    for entry in bare["sessions"]:
+        assert "utc_offset_s" not in entry
+        assert all("start_local" not in g and "end_local" not in g for g in entry.get("stages", []))
+    assert bare["sessions"][0]["stages"][0]["start_utc"] == "2025-06-14T20:30:00Z"
+
+
+def test_sleep_needs_the_store_unlocked(encrypted):
+    assert encrypted.error_code("data.sleep") == "locked"
+
+
 def test_live_day_merges_overlapping_records_and_keeps_a_midnight_session_on_both_days(tmp_path):
     db = tmp_path / "live.hbdb"
     db.write_bytes(LIVE_STORE.read_bytes())  # a copy: the committed store is never opened for writing
@@ -393,7 +458,8 @@ def _calls(export_root):
     unlocked_reads = [("data.health", {"window_days": 3650}),
                       ("data.metric", {"metric": "sleep_score", "scope": "device", "days": 60, "last_day": "2025-06-30"}),
                       ("data.metric", {"metric": "stress", "scope": "device", "days": 30, "last_day": "2025-06-30"}),
-                      ("data.today", {}), ("data.live", {"day": "2025-06-30"}), ("data.facts", {"days": 7, "baseline_days": 28}),
+                      ("data.today", {}), ("data.live", {"day": "2025-06-30"}), ("data.sleep", {}),
+                      ("data.facts", {"days": 7, "baseline_days": 28}),
                       ("sync.status", {}), ("sync.run", {}),
                       ("relay.addresses", {}), ("relay.serve", {"on": False}),
                       ("pair.offer", {"listen": "192.168.1.20:24816"}), ("pair.confirm", {"digits": "123456"}),
