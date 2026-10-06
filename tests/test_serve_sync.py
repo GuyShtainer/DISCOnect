@@ -60,12 +60,29 @@ def _second_device(db_path, tmp_path) -> Rig:
     return rig
 
 
+def test_sync_status_names_the_lan_relay_address_and_nothing_else(encrypted, db_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    url = lambda: encrypted.result("sync.status")["relay_url"]  # noqa: E731
+    assert url() is None  # no relay.json
+    _relay_json(db_path, {"folder": "/some/folder"})
+    assert url() is None  # a folder relay has no address
+    _relay_json(db_path, {"folder": 5})
+    assert url() is None
+    _relay_json(db_path, {"lan": "http://192.168.1.20:8321"})
+    assert url() == "http://192.168.1.20:8321"
+    _relay_json(db_path, {"lan": " http://192.168.1.20:8321/ ", "folder": "/f"})
+    assert url() == "http://192.168.1.20:8321"  # trimmed, no trailing slash, lan wins
+    for bad in ("https://192.168.1.20:8321", "http://user@host:1", "http://host:1/path", "192.168.1.20:8321"):
+        _relay_json(db_path, {"lan": bad})
+        assert url() is None, bad
+
+
 def test_a_plaintext_store_reports_empty_counts_and_cannot_run(plain, db_path, tmp_path):
     assert plain.result("sync.status")["bundles"] == {}
     status = plain.result("sync.status")
     assert set(status) == {"bundles", "records_unsent", "records_seen", "conflicts", "superseded", "gaps",
-                           "last_pushed_at", "last_pulled_at", "serving"}
-    assert status["serving"] is None
+                           "last_pushed_at", "last_pulled_at", "serving", "relay_url"}
+    assert status["serving"] is None and status["relay_url"] is None
     assert status["records_unsent"] > 0 and status["gaps"] == []
     assert status["last_pushed_at"] is None and status["last_pulled_at"] is None
     response = plain.send("sync.run")
@@ -95,7 +112,7 @@ def test_a_store_older_than_the_relay_tables_answers_like_a_fresh_one(db_path):
     conn.close()
     status = Rig(db_path).result("sync.status")
     assert status == {"bundles": {}, "records_unsent": 0, "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [],
-                      "last_pushed_at": None, "last_pulled_at": None, "serving": None}
+                      "last_pushed_at": None, "last_pulled_at": None, "serving": None, "relay_url": None}
 
 
 def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted, db_path, tmp_path):

@@ -487,6 +487,12 @@ def _sync_entries() -> list[dict]:
                                                            "params": {"relay": "x", "n": [1]}}},
         {"name": "gen: sync.run params null", "raw": '{"id":16102,"method":"sync.run","params":null}'},
         {"name": "gen: sync.run params array", "raw": '{"id":16103,"method":"sync.run","params":[]}'},
+        # 12-F row 5c: key.lock on a plaintext store (nothing to lock) answers the same everywhere; the unlocked-to-
+        # locked change is checked in the harness's sync leg, on encrypted copies
+        {"name": "gen: key.lock plain", "send": {"id": 16300, "method": "key.lock"}},
+        {"name": "gen: key.lock ignores params", "send": {"id": 16301, "method": "key.lock", "params": {"x": [1]}}},
+        {"name": "gen: key.lock params null", "raw": '{"id":16302,"method":"key.lock","params":null}'},
+        {"name": "gen: key.lock params array", "raw": '{"id":16303,"method":"key.lock","params":[]}'},
     ]
     return entries
 

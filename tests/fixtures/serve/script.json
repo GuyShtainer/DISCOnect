@@ -20215,6 +20215,33 @@
    "raw": "{\"id\":16103,\"method\":\"sync.run\",\"params\":[]}"
   },
   {
+   "name": "gen: key.lock plain",
+   "send": {
+    "id": 16300,
+    "method": "key.lock"
+   }
+  },
+  {
+   "name": "gen: key.lock ignores params",
+   "send": {
+    "id": 16301,
+    "method": "key.lock",
+    "params": {
+     "x": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: key.lock params null",
+   "raw": "{\"id\":16302,\"method\":\"key.lock\",\"params\":null}"
+  },
+  {
+   "name": "gen: key.lock params array",
+   "raw": "{\"id\":16303,\"method\":\"key.lock\",\"params\":[]}"
+  },
+  {
    "name": "gen: relay.addresses plain (no relay configured)",
    "send": {
     "id": 16200,
