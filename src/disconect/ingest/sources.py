@@ -32,7 +32,7 @@ TRANSPORT_DROP = "drop"
 TRANSPORT_BLE = "ble"
 DROPPED_LIVE_EMPTY = "live_file_without_readings"
 
-#: ``progress(done, total_or_None, note)``; ``note`` is the write outcome (``imported`` | ``duplicate`` | ``failed``) in the FIT phase and the stream name (``json:...``) in the export-JSON phase — never a file name or path.
+#: ``progress(done, total_or_None, note)``; ``note`` is the write outcome (``imported`` | ``duplicate`` | ``failed``) in the FIT phase and the live phase (which also says `skipped` for a live file with no readings) and the stream name (``json:...``) in the export-JSON phase — never a file name or path.
 ProgressCallback = Callable[[int, int | None, str], None]
 
 

@@ -629,7 +629,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="machine-readable output on stdout")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    imp = commands.add_parser("import", help="import a Connect export (zip/folder), a FIT folder, or a .fit file")
+    imp = commands.add_parser("import", help="import a Connect export (zip/folder), a FIT folder, a .fit file, or live-link session files (live-*.jsonl)")
     imp.add_argument("path")
     imp.add_argument("--transport", choices=["connect_export", "usb", "gadgetbridge", "ciq", "drop", "ble"],
                      help="how the files reached this machine (auto-detected for exports)")

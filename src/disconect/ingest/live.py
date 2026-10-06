@@ -16,8 +16,18 @@ from disconect.ingest.model import Decoded
 STREAM = "json:live"
 
 
-def _is_number(value: object) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+#: Exclusive upper bound of a reading's ``t`` (unix seconds, 10000-01-01Z): a millisecond stamp falls outside.
+T_LIMIT = 253402300800
+
+
+def _is_time(value: object) -> bool:
+    """A number (never a bool) in ``0 <= t < T_LIMIT``; also False for NaN."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value < T_LIMIT
+
+
+def _is_reading(t: object, metric: object, value: object) -> bool:
+    """The shape of a reading: time in range, metric text, value an int (never a bool)."""
+    return _is_time(t) and isinstance(metric, str) and isinstance(value, int) and not isinstance(value, bool)
 
 
 def parse_live_file(data: bytes) -> list[list] | None:
@@ -41,8 +51,7 @@ def parse_live_file(data: bytes) -> list[list] | None:
         if not isinstance(obj, dict):
             return None
         if {"t", "metric", "value"} <= obj.keys():
-            if not (_is_number(obj["t"]) and isinstance(obj["metric"], str)
-                    and isinstance(obj["value"], int) and not isinstance(obj["value"], bool)):
+            if not _is_reading(obj["t"], obj["metric"], obj["value"]):
                 return None
             readings.append([obj["t"], obj["metric"], obj["value"]])
         elif "status" not in obj and "stop" not in obj:
@@ -59,11 +68,15 @@ def canonical_payload(readings: list[list]) -> tuple[dict, bytes]:
 def decode_live_record(record: dict) -> tuple[str, Decoded] | None:
     """``{"readings": [...]}`` -> (source_key, Decoded) with the span and no canonical rows.
 
-    Raises ValueError for a record with no readings array, an empty one included.
+    Raises ValueError for a record with no readings array (an empty one included) or a reading
+    that is not ``[t, metric, value]`` as ``parse_live_file`` takes it (the Rust core's ``is_reading``).
     """
     readings = record.get("readings") if isinstance(record, dict) else None
     if not isinstance(readings, list) or not readings:
         raise ValueError("live record without readings")
+    for reading in readings:
+        if not (isinstance(reading, list) and len(reading) == 3 and _is_reading(*reading)):
+            raise ValueError("live record with a malformed reading")
     ordered, data = canonical_payload(readings)
     first, last = ordered["readings"][0][0], ordered["readings"][-1][0]
     decoded = Decoded(stream=STREAM, source_scope="device")

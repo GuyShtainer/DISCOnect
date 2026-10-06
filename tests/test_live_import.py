@@ -165,3 +165,47 @@ def test_relay_carries_the_live_record_and_the_peer_stores_the_bytes(tmp_path):
     (row,) = _live_rows(second)
     assert zlib.decompress(row[8]) == PINNED_PAYLOAD and row[3] == "ble"
     assert _canonical_counts(second) == before
+
+
+def test_a_live_file_with_a_millisecond_stamp_is_not_a_live_file(tmp_path):
+    bound = live.T_LIMIT
+    assert live.parse_live_file(json.dumps({"t": bound - 1, "metric": "steps", "value": 1}).encode()) == [[bound - 1, "steps", 1]]
+    assert live.parse_live_file(json.dumps({"t": 0, "metric": "steps", "value": 1}).encode()) == [[0, "steps", 1]]
+    for t in (bound, 1750000000123, -1, -0.5):
+        line = json.dumps({"t": t, "metric": "steps", "value": 1}).encode()
+        assert live.parse_live_file(line) is None, t
+    assert live.parse_live_file(b'{"t": NaN, "metric": "steps", "value": 1}\n') is None
+    # the folder import carries on: such a file falls through to the FIT path instead of aborting the sweep
+    _write_lines(tmp_path / "live-ms.jsonl", [{"t": 1750000000123, "metric": "steps", "value": 1}])
+    assert list(sources.iter_live_files(tmp_path)) == []
+
+
+@pytest.mark.parametrize("reading", [[T0, "hr", 1.5], [T0, "hr", True], [True, "hr", 1], [T0, 7, 1], [T0, "hr"],
+                                     [T0, "hr", 1, 2], "abc", [1750000000123, "hr", 1], [-1, "hr", 1]])
+def test_decode_live_record_refuses_a_reading_the_file_check_would_refuse(reading):
+    with pytest.raises(ValueError):
+        live.decode_live_record({"readings": [[T0, "heart_rate", 70], reading]})
+
+
+def test_decode_live_record_takes_well_formed_readings():
+    key, decoded = live.decode_live_record({"readings": [[T0 + 1, "steps", 40], [T0, "heart_rate", 70]]})
+    assert len(key) == 64 and decoded.start_utc < decoded.end_utc
+
+
+def test_relay_counts_a_malformed_live_record_invalid_instead_of_aborting(tmp_path):
+    from disconect.relay import sync
+    from disconect.relay.folder import FolderRelay
+    master, relay = bytes(range(32)), FolderRelay(tmp_path / "relay")
+    first, second = tmp_path / "a.db", tmp_path / "b.db"
+    _import(_write_lines(tmp_path / "live-p.jsonl", LIVE_LINES), first)
+    bad = json.dumps({"readings": [[T0, "heart_rate", 70], [T0]]}, sort_keys=True, separators=(",", ":")).encode()
+    with storage.open_for_write(first, "test") as conn:
+        conn.execute("UPDATE raw_records SET payload=?, payload_hash=?, payload_bytes=? WHERE stream='json:live'",
+                     (zlib.compress(bad), hashlib.sha256(bad).hexdigest(), len(bad)))
+    _import(_monitoring_fit(tmp_path / "A1.fit"), second)
+    with storage.open_for_write(first, "sync") as conn:
+        sync.push(conn, master, relay)
+    with storage.open_for_write(second, "sync") as conn:
+        result = sync.pull(conn, master, relay)
+    assert (result.records_new, result.records_invalid) == (0, 1)
+    assert _live_rows(second) == []

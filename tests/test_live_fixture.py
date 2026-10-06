@@ -40,10 +40,23 @@ def _count(store, sql, *args):
         conn.close()
 
 
+def _dump(store) -> str:
+    """The store's SQL text: row order and content, not the file's page layout."""
+    conn = storage.open_read_only(store)   # this driver's connection has no iterdump: the same text, by hand
+    try:
+        schema = conn.execute("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").fetchall()
+        lines = [f"{kind} {name}: {sql}" for kind, name, sql in schema]
+        for name in (n for kind, n, _ in schema if kind == "table"):
+            lines += [f"{name} {tuple(row)!r}" for row in conn.execute(f'SELECT * FROM "{name}" ORDER BY rowid')]
+        return "\n".join(lines)
+    finally:
+        conn.close()
+
+
 def test_the_committed_store_is_what_the_generator_builds_today(stores, tmp_path):
     again = tmp_path / "again.hbdb"
     gen_serve_fixtures.build(again, live=True)
-    assert again.read_bytes() == FIXTURE.read_bytes(), "regenerate: python tests/gen_serve_fixtures.py --live-only"
+    assert _dump(again) == _dump(FIXTURE), "regenerate: python tests/gen_serve_fixtures.py --live-only"
 
 
 def test_the_health_report_lists_the_live_stream_with_its_count_and_span(stores):

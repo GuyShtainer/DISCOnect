@@ -488,7 +488,7 @@ class Writer:
         second = datetime.timedelta(seconds=1)
         first_day, last_day = (self.offsets.local_date(m - second) for m in self._interval_span)
         days = 0
-        for device in self._interval_devices:
+        for device in sorted(self._interval_devices, key=lambda name: name or ""):
             rows = self.conn.execute(
                 "SELECT ts_utc, activity_type, steps, distance_m, raw_record_id FROM monitoring_intervals "
                 "WHERE source_scope='device' AND COALESCE(device_id,'') = ? AND ts_utc BETWEEN ? AND ?",
@@ -545,8 +545,8 @@ class Writer:
         # of the day before the first sample: that day keeps its earlier, complete figure.
         first_day, last_day = (self.offsets.local_date(m) for m in self._sample_span)
         days = 0
-        for device in self._sample_devices:
-            for sample_metric in {item[0] for item in self.DERIVED_FROM_SAMPLES}:
+        for device in sorted(self._sample_devices, key=lambda name: name or ""):
+            for sample_metric in sorted({item[0] for item in self.DERIVED_FROM_SAMPLES}):
                 rows = self.conn.execute(
                     "SELECT ts_utc, value, raw_record_id FROM metric_samples WHERE metric=? AND "
                     "source_scope='device' AND COALESCE(device_id,'') = ? AND ts_utc BETWEEN ? AND ? "

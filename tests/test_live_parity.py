@@ -75,7 +75,7 @@ def _rs_import(db, source):
     env = {k: v for k, v in os.environ.items() if k not in (keys.PASSPHRASE_ENV, keys.KEYS_ENV)}
     done = subprocess.run([str(BINARY), "--db", str(db), "import", str(source)], env=env,
                           capture_output=True, text=True, timeout=300)
-    assert done.returncode in (0, 1), done.stdout + done.stderr   # 1: partial (the frame log fails the FIT pass)
+    assert done.returncode == 0, done.stdout + done.stderr   # every order exits 0 (a frame log is skipped, not failed)
 
 
 def _assert_identical(p_db, r_db):
