@@ -9,6 +9,7 @@ key file and relay bundle unreadable. The same vectors are asserted by the Rust 
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import pathlib
 
@@ -158,3 +159,19 @@ def test_the_lan_pre_tag_binds_the_declared_length_and_is_not_the_tag():
     assert pre != tag
     assert longer.split(".")[2] != pre, "another declared length is another pre-tag"
     assert longer.split(".")[3] == tag, "the tag still covers only the body hash"
+
+
+# 12-RA response tag (independent construction): GET /v1/objects at ts 1000, server secs 1000, status 200, body `[]`
+LAN_RESP_AUTH = "v1.1000.eed0250402d3d138d4e77395553d05816469803b8a03dcac4811847d3d64e336.52e8ccfb4c2e95caa0ffa97acbfa52153b8ddf74a685275aabddba18689282ff"
+LAN_RESP_TAG = "6547026cb33f306df7bbbe0198be015aa23c3c756b5ef5c2ebe93bc191a8289c"
+
+
+def test_the_lan_response_tag_follows_from_the_stated_construction_and_is_held_by_rust_and_kb24():
+    key = _lan_token_key(LAN_MASTER)
+    assert _lan_header(key, "GET", "/v1/objects", 1000, b"") == LAN_RESP_AUTH
+    message = f"resp\nGET\n/v1/objects\n{LAN_RESP_AUTH}\n1000\n200\n{hashlib.sha256(b'[]').hexdigest()}".encode()
+    assert hmac.new(key, message, hashlib.sha256).hexdigest() == LAN_RESP_TAG
+    kb = (CORE.parents[1] / "docs" / "kb" / "24-wire-constants.md").read_text()
+    rust = (CORE / "src" / "relay" / "lan.rs").read_text()
+    for text in (kb, rust):
+        assert LAN_RESP_TAG in text and "X-Disconect-Resp" in text

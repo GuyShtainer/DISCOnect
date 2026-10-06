@@ -98,7 +98,7 @@ def test_a_ring_of_two_rust_devices_and_one_python_device_mixes_lan_and_folder(t
     _quiet([lan_seat, python_seat, folder_seat])
 
 
-def test_a_device_with_another_master_is_refused_and_the_python_cli_has_no_lan_transport(tmp_path, fleet, capsys):
+def test_a_device_with_another_master_is_unverified_and_the_python_cli_has_no_lan_transport(tmp_path, fleet, capsys):
     seat = fleet.device("a", "rs")
     (tmp_path / "elsewhere").mkdir()
     foreign_fleet = Fleet(tmp_path / "elsewhere")   # its own master: another account, another token key
@@ -109,7 +109,7 @@ def test_a_device_with_another_master_is_refused_and_the_python_cli_has_no_lan_t
         _rust_lan(seat, "push", server.url)
         refused = subprocess.run([str(BINARY), "--db", str(stranger.db), "sync", "pull", "--relay", server.url],
                                  env=_rust_env(), capture_output=True, text=True, timeout=60)
-        assert refused.returncode == 1 and "authentication_failed" in refused.stderr, refused.stderr
+        assert refused.returncode == 5 and "relay_unverified" in refused.stderr, refused.stderr
         # the Python CLI reads folders only: a usage error, never a connection attempt
         assert cli.main(["--db", str(seat.db), "sync", "pull", "--relay", server.url]) == cli.EXIT_USAGE
         assert "a LAN relay needs disconect-core" in capsys.readouterr().err

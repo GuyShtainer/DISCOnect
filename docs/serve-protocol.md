@@ -30,7 +30,8 @@ side is the only process that ever holds the DB key.
 - Error codes (strings): `locked`, `wrong_passphrase`, `weak_passphrase`, `not_encrypted`,
   `busy`, `not_found`, `bad_params`, `unknown_method`, `database`, `internal`, plus (Bet 12 slice B)
   `unsupported_transport` (`sync.run` with a `lan` relay on the Python core) and `relay_auth_failed`
-  (a LAN relay refused the token; Rust only), plus (Bet 15 slice 2) `invalid_params`, `unknown_tool` and `tool_error`
+  (a LAN relay that proved it holds the key refused the request: check the clocks; Rust only) and `relay_unverified`
+  (12-RA: a LAN relay's answer carried no valid response tag; Rust only), plus (Bet 15 slice 2) `invalid_params`, `unknown_tool` and `tool_error`
   (all three only from `tools.call`), plus (7b-2) `pair_failed` (`pair.confirm`, and `pair.offer` after a cancel during its push; Rust core). Messages go
   through `redact.redact_text`; never a path the user did not pass in this request.
 - Env: honours `DISCONECT_DB` / `--db PATH` and `DISCONECT_KEYS`. The env passphrase path

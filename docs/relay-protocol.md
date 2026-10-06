@@ -170,6 +170,26 @@ byte**, then the body (exactly the declared length, at most one bundle), then th
 without a `Content-Length` has an empty body, which is never read; chunked uploads are refused (`400`). Two
 devices that hold the same master (a paired phone and the Mac) therefore derive the same key with no exchange.
 
+**Response tag (12-RA).** Every answer of the object routes, whatever its status (200, 204 and every refusal), carries
+`X-Disconect-Resp: v1.<server unix seconds>.<rtag>` with
+`rtag = HMAC(token_key, "resp" ‖ "\n" ‖ METHOD ‖ "\n" ‖ target ‖ "\n" ‖ <the request's X-Disconect-Auth value as the server
+received it, SP/HTAB-trimmed, empty when there was none> ‖ "\n" ‖ <server unix seconds, decimal> ‖ "\n" ‖ <status, decimal> ‖ "\n" ‖
+hex(sha256(response body)))`, hex-encoded (`target` as received, query included). The tag is computed in `handle()` over
+the final status and body, so a `413`, `408` or `500` from the handler is tagged too. `/v1/health` and the pairing routes
+carry none, and neither do the two errors raised before a request head exists (`400` for a head that cannot be read,
+`408` for a head that stops arriving): the client sees those as unverified. Same key in both directions is fine: a request tag
+starts with an upper-case method, the pre-tag with `pre`, the response with `resp`.
+
+**Client rule.** The client keeps the auth value it sent and, before it interprets the status, requires exactly one
+`X-Disconect-Resp` of the exact shape (`v1.` + decimal seconds + `.` + 64 lower-case hex), reads the body (capped at one
+bundle) and verifies the tag in constant time over its own method, target, sent header, the header's seconds, the status and
+the body. Missing, repeated, malformed or wrong is `Unverified`: not the relay this device paired with, the relay was set up
+again with a new key (pair again from it), the network altered the answer, or the connection broke; the client takes no
+automatic action (it never re-pairs, never books, never lists). A verified `401` is `Unauthorized`: the relay holds this
+device's key but refused the request, so the date and time on the two devices should be checked (the server's seconds are in
+the header). Server and client ship together in one core; a client of this version against a server without the tag sees
+`Unverified` on every call (the Mac updates first).
+
 **Limits, stated.**
 - *Replay.* A request captured on the LAN can be replayed for 300 s: a replayed `PUT` rewrites the same bytes, a
   replayed `GET` shows ciphertext the sniffer already has, a replayed `DELETE` removes the object again. Nothing
@@ -189,15 +209,25 @@ devices that hold the same master (a paired phone and the Mac) therefore derive 
   length can hold a slot, and make the server buffer what it sends (one bundle at most), until the body budget ends.
   Bind to the LAN only on a network you trust. The HTTP layer is the server's own small subset (one request per
   connection, `Connection: close`; the library first tried, `tiny_http`, has no time-outs), see `lan_server.rs`.
-- Time-skewed phones fail with `authentication_failed` until their clock is right.
+- *A fake or tampering relay (12-RA).* A peer without the key (a fake server on a re-used address, a man in the middle)
+  can still refuse the connection, hold it open, or answer nothing; it cannot make the client book a push, trust a
+  list or re-pair, because every answer it could forge fails the tag. The body of a pulled bundle was already AEAD; the
+  status and the list were the gap. Left open on purpose: an unverified `PUT` may have landed, so the retry pushes the
+  same records as a new bundle (a fresh name each time, never reused) and pulls de-duplicate them (`mark_existing`, no false gap);
+  a peer that strips tags can only make the relay grow by duplicates. Two requests with identical headers in the same
+  second (a repeated `GET` of one path) have identical tags, so a peer may swap their answers: harmless, nothing is booked
+  from a list and names are random. A tag proves a holder of the account key, not this particular relay (Bet 14 pins a
+  relay id at pairing and binds it into the tag). Nothing may act on health beyond "something answers".
+- Time-skewed phones get a tagged `401` (`relay_auth_failed`, "check the date and time on both devices") until their clock is right.
 
 **Client errors** (`RelayError`): unreachable (connect, name lookup, time-out, broken answer) is
-`Unreachable`, retryable; `401` is `Unauthorized`, reason and text `authentication_failed`; `404` on
-a read or delete is `FileNotFoundError`; `400` `bad object name`; `413` `too_large`; any other status
-is `Status(n)` (only the number is kept). A pull stops at the first of the transient ones (unreachable,
-unauthorized, a status) without booking the bundle `rejected`: nothing is marked, the next pull
+`Unreachable`, retryable; a verified `401` is `Unauthorized` (text `relay_auth_failed: ... check the date and time on both
+devices`, reason `authentication_failed`); an answer with no valid response tag is `Unverified` (reason and text
+`relay_unverified`); `404` on a read or delete is `FileNotFoundError`; `400` `bad object name`; `413` `too_large`; any other
+status is `Status(n)` (only the number is kept). A pull stops at the first of the transient ones (unreachable,
+unauthorized, unverified, a status) without booking the bundle `rejected`: nothing is marked, the next pull
 retries (a bundle whose records had begun to land is `applying`, which the next pull repairs as it
-does after a crash). The CLI exits 5 for an unreachable relay. `relay.json` is `{"folder": path}` or
+does after a crash). The CLI exits 5 for an unreachable or unverified relay. `relay.json` is `{"folder": path}` or
 `{"lan": "http://host:port"}` (a non-empty `lan` wins); `--relay http://host:port` selects LAN, and
 `https://` or a URL with a path is a usage error.
 
