@@ -199,7 +199,7 @@ def test_parse_listen_names_the_rule_and_never_the_input(text, rule):
         assert fragment not in message
 
 
-def test_phone_forget_is_the_phones_method_and_this_core_always_refuses_it(encrypted):
+def test_pair_forget_is_the_phones_method_and_this_core_always_refuses_it(encrypted):
     """12-F: `pair.forget` is Rust-only on iOS. Here it answers `unsupported_transport` first, locked or not, with any params."""
     assert list(serve.METHODS)[-1] == "pair.forget"
     expected = {"code": "unsupported_transport", "message": "this core is not a phone; there is nothing to forget"}
