@@ -37,7 +37,8 @@ EXPIRY_S = 900
 _NONCE = bytes(12)
 _OFFER_KEYS = ("v", "pub", "s", "id", "exp", "url")
 _HEX_LENGTHS = {"pub": 32, "s": 16, "id": 16}
-_URL_PATTERN = re.compile(r"http://([^/:@?#\s]+):([0-9]+)")
+_LABEL_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789-")
+_HEX_CHARS = frozenset("0123456789abcdef")
 
 
 class PairError(ValueError):
@@ -101,9 +102,12 @@ def _decode_body(text: str) -> bytes:
     if not re.fullmatch(r"[A-Za-z0-9_-]+", body):
         raise PairError("offer body is not unpadded base64url")
     try:
-        return base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
+        raw = base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
     except (binascii.Error, ValueError):
         raise PairError("offer body is not valid base64url") from None
+    if base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii") != body:
+        raise PairError("offer body is not canonical base64url (non-zero trailing bits)")
+    return raw
 
 
 def _hex_field(document: dict[str, object], name: str) -> bytes:
@@ -114,10 +118,48 @@ def _hex_field(document: dict[str, object], name: str) -> bytes:
     return bytes.fromhex(value)
 
 
+def _ipv4_ok(host: str) -> bool:
+    parts = host.split(".")
+    return len(parts) == 4 and all(
+        part.isdigit() and (part == "0" or not part.startswith("0")) and int(part) <= 255 for part in parts)
+
+
+def _ipv6_ok(text: str) -> bool:
+    if ":::" in text:
+        return False
+    halves = text.split("::")
+    if len(halves) > 2:
+        return False
+    groups = [group for half in halves if half for group in half.split(":")]
+    if not all(1 <= len(group) <= 4 and set(group) <= _HEX_CHARS for group in groups):
+        return False
+    return len(groups) <= 7 if len(halves) == 2 else len(groups) == 8
+
+
+def _label_ok(label: str) -> bool:
+    return 1 <= len(label) <= 63 and set(label) <= _LABEL_CHARS and not label.startswith("-") and not label.endswith("-")
+
+
+def _host_ok(host: str) -> bool:
+    """kb/24 offer URL grammar: an IPv4 address, a bracketed IPv6 address or a lowercase hostname."""
+    if host.startswith("["):
+        return host.endswith("]") and _ipv6_ok(host[1:-1])
+    if host and set(host) <= set("0123456789."):
+        return _ipv4_ok(host)
+    return 1 <= len(host) <= 253 and all(_label_ok(label) for label in host.split("."))
+
+
+def _port_ok(port: str) -> bool:
+    return port.isdigit() and port.isascii() and not port.startswith("0") and 1 <= len(port) <= 5 and int(port) <= 65535
+
+
 def _check_url(url: object) -> str:
-    match = _URL_PATTERN.fullmatch(url) if isinstance(url, str) else None
-    if match is None or not 1 <= int(match.group(2)) <= 65535 or len(match.group(2)) > 5:
-        raise PairError("url must be http://host:port with an explicit port 1..65535 and no trailing slash")
+    """The offer URL is exactly ``http://`` host ``:`` port (kb/24 § offer URL grammar), nothing else."""
+    rest = url[len("http://"):] if isinstance(url, str) and url.startswith("http://") else None
+    host, _, port = rest.rpartition(":") if rest is not None else ("", "", "")
+    if rest is None or not _port_ok(port) or not _host_ok(host):
+        raise PairError("url must be http://host:port — IPv4, bracketed IPv6 or lowercase hostname, "
+                        "an explicit port 1..65535 without a leading zero, no path or trailing slash")
     return url
 
 

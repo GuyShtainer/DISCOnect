@@ -150,6 +150,34 @@ def _bad_offers() -> dict[str, str]:
     }
 
 
+_URL_VECTORS = json.loads((pathlib.Path(__file__).parent / "fixtures" / "pair-offer-urls.json").read_text())
+
+
+@pytest.mark.parametrize("url", _URL_VECTORS["accepted"])
+def test_offer_url_grammar_accepts_the_shared_vectors(url):
+    """kb/24 § offer URL grammar: the vectors every parser of the offer text shares (both cores, the phone)."""
+    assert pair.parse_offer(_offer_text(_doc(url=url))).url == url
+
+
+@pytest.mark.parametrize("name", list(_URL_VECTORS["refused"]))
+def test_offer_url_grammar_refuses_the_shared_vectors(name):
+    url = _URL_VECTORS["refused"][name]
+    text = _offer_text(_doc(url=url))
+    with pytest.raises(pair.PairError) as caught:
+        pair.parse_offer(text)
+    assert url not in str(caught.value) and text[len(pair.OFFER_PREFIX):] not in str(caught.value)
+
+
+def test_non_canonical_base64url_trailing_bits_are_refused():
+    """``urlsafe_b64decode`` accepts non-zero bits past the last byte; the offer body must re-encode to itself."""
+    body = OFFER_TEXT[len(pair.OFFER_PREFIX):]
+    assert len(body) % 4, "the frozen vector ends in a partial group"
+    flipped = body[:-1] + ("C" if body[-1] == "B" else "B")  # index 1 or 2: non-zero low bits in a partial group
+    with pytest.raises(pair.PairError, match="canonical"):
+        pair.parse_offer(pair.OFFER_PREFIX + flipped)
+    assert len(_URL_VECTORS["accepted"]) >= 12 and len(_URL_VECTORS["refused"]) >= 44
+
+
 def test_the_padded_case_is_really_padded():
     assert _bad_offers()["padded base64"].endswith("=")
 

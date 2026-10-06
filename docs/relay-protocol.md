@@ -188,7 +188,7 @@ does after a crash). The CLI exits 5 for an unreachable relay. `relay.json` is `
 
 ## Pairing routes (Bet 12-E): one offer slot on the same server
 Only a server started by `disconect-core pair offer` (or a library caller that attaches an offer) carries these
-routes; a plain `relay-serve` answers `404` to all of them. The protocol (offer text, key schedule, tags, the six
+routes; a plain `relay-serve` answers `404` to all of them. The offer's `url` follows the kb/24 offer URL grammar (IPv4, bracketed IPv6 or lowercase hostname, explicit port; shared vectors in `tests/fixtures/pair-offer-urls.json`). The protocol (offer text, key schedule, tags, the six
 digits, the sealed payload) is ADR 0011; the constants and vectors are `docs/kb/24-wire-constants.md`. **No
 `X-Disconect-Auth` header**: the joiner holds no master yet, and possession of the offer's secret `s` is the proof.
 `<id>` is the offer's 32 lowercase hex characters. Checks run top to bottom; the first that fails answers, with an
