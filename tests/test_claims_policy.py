@@ -30,8 +30,7 @@ SCOPE = [
     *sorted((APP / "src-tauri" / "src" / "coach").glob("*.rs")),
 ]
 
-SCORE_CATEGORIES = ("score-marks", "score-names")
-VENDOR_FIGURE = ", vendor"  # rule 3: a string naming a vendor's own figure may carry a score name
+# rule 3 (2026-10-06): a vendor's own figure is labelled in plain words + ", vendor"; no exemption from the score lists
 
 
 def parse_policy(text: str):
@@ -59,11 +58,8 @@ def violations(text: str, categories, allow):
     """Banned hits in ``text`` after the exact allowlisted sentences are removed."""
     for sentence in allow:
         text = text.replace(sentence, " ")
-    vendor_figure = VENDOR_FIGURE in text.lower()
     hits = []
     for name, (_case, pattern) in categories.items():
-        if vendor_figure and name in SCORE_CATEGORIES:
-            continue
         hits += [(name, m.group(0)) for m in pattern.finditer(text)]
     return hits
 
@@ -110,8 +106,9 @@ def test_the_matcher_rejects_a_banned_word_and_accepts_an_allowlisted_sentence()
     assert violations("It may detect a condition.", categories, allow), "a multi-word term"
     assert violations("Your Readiness today", categories, allow) == [("score-names", "Readiness")]
     assert not violations("recovery in lowercase prose is fine", categories, allow)
-    assert not violations("Readiness, vendor", categories, allow), "rule 3"
-    assert violations("Body Battery, vendor high", categories, allow) == [] and violations("TSB", categories, allow)
+    assert violations("Readiness, vendor", categories, allow) == [("score-names", "Readiness")], "rule 3: no exemption"
+    assert violations("Body Battery, vendor high", categories, allow) and violations("TSB", categories, allow)
+    assert not violations("Daily preparedness, vendor", categories, allow) and not violations("Rest time, vendor", categories, allow)
     assert not violations("They describe; they do not diagnose.", categories, allow)
     assert not violations(identity.DISCLAIMER, categories, allow)
     assert violations("They describe; they do not diagnose. We diagnose.", categories, allow), "only the sentence is removed"
@@ -174,7 +171,7 @@ def test_the_ts_neutralizer_table_has_exactly_the_policy_score_lists():
 
 def test_the_ts_neutralizer_source_spells_no_score_name_and_no_maker_name():
     text = (APP / "src" / "identity.ts").read_text()
-    # the metric labels above the neutralizer may carry a name next to ", vendor" (rule 3); the neutralizer may not
+    # the metric labels above the neutralizer are in plain words too (rule 3), and the neutralizer may not spell a name
     neutralizer = text.split("what the coach's words are scrubbed with", 1)[1]
     code = "\n".join(line for line in neutralizer.splitlines() if not line.strip().startswith("//"))
     for key, _ in _ts_table("SCORE_MARKS") + _ts_table("SCORE_NAMES"):

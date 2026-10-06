@@ -16,8 +16,8 @@ medical advice, never compares a person with a population norm, and never names 
 2. No score names or marks: the watch makers' and training-software vendors' product names
    (Readiness, Recovery as a score name, Body Battery, TSS, CTL, ATL, TSB). The lowercase common
    word "recovery" in prose is fine; the capitalised score-name forms are not.
-3. A string naming a vendor's own figure with ", vendor" may carry a score name
-   (`Readiness, vendor`); this exempts it from the two score lists only.
+3. A string naming a vendor's own figure says ", vendor" after plain words (`Daily preparedness,
+   vendor`, `Rest time, vendor`); it is not exempt from the score lists (the exemption was dropped 2026-10-06).
 4. A negation may name a banned word only as an exact sentence in the `allow` block (the lint removes
    those sentences, then matches). Prefer rewording; allow only "do not diagnose" style lines.
 
