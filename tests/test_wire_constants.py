@@ -37,6 +37,17 @@ FROZEN = [
 ]
 PYTHON_SRC = pathlib.Path(keys.__file__).resolve().parents[1]
 
+#: Pairing labels (Bet 12-E): the Python oracle (pair.py) and the Rust module (src/pair.rs) hold them verbatim.
+PAIR_LABELS = [
+    "disconect-pair:v1.",
+    "disconect/pair/v1",
+    "disconect/pair/v1/confirm",
+    "disconect/pair/v1/offerer",
+    "disconect/pair/v1/sas",
+    "disconect/pair/v1/payload",
+]
+FROZEN += [(label, "pair.py", "src/pair.rs") for label in PAIR_LABELS]
+
 
 @pytest.fixture(scope="module")
 def master() -> bytes:
