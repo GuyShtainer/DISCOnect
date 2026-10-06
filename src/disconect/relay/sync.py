@@ -506,19 +506,24 @@ SUPERSEDED_BY_CONTENT = "SELECT count(*) FROM (SELECT DISTINCT stream, source_ke
 
 
 def status(conn: sqlite.Connection) -> dict:
-    """Counts only: bundles pushed/pulled/rejected, records seen, conflicts, chain gaps. ``conflicts`` and
-    ``superseded`` count by content (the versions that lost), so converged devices report the same numbers."""
+    """Counts, plus the time of the newest applied bundle in each direction: bundles pushed/pulled/rejected,
+    records seen, conflicts, chain gaps. ``conflicts`` and ``superseded`` count by content (the versions that
+    lost), so converged devices report the same numbers."""
     counts = {row[0] + "_" + row[1]: row[2] for row in conn.execute(
         "SELECT direction, status, count(*) FROM relay_bundles GROUP BY 1, 2").fetchall()}
     unsent = conn.execute("SELECT count(*) FROM raw_records r LEFT JOIN relay_seen s ON s.raw_record_id=r.id "
                           "WHERE s.raw_record_id IS NULL").fetchone()[0]
     result = PullResult()
     _report_gaps(conn, result)
+    # the newest applied bundle per direction (``noted_at`` of this store's own booking): a push or pull that
+    # moved nothing books no bundle, so these are "last data sent / received", not "last attempt"
+    last = {row[0]: row[1] for row in conn.execute(
+        "SELECT direction, max(noted_at) FROM relay_bundles WHERE status='applied' GROUP BY 1").fetchall()}
     return {"bundles": counts, "records_unsent": unsent,
             "records_seen": conn.execute("SELECT count(*) FROM relay_seen").fetchone()[0],
             "conflicts": conn.execute(CONFLICTS_BY_CONTENT).fetchone()[0],
             "superseded": conn.execute(SUPERSEDED_BY_CONTENT).fetchone()[0],
-            "gaps": result.gaps}
+            "gaps": result.gaps, "last_pushed_at": last.get("pushed"), "last_pulled_at": last.get("pulled")}
 
 
 def forget_relay_state(conn: sqlite.Connection) -> None:

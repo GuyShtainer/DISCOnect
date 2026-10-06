@@ -394,7 +394,8 @@ def sync_status(session: Session, call: Call) -> dict:
         if migrations.has_table(conn, "relay_bundles"):
             return sync_module.status(conn)
         return {"bundles": {}, "records_unsent": conn.execute("SELECT count(*) FROM raw_records").fetchone()[0],
-                "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": []}
+                "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [], "last_pushed_at": None,
+                "last_pulled_at": None}
 
 
 def _sync_event(session: Session, phase: str, state: str, counts: dict | None = None) -> None:

@@ -63,8 +63,10 @@ def _second_device(db_path, tmp_path) -> Rig:
 def test_a_plaintext_store_reports_empty_counts_and_cannot_run(plain, db_path, tmp_path):
     assert plain.result("sync.status")["bundles"] == {}
     status = plain.result("sync.status")
-    assert set(status) == {"bundles", "records_unsent", "records_seen", "conflicts", "superseded", "gaps"}
+    assert set(status) == {"bundles", "records_unsent", "records_seen", "conflicts", "superseded", "gaps",
+                           "last_pushed_at", "last_pulled_at"}
     assert status["records_unsent"] > 0 and status["gaps"] == []
+    assert status["last_pushed_at"] is None and status["last_pulled_at"] is None
     response = plain.send("sync.run")
     assert response["error"] == {"code": "not_found", "message": "no relay is configured (relay.json in the data folder)"}
     _relay_json(db_path, {"folder": str(tmp_path / "relay")})
@@ -91,7 +93,8 @@ def test_a_store_older_than_the_relay_tables_answers_like_a_fresh_one(db_path):
     conn.commit()
     conn.close()
     status = Rig(db_path).result("sync.status")
-    assert status == {"bundles": {}, "records_unsent": 0, "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": []}
+    assert status == {"bundles": {}, "records_unsent": 0, "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [],
+                      "last_pushed_at": None, "last_pulled_at": None}
 
 
 def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted, db_path, tmp_path):
@@ -113,7 +116,10 @@ def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted,
     done = {e["phase"]: {k: v for k, v in e.items() if k not in ("event", "op", "phase", "state")}
             for e in events if e["state"] == "done"}
     assert done == {"push": result["push"], "pull": result["pull"]}
-    assert encrypted.result("sync.status")["bundles"] == {"pushed_applied": 1}
+    status = encrypted.result("sync.status")
+    assert status["bundles"] == {"pushed_applied": 1}
+    # the time of the newest applied bundle per direction: pushed now, never pulled
+    assert status["last_pushed_at"] >= "2020" and status["last_pushed_at"].endswith("Z") and status["last_pulled_at"] is None
 
     other = _second_device(db_path, tmp_path)
     pulled = other.result("sync.run")
@@ -122,7 +128,11 @@ def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted,
     assert pulled["pull"]["records_new"] + pulled["pull"]["records_invalid"] == result["push"]["records"]
     again = other.result("sync.run")
     assert again["pull"]["applied"] == 0 and again["push"]["bundles"] == 0
-    assert other.result("sync.status")["bundles"] == {"pulled_applied": 1}
+    status = other.result("sync.status")
+    assert status["bundles"] == {"pulled_applied": 1}
+    assert status["last_pulled_at"] >= "2020" and status["last_pushed_at"] is None
+    # a run that moved nothing books no bundle, so the times do not advance
+    assert other.result("sync.status")["last_pulled_at"] == status["last_pulled_at"]
 
 
 def test_a_lan_relay_is_refused_with_its_own_code_after_the_other_checks(encrypted, db_path, tmp_path):
