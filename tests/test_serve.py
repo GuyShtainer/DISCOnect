@@ -477,6 +477,41 @@ def test_second_import_while_one_runs_is_busy(plain, tmp_path, monkeypatch):
     assert plain.result("import.run", path=str(root))["duplicate"] > 0, "the slot is free again"
 
 
+def test_eof_with_an_import_in_flight_waits_for_it_and_its_answer_is_the_last_line(plain, tmp_path, monkeypatch):
+    """Twin of the Rust 'the held import answers last, at EOF': the loop outlives its input for the worker."""
+    started, release, input_ended = threading.Event(), threading.Event(), threading.Event()
+    real = sources.import_path
+
+    def held(path, conn, transport=None, progress=None):
+        started.set()
+        assert release.wait(10)
+        return real(path, conn, transport, progress)
+    monkeypatch.setattr(sources, "import_path", held)
+    root = tmp_path / "export"
+    root.mkdir()
+    _build_export(root)
+    request = lambda i, method, **p: json.dumps({"id": i, "method": method, "params": p})   # noqa: E731
+
+    def lines():
+        yield request(1, "import.run", path=str(root))
+        assert started.wait(10)
+        yield request(2, "app.info")
+        input_ended.set()   # the iterator is exhausted next: serve_lines sees EOF with the worker still held
+
+    def releaser():
+        input_ended.wait(10)
+        release.set()
+    thread = threading.Thread(target=releaser, name="releaser")
+    thread.start()
+    written = plain.feed(lines())
+    thread.join()
+    ids = [line["id"] for line in written if "id" in line]
+    assert ids == [2, 1], "the read answers first, the import's final answer is the last line"
+    assert "id" in written[-1] and written[-1]["id"] == 1 and written[-1]["result"]["ok"] > 0
+    new_run = next(run for run in plain.result("import.last")["runs"] if run["id"] == written[-1]["result"]["run_id"])
+    assert new_run["finished_at"], "the run row was written and finished before the process exited"
+
+
 def test_import_is_busy_while_another_process_holds_the_write_lock(plain, db_path, tmp_path):
     root = tmp_path / "export"
     root.mkdir()

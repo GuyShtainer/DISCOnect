@@ -21,7 +21,7 @@ side is the only process that ever holds the DB key.
   reserved push holds the server, or when `relay.serve off` / the session end stops it).
 - Start-up: the process dup()s fd 1 to a private fd for the protocol and dup2()s fd 1 onto
   fd 2, so any stray print or C-level write goes to stderr. Nothing but protocol lines reach
-  the private fd. Exits 0 on stdin EOF. Exit codes are for fatal start-up errors only.
+  the private fd. On stdin EOF the loop stops reading, writes every answer already produced, stops the relay server, lets an import or sync in flight run to its end (its run row is written and its final answer is the last line), then exits 0. Exit codes are for fatal start-up errors only.
 - Never primes a key at start. Until `key.unlock` succeeds, every `data.*` and `import.*`
   call answers `{"error": {"code": "locked"}}`. A plaintext DB (no key file) is simply open.
 - Reads run on the main loop. `import.run` runs in one worker thread that holds the write lock
@@ -96,7 +96,7 @@ side is the only process that ever holds the DB key.
   `FORBIDDEN_TEXT` and the manufacturer name.
 - Locked-before-unlock, wrong passphrase, unlock, then data; `busy` on concurrent import.
 - Stdout isolation: a handler that `print()`s must not corrupt the stream.
-- EOF exit: closing stdin ends the process within 2 s.
+- EOF exit: closing stdin ends the process within 2 s when no import or sync is in flight; with one in flight the process waits for it and its answer is the last line (both cores; the app kills its child on quit instead, and the next start names the interrupted run).
 - Never-printed: subprocess run of `key.unlock` + `key.cache` with a scratch passphrase; stdout
   and stderr scanned for the passphrase raw/hex/base64 and for the master key.
 - No-socket fixture: `socket.socket.connect` and `socket.getaddrinfo` raise during every
