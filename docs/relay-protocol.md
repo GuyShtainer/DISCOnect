@@ -123,9 +123,23 @@ server is run by the project: it is the user's machine, on the user's network, s
 key only to derive the account name and the token key). It never serves another account's objects
 (403), never lists anything but the account's object names, never logs anything but the method and
 the status (no path, no object name, no peer address), never answers a refusal with a reason, and
-is never started by the app on its own. It does not do TLS: the bodies are AEAD output, and the
+is started by the app only as the user's switch (see "Serve mode" below), never on its own. It does not do TLS: the bodies are AEAD output, and the
 token proves possession of the master key; an eavesdropper on the Wi-Fi sees the (Padmé-rounded)
 object sizes and when they move, which a folder carried by Syncthing shows too.
+
+**Serve mode (7b-2, Rust core).** The desktop app's sidecar runs at most one server per session, on an
+address the user picks from a fresh list (`relay.addresses`) and passes as `listen` on every call; nothing
+about serving is remembered, so the switch is "while the app runs". `relay.serve {"on": true}` starts it and
+keeps it until `{"on": false}` or the session ends. A pairing offer (`pair.offer`) starts it if it is not
+running. With the switch off the **lifetime rule** is: the server lives until the offer's `exp` (15 minutes)
+or the user's "stop serving" once the offer has been delivered, because the joiner's first pull comes from
+the same URL right after the payload's `200` and the payload is served on every GET until `exp`; it stops at
+once only on abort, cancel or expiry, after a ~2 s linger so the joiner reads `410` rather than a refused
+connection. While serving, the core checks every ~10 s that the bound address is still assigned to this
+machine; when it is gone the server stops and a `relay` event says so (a laptop that changed networks never
+serves a foreign network's address). The session's end (the app quitting) aborts the offer and stops the
+server before anything else is awaited. The server's logger is a no-op in this mode. The relay folder is
+still set by the CLI (`sync … --relay <folder> --remember`); the app does not choose one.
 
 **Routes** (`/v1`; any other path is 404, a query string is 404, a wrong method 405):
 | request | answer |
