@@ -510,6 +510,10 @@ def relay_addresses(session: Session, call: Call) -> Any:
 @_unlocked_only
 def relay_serve(session: Session, call: Call) -> Any:
     """The serve switch (Rust only): prefix, ``on`` (bool), ``listen`` (needed when ``on``), then ``unsupported_transport``."""
+    # the stop path checks only ``locked`` (the decorator) and the parameter shapes, as on the Rust core
+    if call.params.get("on") is False:
+        _listen_param(call.params)
+        return {"serving": False, "url": None}   # this core serves nothing, so there is nothing to stop
     _relay_prefix(session)
     on = _bool_param(call.params, "on")
     listen = _listen_param(call.params)
@@ -538,9 +542,8 @@ def pair_confirm(session: Session, call: Call) -> Any:
 
 @_unlocked_only
 def pair_cancel(session: Session, call: Call) -> Any:
-    """End the open offer (Rust only): after the shared prefix, ``unsupported_transport``."""
-    _relay_prefix(session)
-    raise relay_config.UnsupportedTransport(NO_SERVER)
+    """End the open offer: this core never has one, so ``not_found`` (only ``locked`` is checked before)."""
+    raise ServeError("not_found", "there is no offer to cancel")
 
 
 # ---- tools ----

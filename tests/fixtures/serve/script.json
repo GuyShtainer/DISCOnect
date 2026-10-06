@@ -20088,7 +20088,7 @@
    "raw": "{\"id\":16203,\"method\":\"relay.addresses\",\"params\":[]}"
   },
   {
-   "name": "gen: relay.serve plain (no relay configured)",
+   "name": "gen: relay.serve plain (stop path: no relay check)",
    "send": {
     "id": 16210,
     "method": "relay.serve",
@@ -20181,7 +20181,7 @@
    "raw": "{\"id\":16233,\"method\":\"pair.confirm\",\"params\":[]}"
   },
   {
-   "name": "gen: pair.cancel plain (no relay configured)",
+   "name": "gen: pair.cancel plain (stop path: no relay check)",
    "send": {
     "id": 16240,
     "method": "pair.cancel"

@@ -78,6 +78,8 @@ def parse_listen(text: str) -> tuple[ipaddress.IPv4Address | ipaddress.IPv6Addre
         ip = ipaddress.IPv6Address(host) if bracketed else ipaddress.IPv4Address(host)
     except ValueError:
         raise ValueError(_LISTEN_SHAPE) from None
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        raise ValueError(_LISTEN_SHAPE)
     if not (port and len(port) <= 5 and all(c in "0123456789" for c in port) and not port.startswith("0")
             and int(port) <= 65535):
         raise ValueError(_LISTEN_PORT)

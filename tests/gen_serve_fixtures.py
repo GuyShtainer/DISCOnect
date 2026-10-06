@@ -492,12 +492,14 @@ _RELAY_METHODS = (("relay.addresses", None), ("relay.serve", {"on": False}),
 def _relay_entries() -> list[dict]:
     """``relay.addresses``, ``relay.serve``, ``pair.offer``, ``pair.confirm`` and ``pair.cancel`` on the plaintext
     oracle stores: no ``relay.json`` exists beside them, so every entry answers ``not_found`` on both cores (the
-    shared prefix's second check). The refusals that come after it run in the sync leg."""
+    shared prefix's second check), except the two stop paths (``relay.serve`` off, ``pair.cancel``), which skip the
+    prefix: ``{"serving": false, "url": null}`` and ``not_found`` "there is no offer to cancel". The refusals that come after it run in the sync leg."""
     entries: list[dict] = []
     for index, (method, params) in enumerate(_RELAY_METHODS):
         base = 16200 + index * 10
+        stop = (method, params) in (("relay.serve", {"on": False}), ("pair.cancel", None))
         entries += [
-            {"name": f"gen: {method} plain (no relay configured)",
+            {"name": f"gen: {method} plain ({'stop path: no relay check' if stop else 'no relay configured'})",
              "send": {"id": base, "method": method, **({"params": params} if params else {})}},
             {"name": f"gen: {method} ignores params",
              "send": {"id": base + 1, "method": method, "params": {"limit": 1, "x": [1]}}},

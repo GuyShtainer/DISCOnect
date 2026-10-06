@@ -18,6 +18,10 @@ from test_privacy import _seed
 NO_RELAY = {"code": "not_found", "message": "no relay is configured (relay.json in the data folder)"}
 GOOD = {"relay.addresses": {}, "relay.serve": {"on": False}, "pair.offer": {"listen": "192.168.1.20:24816"},
         "pair.confirm": {"digits": "123456"}, "pair.cancel": {}}
+#: The two stop paths check only ``locked`` and the parameter shape, never the relay prefix.
+STOPPERS = ("relay.serve", "pair.cancel")
+PREFIXED = {method: params for method, params in GOOD.items() if method not in STOPPERS}
+NOTHING_TO_CANCEL = {"code": "not_found", "message": "there is no offer to cancel"}
 
 
 @pytest.fixture
@@ -59,22 +63,40 @@ def test_a_locked_store_answers_locked_before_anything_else(db_path, monkeypatch
 
 
 def test_no_relay_is_not_found_before_the_parameters_are_looked_at(plain):
-    for method in GOOD:
+    for method in PREFIXED:
         assert plain.send(method)["error"] == NO_RELAY, method
         assert plain.send(method, junk=[1])["error"] == NO_RELAY, method
     assert plain.send("relay.serve", on="yes")["error"] == NO_RELAY
+    assert plain.send("relay.serve", junk=[1])["error"] == NO_RELAY
+
+
+def test_the_stop_paths_skip_the_relay_checks(plain, db_path, tmp_path):
+    for body in (None, {"lan": "http://127.0.0.1:1"}, {"folder": str(tmp_path / "relay")}):
+        if body is not None:
+            _relay_json(db_path, body)
+        assert plain.result("relay.serve", on=False) == {"serving": False, "url": None}, body
+        assert plain.send("pair.cancel")["error"] == NOTHING_TO_CANCEL, body
+        assert plain.send("pair.cancel", junk=1)["error"] == NOTHING_TO_CANCEL, body
+    key_path = keys.key_path_for(db_path)
+    key_path.with_name(key_path.name + keys.NEXT_SUFFIX).write_text("{}")
+    assert plain.result("relay.serve", on=False) == {"serving": False, "url": None}
+    assert plain.send("pair.cancel")["error"] == NOTHING_TO_CANCEL
+    # the shape is still checked, and the other three methods still run the prefix
+    assert plain.send("relay.serve", on=False, listen="localhost:1")["error"]["code"] == "bad_params"
+    assert plain.send("relay.serve", on="yes")["error"]["code"] == "not_encrypted"
 
 
 def test_a_lan_relay_is_a_joiner_and_serves_nothing(plain, db_path):
     _relay_json(db_path, {"lan": "http://127.0.0.1:1"})
-    for method, params in GOOD.items():
+    for method, params in PREFIXED.items():
         assert plain.send(method, **params)["error"] == {
             "code": "bad_params", "message": "this device is a joiner; it serves nothing"}, method
+    assert plain.send("relay.serve", on=True, listen="192.168.1.20:24816")["error"]["code"] == "bad_params"
 
 
 def test_a_plaintext_store_with_a_folder_relay_is_not_encrypted(plain, db_path, tmp_path):
     _relay_json(db_path, {"folder": str(tmp_path / "relay")})
-    for method, params in GOOD.items():
+    for method, params in PREFIXED.items():
         error = plain.send(method, **params)["error"]
         assert error["code"] == "not_encrypted", method
         assert error["message"] == f"the relay needs an encrypted store: run '{serve.identity.COMMAND} key init' first"
@@ -84,7 +106,7 @@ def test_a_key_rotation_in_progress_is_busy_before_the_parameters(encrypted, db_
     _relay_json(db_path, {"folder": str(tmp_path / "relay")})
     key_path = keys.key_path_for(db_path)
     key_path.with_name(key_path.name + keys.NEXT_SUFFIX).write_text("{}")
-    for method in GOOD:
+    for method in PREFIXED:
         assert encrypted.send(method, junk=1)["error"] == {
             "code": "busy", "message": "a key rotation is in progress; finish it first"}, method
     assert encrypted.send("relay.serve", on="yes")["error"]["code"] == "busy"
@@ -118,9 +140,12 @@ def test_the_parameter_shapes_are_bad_params_with_the_rust_texts(encrypted, db_p
 
 def test_after_the_prefix_and_the_shape_every_method_is_unsupported_transport(encrypted, db_path, tmp_path):
     _relay_json(db_path, {"folder": str(tmp_path / "relay")})
-    for method, params in GOOD.items():
+    for method, params in PREFIXED.items():
         assert encrypted.send(method, **params)["error"] == {
             "code": "unsupported_transport", "message": "this core runs no LAN server"}, method
+    assert encrypted.result("relay.serve", on=False) == {"serving": False, "url": None}
+    assert encrypted.send("pair.cancel")["error"] == NOTHING_TO_CANCEL
+    assert encrypted.send("relay.serve", on=True, listen="192.168.1.20:24816")["error"]["code"] == "unsupported_transport"
     assert encrypted.send("relay.serve", on=True, listen="[2001:db8::1]:24816")["error"]["code"] == "unsupported_transport"
 
 
@@ -152,6 +177,9 @@ REFUSED = [
     ("169.254.9.9:24816", "listen cannot carry a zone id"),
     ("::1:24816", "listen must be an IP address and a port"),
     ("[::1]24816", "listen must be an IP address and a port"),
+    ("[::ffff:0.0.0.0]:24816", "listen must be an IP address and a port"),
+    ("[::ffff:169.254.1.1]:24816", "listen must be an IP address and a port"),
+    ("[::ffff:192.168.1.20]:24816", "listen must be an IP address and a port"),
 ]
 
 
