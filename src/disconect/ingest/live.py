@@ -23,15 +23,20 @@ STREAM = "json:live"
 #: The source scope of the folded rows (``contract.SOURCE_SCOPES``); raw rows keep ``device``.
 SCOPE = "live"
 
-#: Metrics the fold keeps, with the FIT decoder's sentinel rule (a reading that fails it is dropped
-#: under the named reason, prefixed ``live_``). ``steps`` and unknown names are ignored by the fold.
+#: Metrics the fold keeps, with the FIT decoder's sentinel rule plus the field's upper bound (a FIT
+#: uint8 never carries 0xFF or more; a percentage never exceeds 100). A reading that fails is dropped
+#: under the named reason, prefixed ``live_``. ``steps`` and unknown names are ignored by the fold.
 SENTINEL_RULES: dict[str, tuple[str, object]] = {
-    "heart_rate": ("heart_rate_zero", lambda v: v > 0),
-    "stress": ("stress_sentinel", lambda v: v >= 0),
-    "respiration_rate": ("respiration_sentinel", lambda v: v >= 0),
-    "spo2": ("spo2_off_wrist_or_zero", lambda v: v > 0),
+    "heart_rate": ("heart_rate_zero", lambda v: 0 < v < 255),
+    "stress": ("stress_sentinel", lambda v: 0 <= v <= 100),
+    "respiration_rate": ("respiration_sentinel", lambda v: 0 <= v < 255),
+    "spo2": ("spo2_off_wrist_or_zero", lambda v: 0 < v <= 100),
     "energy_reserve": ("energy_reserve_out_of_range", lambda v: 0 <= v <= 100),
 }
+
+#: A reading's value is an int the Rust core's JSON parser also accepts (``canon::parse`` refuses
+#: integers past i64); the same bound here keeps such a file "not live" on both cores.
+VALUE_LIMIT = 2 ** 63
 
 
 #: Exclusive upper bound of a reading's ``t`` (unix seconds, 10000-01-01Z): a millisecond stamp falls outside.
@@ -44,8 +49,9 @@ def _is_time(value: object) -> bool:
 
 
 def _is_reading(t: object, metric: object, value: object) -> bool:
-    """The shape of a reading: time in range, metric text, value an int (never a bool)."""
-    return _is_time(t) and isinstance(metric, str) and isinstance(value, int) and not isinstance(value, bool)
+    """The shape of a reading: time in range, metric text, value an i64 int (never a bool)."""
+    return (_is_time(t) and isinstance(metric, str) and isinstance(value, int) and not isinstance(value, bool)
+            and -VALUE_LIMIT <= value < VALUE_LIMIT)
 
 
 def parse_live_file(data: bytes) -> list[list] | None:

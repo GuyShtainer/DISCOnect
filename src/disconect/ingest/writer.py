@@ -639,15 +639,17 @@ class Writer:
             except (ValueError, zlib.error, TypeError, KeyError):
                 continue
         rows, dropped = live.fold_records(records)
+        # every parameter is built before BEGIN, and any error -- not only sqlite's -- rolls back: an
+        # exception with the transaction left open would wedge this run and every later one (9b-2 review M1)
+        params = [(metric, ts_utc, float(value), live.SCOPE, raw_id) for metric, ts_utc, value, raw_id in rows]
         self.conn.execute("BEGIN")
         try:
             self.conn.execute("DELETE FROM metric_samples WHERE source_scope=?", (live.SCOPE,))
             self.conn.executemany(
                 "INSERT INTO metric_samples(metric, ts_utc, value, source_scope, device_id, raw_record_id) "
-                "VALUES(?,?,?,?,NULL,?)",
-                [(metric, ts_utc, float(value), live.SCOPE, raw_id) for metric, ts_utc, value, raw_id in rows])
+                "VALUES(?,?,?,?,NULL,?)", params)
             self.conn.execute("COMMIT")
-        except sqlite.Error:
+        except Exception:
             self._rollback()
             raise
         if self._live_ids:

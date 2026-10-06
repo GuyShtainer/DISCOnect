@@ -58,11 +58,42 @@ def test_readings_are_de_duplicated_across_records_by_number_metric_and_value():
 def test_sentinels_follow_the_fit_decoder_and_steps_and_unknown_metrics_are_ignored():
     readings = [[BASE, "heart_rate", 0], [BASE, "stress", -1], [BASE, "respiration_rate", -2], [BASE, "spo2", 0],
                 [BASE, "energy_reserve", 101], [BASE, "energy_reserve", -1], [BASE, "steps", 500], [BASE, "unknown", 1],
-                [BASE, "energy_reserve", 0], [BASE, "stress", 0]]
+                [BASE, "energy_reserve", 0], [BASE, "stress", 0],
+                # the upper bounds: a FIT uint8 never carries 0xFF, a percentage never 101 (review S3)
+                [BASE, "heart_rate", 255], [BASE, "stress", 101], [BASE, "respiration_rate", 255], [BASE, "spo2", 101],
+                [BASE, "heart_rate", 254], [BASE, "respiration_rate", 254], [BASE, "spo2", 100], [BASE, "stress", 100]]
     rows, dropped = live.fold_records([(1, readings)])
-    assert rows == [("energy_reserve", "2025-06-15T10:00:00Z", 0, 1), ("stress", "2025-06-15T10:00:00Z", 0, 1)]
-    assert dropped == {"live_heart_rate_zero": 1, "live_stress_sentinel": 1, "live_respiration_sentinel": 1,
-                       "live_spo2_off_wrist_or_zero": 1, "live_energy_reserve_out_of_range": 2}
+    assert rows == [("energy_reserve", "2025-06-15T10:00:00Z", 0, 1), ("heart_rate", "2025-06-15T10:00:00Z", 254, 1),
+                    ("respiration_rate", "2025-06-15T10:00:00Z", 254, 1), ("spo2", "2025-06-15T10:00:00Z", 100, 1),
+                    ("stress", "2025-06-15T10:00:00Z", 0, 1)]
+    assert dropped == {"live_heart_rate_zero": 2, "live_stress_sentinel": 2, "live_respiration_sentinel": 2,
+                       "live_spo2_off_wrist_or_zero": 2, "live_energy_reserve_out_of_range": 2}
+
+
+def test_a_value_past_i64_makes_the_file_not_live_on_this_core_too(tmp_path, sessions):
+    """Rust's JSON parser refuses integers past i64; the oracle must agree, or one such file would
+    fold here and not there -- and, before the 9b-2 review (M1), crash every later import."""
+    a_dir, _b_dir = sessions
+    huge = tmp_path / "huge"
+    huge.mkdir()
+    for value in (2 ** 63, -(2 ** 63) - 1, 10 ** 400):
+        _lines(huge / f"live-{abs(value) % 97}-{len(str(value))}.jsonl",
+               [{"t": BASE + 1, "metric": "heart_rate", "value": value}, {"status": "stopped", "stop": "x"}])
+        assert live.parse_live_file((huge / f"live-{abs(value) % 97}-{len(str(value))}.jsonl").read_bytes()) is None
+    _lines(huge / "live-edge.jsonl", [{"t": BASE + 1, "metric": "heart_rate", "value": 2 ** 63 - 1},
+                                      {"t": BASE + 1, "metric": "stress", "value": -(2 ** 63)}])
+    assert live.parse_live_file((huge / "live-edge.jsonl").read_bytes()) == [[BASE + 1, "heart_rate", 2 ** 63 - 1],
+                                                                              [BASE + 1, "stress", -(2 ** 63)]]
+    db = tmp_path / "h.db"
+    _import(db, huge)
+    with storage.open_read_only(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM raw_records WHERE stream='json:live'").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM import_runs WHERE status='running'").fetchone()[0] == 0
+    assert _live_rows(db) == []     # both edge readings are sentinels (out of range)
+    _import(db, a_dir)              # the next import still runs and folds
+    reference = tmp_path / "ref.db"
+    _import(reference, a_dir)
+    assert _live_rows(db) == _live_rows(reference) != []
 
 
 # ---- the writer post-pass ----
@@ -159,6 +190,12 @@ def test_as_of_health_counts_and_coverage_keep_live_apart(tmp_path, sessions):
     _import(db, a_dir)
     with storage.open_read_only(db) as conn:
         assert insight._latest_stored_date(conn) is None
+        # asked for the session scope alone, the facts anchor on its newest day (review S1)
+        assert insight._latest_stored_date(conn, ("live",)) == "2025-06-15"
+        assert insight.period_facts(conn, 7, 28)["reason"] == "nothing stored yet"
+        live_only = insight.period_facts(conn, 7, 28, source_scope="live")
+        assert live_only["as_of"] == "2025-06-15"
+        assert [(f["metric"], f["window_days_with_data"]) for f in live_only["facts"]] == [("heart_rate", 1)]
         report = health.data_health(conn)
         assert report["live"] == {"records": 1, "samples": 5, "first_day": "2025-06-15", "last_day": "2025-06-15"}
         heart = next(m for m in report["metrics"] if m["metric"] == "heart_rate")

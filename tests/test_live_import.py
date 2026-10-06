@@ -167,6 +167,10 @@ def test_relay_carries_the_live_record_and_the_peer_stores_the_bytes(tmp_path):
     (row,) = _live_rows(second)
     assert zlib.decompress(row[8]) == PINNED_PAYLOAD and row[3] == "ble"
     assert _canonical_counts(second) == before
+    # the pull itself folds the live minutes: a pull-only device gets the same rows (9b-2 review S2)
+    folded = "SELECT metric, ts_utc, value FROM metric_samples WHERE source_scope='live' ORDER BY metric, ts_utc"
+    with storage.open_read_only(first) as a, storage.open_read_only(second) as b:
+        assert a.execute(folded).fetchall() == b.execute(folded).fetchall() != []
 
 
 def test_a_live_file_with_a_millisecond_stamp_is_not_a_live_file(tmp_path):
