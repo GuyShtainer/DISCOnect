@@ -38,14 +38,15 @@ FROZEN = [
 ]
 PYTHON_SRC = pathlib.Path(keys.__file__).resolve().parents[1]
 
-#: Pairing labels (Bet 12-E): the Python oracle (pair.py) and the Rust module (src/pair.rs) hold them verbatim.
+#: Pairing labels (Bet 12-E, v2 since 12-G): the Python oracle (pair.py) and the Rust module (src/pair.rs) hold them verbatim.
 PAIR_LABELS = [
-    "disconect-pair:v1.",
-    "disconect/pair/v1",
-    "disconect/pair/v1/confirm",
-    "disconect/pair/v1/offerer",
-    "disconect/pair/v1/sas",
-    "disconect/pair/v1/payload",
+    "disconect-pair:v2.",
+    "disconect/pair/v2",
+    "disconect/pair/v2/confirm",
+    "disconect/pair/v2/offerer",
+    "disconect/pair/v2/sas",
+    "disconect/pair/v2/payload",
+    "disconect/pair/v2/commit",
 ]
 FROZEN += [(label, "pair.py", "src/pair.rs") for label in PAIR_LABELS]
 

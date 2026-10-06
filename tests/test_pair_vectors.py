@@ -1,4 +1,4 @@
-"""Known-answer and negative vectors of the pairing oracle (docs/kb/24-wire-constants.md, ADR 0011).
+"""Known-answer and negative vectors of the pairing oracle (docs/kb/24-wire-constants.md, ADR 0011 v2 / 12-G).
 
 Inputs are the kb section's; every output is computed by ``disconect.pair`` (written from the ADR text)
 and compared with the value the Rust core froze. Synthetic keys and the committed test key file only.
@@ -22,7 +22,9 @@ OFFERER_PRIV = bytes.fromhex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab1
 JOINER_PRIV = bytes.fromhex("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb")
 S = bytes.fromhex("000102030405060708090a0b0c0d0e0f")
 ID = bytes.fromhex("101112131415161718191a1b1c1d1e1f")
-ID_ZERO_SAS = bytes.fromhex("202122232425262728292a2b2c2d2e2f")
+ID_ZERO_SAS = bytes.fromhex("2a2122232425262728292a2b2c2d2e2f")  # first byte 0x20.. stepped until the SAS < 100000
+N_O = bytes(range(0x30, 0x50))
+C = "2c08e0bd71af02fba14734f4b59043959d66c04a2e1a12defb09dbd127697930"
 EXP = 1700000900
 URL = "http://127.0.0.1:8321"
 MASTER = bytes(range(1, 33))
@@ -31,23 +33,25 @@ OFFERER_PUB = "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
 JOINER_PUB = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"
 DH = "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
 OFFER_TEXT = (
-    "disconect-pair:v1.eyJ2IjoxLCJwdWIiOiI4NTIwZjAwOTg5MzBhNzU0NzQ4YjdkZGNiNDNlZjc1YTBkYmYzYTBkMjYzODFhZjRlYmE0YTk4ZWFh"
-    "OWI0ZTZhIiwicyI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYjBjMGQwZTBmIiwiaWQiOiIxMDExMTIxMzE0MTUxNjE3MTgxOTFhMWIxYzFkMWUx"
-    "ZiIsImV4cCI6MTcwMDAwMDkwMCwidXJsIjoiaHR0cDovLzEyNy4wLjAuMTo4MzIxIn0"
+    "disconect-pair:v2.eyJ2IjoyLCJwdWIiOiI4NTIwZjAwOTg5MzBhNzU0NzQ4YjdkZGNiNDNlZjc1YTBkYmYzYTBkMjYzODFhZjRlYmE0YTk4ZWFh"
+    "OWI0ZTZhIiwiYyI6IjJjMDhlMGJkNzFhZjAyZmJhMTQ3MzRmNGI1OTA0Mzk1OWQ2NmMwNGEyZTFhMTJkZWZiMDlkYmQxMjc2OTc5MzAiLCJzIjoiMDAw"
+    "MTAyMDMwNDA1MDYwNzA4MDkwYTBiMGMwZDBlMGYiLCJpZCI6IjEwMTExMjEzMTQxNTE2MTcxODE5MWExYjFjMWQxZTFmIiwiZXhwIjoxNzAwMDAwOTAw"
+    "LCJ1cmwiOiJodHRwOi8vMTI3LjAuMC4xOjgzMjEifQ"
 )
 TRANSCRIPT = (
-    "646973636f6e6563742f706169722f7631008520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
+    "646973636f6e6563742f706169722f7632008520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
     "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f101112131415161718191a1b1c1d1e1f000000006553f484"
+    "2c08e0bd71af02fba14734f4b59043959d66c04a2e1a12defb09dbd127697930"
 )
-K = "ced06a2f9929a397d15f1eed614939527cbf65a1b87ead87d92bf714d083a96d"
-K_CONFIRM = "43bc5e1b2ddf975af5927e7391ce2d818820340955e5ca9149502b5114b4e288"
-K_OFFERER = "280ec7743588865a0236e5c91676b85e97f32f5c729ac4588c018c718681ee59"
-K_SAS = "fb7bf7c18b7584b942d3a33e4a792be0f0ae57e64ab5bf06c255508f381ee41f"
-K_PAYLOAD = "fed979831974c36409bc0eb9bffcd486aa43cb5c8e0c39fd970311d9a2a14dc5"
-JOINER_TAG = "c01f965e6760e8a34c78782384e65b8a03d759347479c0872c161e39bc10eb50"
-OFFERER_TAG = "19052201486a1adea5232cae76e49ae810cabfd4910646a1d5545a29431bfffc"
+K = "042ab2cd8fdd674d708af0e38242bca48e3d8223d769240fa5236596df173cae"
+K_CONFIRM = "ade5e5ac831e2c078ac5ff75e8f29fabaaf4b85b97ede4d782de3e7a014d1bd1"
+K_OFFERER = "5879aadcb2e23ffeab104838fa5324e5f3ae7183ca924fab9c433e6fa1ec1a26"
+K_SAS = "35dd953a91fbacfbfcf705fa7195101bbc84f949093fa6ff0e45d5a03eee4a14"
+K_PAYLOAD = "cf3239ae77e6b39c37128c877751f47f2bea3ca7190d50d0eddfdf9b710507f4"
+JOINER_TAG = "f75be896e432534bae6eaf9d00c55ea4b4a33deb5a9de7cbb38daad14aba009f"
+OFFERER_TAG = "5410268e5d3b5b62d787ef89c94d374e1b143bd57ff5b498f10e614b72f66d74"
 FIXTURE_SHA = "cd538c0cddf607a878a8424c3dcbbd58f9e2ba54529b550f18f813f446b01190"
-SEALED_SHA = "6c682055dea98d3a4c341f35f2022d54bb7b7d9488ffdc4d97efacb92f8ba8ba"
+SEALED_SHA = "aabbdb81b8207c224001bd2906c4e98eca196c7f65adc52b54d797e36e7b754b"
 LOW_ORDER = bytes.fromhex("e0eb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b800")
 
 
@@ -57,7 +61,7 @@ def _public(private: bytes) -> bytes:
 
 def _session(id_bytes: bytes = ID):
     shared = pair.dh(OFFERER_PRIV, bytes.fromhex(JOINER_PUB))
-    wire = pair.transcript(bytes.fromhex(OFFERER_PUB), bytes.fromhex(JOINER_PUB), id_bytes, EXP)
+    wire = pair.transcript(bytes.fromhex(OFFERER_PUB), bytes.fromhex(JOINER_PUB), id_bytes, EXP, bytes.fromhex(C))
     return wire, pair.derive_keys(shared, S, wire)
 
 
@@ -71,17 +75,23 @@ def test_dh_agrees_both_directions():
     assert pair.dh(JOINER_PRIV, bytes.fromhex(OFFERER_PUB)).hex() == DH
 
 
+def test_commitment_vector():
+    assert pair.commit(N_O).hex() == C
+    assert pair.commit(N_O) == hashlib.sha256(b"disconect/pair/v2/commit" + N_O).digest()
+
+
 def test_offer_text_and_roundtrip():
-    text = pair.encode_offer(bytes.fromhex(OFFERER_PUB), S, ID, EXP, URL)
+    text = pair.encode_offer(bytes.fromhex(OFFERER_PUB), bytes.fromhex(C), S, ID, EXP, URL)
     assert text == OFFER_TEXT
-    assert "=" not in text
+    assert "=" not in text and len(text) == 388
     offer = pair.parse_offer(text)
-    assert (offer.pub.hex(), offer.s, offer.id, offer.exp, offer.url) == (OFFERER_PUB, S, ID, EXP, URL)
+    assert (offer.pub.hex(), offer.c.hex(), offer.s, offer.id, offer.exp, offer.url) == (OFFERER_PUB, C, S, ID, EXP, URL)
 
 
 def test_transcript_and_key_schedule():
     wire, keys = _session()
-    assert wire.hex() == TRANSCRIPT and len(wire) == 106
+    assert wire.hex() == TRANSCRIPT and len(wire) == 138
+    assert wire[106:] == bytes.fromhex(C), "c is the last transcript field"
     assert keys.k.hex() == K
     assert keys.confirm.hex() == K_CONFIRM
     assert keys.offerer.hex() == K_OFFERER
@@ -92,15 +102,46 @@ def test_transcript_and_key_schedule():
 def test_tags_and_sas():
     _, keys = _session()
     assert pair.joiner_tag(keys).hex() == JOINER_TAG
-    assert pair.offerer_tag(keys).hex() == OFFERER_TAG
-    assert pair.sas(keys) == 686008
-    assert pair.sas_text(keys) == "686008"
+    assert pair.offerer_tag(keys, N_O).hex() == OFFERER_TAG
+    assert pair.offerer_reply(keys, N_O) == N_O + bytes.fromhex(OFFERER_TAG)
+    assert pair.sas(keys, N_O) == 658698
+    assert pair.sas_text(keys, N_O) == "658698"
+
+
+def test_the_offerer_reply_opens_to_the_nonce():
+    _, keys = _session()
+    assert pair.open_offerer_reply(keys, bytes.fromhex(C), pair.offerer_reply(keys, N_O)) == N_O
+
+
+def test_offerer_reply_negatives():
+    """The joiner shows no code on any of these: wrong length, a reveal that does not match c (right tag for
+    it or not), the right reveal with a wrong tag, a reply under another session's keys."""
+    _, keys = _session()
+    c = bytes.fromhex(C)
+    good = pair.offerer_reply(keys, N_O)
+    other_nonce = bytes(range(0x50, 0x70))
+    _, other = _session(ID_ZERO_SAS)
+    bad = {
+        "32 bytes": good[:32],
+        "96 bytes": good + bytes(32),
+        "empty": b"",
+        "wrong reveal, tag over it": pair.offerer_reply(keys, other_nonce),
+        "wrong reveal, right tag": other_nonce + good[32:],
+        "right reveal, wrong tag": N_O + bytes([good[32] ^ 1]) + good[33:],
+        "another session's reply": pair.offerer_reply(other, N_O),
+    }
+    for name, body in bad.items():
+        with pytest.raises(pair.PairError, match="did not confirm"):
+            pair.open_offerer_reply(keys, c, body)
+        assert name
+    with pytest.raises(pair.PairError):
+        pair.open_offerer_reply(keys, pair.commit(other_nonce), good)  # the offer promised another nonce
 
 
 def test_leading_zero_sas_case():
     _, keys = _session(ID_ZERO_SAS)
-    assert pair.sas(keys) == 6182
-    assert pair.sas_text(keys) == "006182"
+    assert pair.sas(keys, N_O) == 47069
+    assert pair.sas_text(keys, N_O) == "047069"
 
 
 def test_sealed_payload_vector_and_roundtrip():
@@ -119,7 +160,7 @@ def _offer_text(document_json: bytes, pad: bool = False) -> str:
 
 
 def _doc(**changes) -> bytes:
-    document = {"v": 1, "pub": OFFERER_PUB, "s": S.hex(), "id": ID.hex(), "exp": EXP, "url": URL}
+    document = {"v": 2, "pub": OFFERER_PUB, "c": C, "s": S.hex(), "id": ID.hex(), "exp": EXP, "url": URL}
     document.update(changes)
     return json.dumps(document, separators=(",", ":")).encode()
 
@@ -130,9 +171,12 @@ def _bad_offers() -> dict[str, str]:
         "uppercase hex": _offer_text(_doc(pub=OFFERER_PUB.upper())),
         "duplicate key": _offer_text(good[:-1] + b',"v":1}'),
         "unknown key": _offer_text(good[:-1] + b',"x":1}'),
-        "v=2": _offer_text(_doc(v=2)),
+        "v=1": _offer_text(_doc(v=1)),
+        "uppercase c": _offer_text(_doc(c=C.upper())),
+        "short c": _offer_text(_doc(c=C[:62])),
+        "missing c": _offer_text(json.dumps({k: v for k, v in json.loads(_doc()).items() if k != "c"}, separators=(",", ":")).encode()),
         "v=true": _offer_text(_doc(v=True)),
-        "padded base64": _offer_text(_doc(url="http://127.0.0.1:832"), pad=True),
+        "padded base64": _offer_text(_doc(url="http://127.0.0.1:83"), pad=True),
         "port 0": _offer_text(_doc(url="http://127.0.0.1:0")),
         "port too large": _offer_text(_doc(url="http://127.0.0.1:65536")),
         "no port": _offer_text(_doc(url="http://127.0.0.1")),
@@ -142,11 +186,11 @@ def _bad_offers() -> dict[str, str]:
         "negative exp": _offer_text(_doc(exp=-1)),
         "bool exp": _offer_text(_doc(exp=True)),
         "wrong hex length": _offer_text(_doc(s="00" * 15)),
-        "wrong prefix": "disconect-pair:v2." + OFFER_TEXT[len(pair.OFFER_PREFIX):],
+        "wrong prefix": "disconect-pair:v1." + OFFER_TEXT[len(pair.OFFER_PREFIX):],
         "no prefix": OFFER_TEXT[len(pair.OFFER_PREFIX):],
         "not base64": pair.OFFER_PREFIX + "!!!",
         "not json": _offer_text(b"nope"),
-        "missing key": _offer_text(json.dumps({"v": 1}).encode()),
+        "missing key": _offer_text(json.dumps({"v": 2}).encode()),
     }
 
 
@@ -192,7 +236,8 @@ def test_negative_offer_is_refused_without_echoing_it(name):
 
 def test_key_order_is_frozen_and_good_offer_still_parses():
     assert pair.parse_offer(_offer_text(_doc())).exp == EXP
-    assert base64.urlsafe_b64decode(OFFER_TEXT[len(pair.OFFER_PREFIX):] + "=").startswith(b'{"v":1,"pub":')
+    body = OFFER_TEXT[len(pair.OFFER_PREFIX):]
+    assert base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)).startswith(b'{"v":2,"pub":"' + OFFERER_PUB.encode() + b'","c":')
 
 
 @pytest.mark.parametrize("peer", [bytes(32), LOW_ORDER], ids=["all-zero", "order-8"])

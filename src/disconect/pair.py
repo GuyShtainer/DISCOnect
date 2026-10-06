@@ -1,7 +1,7 @@
-"""Pure functions of the pairing protocol (ADR 0011, Bet 12-E).
+"""Pure functions of the pairing protocol (ADR 0011 as amended by 12-G: protocol v2, Bets 12-E and 12-G).
 
 This module is the independent oracle of the Rust implementation (``disconect-core``'s ``pair``): it was
-written from the text of ADR 0011 and the 12-E pitch only, so a shared misreading cannot hide, and its
+written from the text of ADR 0011 and the 12-E / 12-G pitches only, so a shared misreading cannot hide, and its
 known-answer vectors are pinned in ``docs/kb/24-wire-constants.md``. The Python core runs no pairing
 (ADR 0003: what is wire-pure is twinned, what is a server is not), so nothing here touches a network,
 a file or a clock; every function maps bytes to bytes. Offer text is a QR-photo-grade secret: no error
@@ -24,19 +24,23 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF, HKDFExpand
 
-OFFER_PREFIX = "disconect-pair:v1."
-LABEL = b"disconect/pair/v1"
-LABEL_CONFIRM = b"disconect/pair/v1/confirm"
-LABEL_OFFERER = b"disconect/pair/v1/offerer"
-LABEL_SAS = b"disconect/pair/v1/sas"
-LABEL_PAYLOAD = b"disconect/pair/v1/payload"
+OFFER_PREFIX = "disconect-pair:v2."
+LABEL = b"disconect/pair/v2"
+LABEL_CONFIRM = b"disconect/pair/v2/confirm"
+LABEL_OFFERER = b"disconect/pair/v2/offerer"
+LABEL_SAS = b"disconect/pair/v2/sas"
+LABEL_PAYLOAD = b"disconect/pair/v2/payload"
+#: The commitment's domain: ``c = SHA-256(LABEL_COMMIT || N_o)`` (12-G).
+LABEL_COMMIT = b"disconect/pair/v2/commit"
 MSG_CONFIRM = b"confirm"
 MSG_OFFERER = b"offerer"
 MSG_SAS = b"sas"
 EXPIRY_S = 900
 _NONCE = bytes(12)
-_OFFER_KEYS = ("v", "pub", "s", "id", "exp", "url")
-_HEX_LENGTHS = {"pub": 32, "s": 16, "id": 16}
+_OFFER_KEYS = ("v", "pub", "c", "s", "id", "exp", "url")
+_HEX_LENGTHS = {"pub": 32, "c": 32, "s": 16, "id": 16}
+#: The offerer's ``202`` body: ``N_o (32) || HMAC(K_offerer, "offerer" || N_o) (32)``.
+OFFERER_REPLY_LEN = 64
 _LABEL_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789-")
 _HEX_CHARS = frozenset("0123456789abcdef")
 
@@ -47,9 +51,10 @@ class PairError(ValueError):
 
 @dataclass(frozen=True)
 class Offer:
-    """A parsed offer: ``pub``, ``s`` and ``id`` as raw bytes, ``exp`` in unix seconds, ``url`` verbatim."""
+    """A parsed offer: ``pub``, ``c``, ``s`` and ``id`` as raw bytes, ``exp`` in unix seconds, ``url`` verbatim."""
 
     pub: bytes
+    c: bytes
     s: bytes
     id: bytes
     exp: int
@@ -77,13 +82,20 @@ def _check_exp(exp: int) -> None:
         raise PairError("exp must be a non-negative 64-bit integer")
 
 
-def encode_offer(pub: bytes, s: bytes, id: bytes, exp: int, url: str) -> str:  # noqa: A002 - wire field name
-    """Return ``disconect-pair:v1.<base64url, no padding, of the compact JSON>`` in the key order v,pub,s,id,exp,url."""
+def commit(n_o: bytes) -> bytes:
+    """``c = SHA-256("disconect/pair/v2/commit" || N_o)``: the offerer's commitment to its 32-byte SAS nonce."""
+    _check_len("N_o", n_o, 32)
+    return hashlib.sha256(LABEL_COMMIT + bytes(n_o)).digest()
+
+
+def encode_offer(pub: bytes, c: bytes, s: bytes, id: bytes, exp: int, url: str) -> str:  # noqa: A002 - wire field name
+    """Return ``disconect-pair:v2.<base64url, no padding, of the compact JSON>`` in the key order v,pub,c,s,id,exp,url."""
     _check_len("pub", pub, 32)
+    _check_len("c", c, 32)
     _check_len("s", s, 16)
     _check_len("id", id, 16)
     _check_exp(exp)
-    document = {"v": 1, "pub": pub.hex(), "s": s.hex(), "id": id.hex(), "exp": exp, "url": url}
+    document = {"v": 2, "pub": pub.hex(), "c": c.hex(), "s": s.hex(), "id": id.hex(), "exp": exp, "url": url}
     compact = json.dumps(document, separators=(",", ":"), ensure_ascii=True).encode("ascii")
     return OFFER_PREFIX + base64.urlsafe_b64encode(compact).rstrip(b"=").decode("ascii")
 
@@ -171,14 +183,15 @@ def parse_offer(text: str) -> Offer:
     except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
         raise PairError("offer body is not valid JSON") from None
     if not isinstance(document, dict) or set(document) != set(_OFFER_KEYS):
-        raise PairError("offer must have exactly the keys v, pub, s, id, exp, url")
+        raise PairError("offer must have exactly the keys v, pub, c, s, id, exp, url")
     version = document["v"]
-    if isinstance(version, bool) or not isinstance(version, int) or version != 1:
-        raise PairError("offer version must be the integer 1")
+    if isinstance(version, bool) or not isinstance(version, int) or version != 2:
+        raise PairError("offer version must be the integer 2")
     exp = document["exp"]
     _check_exp(exp)
     return Offer(
         pub=_hex_field(document, "pub"),
+        c=_hex_field(document, "c"),
         s=_hex_field(document, "s"),
         id=_hex_field(document, "id"),
         exp=exp,
@@ -186,13 +199,17 @@ def parse_offer(text: str) -> Offer:
     )
 
 
-def transcript(offer_pub: bytes, joiner_pub: bytes, id: bytes, exp: int) -> bytes:  # noqa: A002
-    """``"disconect/pair/v1" || 0x00 || offer_pub || joiner_pub || id || exp (8 bytes big-endian)``."""
+def transcript(offer_pub: bytes, joiner_pub: bytes, id: bytes, exp: int, c: bytes) -> bytes:  # noqa: A002
+    """``"disconect/pair/v2" || 0x00 || offer_pub || joiner_pub || id || exp (8 bytes big-endian) || c`` (138 bytes).
+
+    ``c`` is the last field of the transcript although it follows ``pub`` in the offer JSON.
+    """
     _check_len("offer_pub", offer_pub, 32)
     _check_len("joiner_pub", joiner_pub, 32)
     _check_len("id", id, 16)
     _check_exp(exp)
-    return LABEL + b"\x00" + bytes(offer_pub) + bytes(joiner_pub) + bytes(id) + exp.to_bytes(8, "big")
+    _check_len("c", c, 32)
+    return LABEL + b"\x00" + bytes(offer_pub) + bytes(joiner_pub) + bytes(id) + exp.to_bytes(8, "big") + bytes(c)
 
 
 def _expand(prk: bytes, label: bytes) -> bytes:
@@ -216,20 +233,43 @@ def joiner_tag(keys: Keys) -> bytes:
     return hmac.new(keys.confirm, MSG_CONFIRM, hashlib.sha256).digest()
 
 
-def offerer_tag(keys: Keys) -> bytes:
-    """``HMAC-SHA256(K_offerer, "offerer")``."""
-    return hmac.new(keys.offerer, MSG_OFFERER, hashlib.sha256).digest()
+def offerer_tag(keys: Keys, n_o: bytes) -> bytes:
+    """``HMAC-SHA256(K_offerer, "offerer" || N_o)`` (a 39-byte message, no separator)."""
+    _check_len("N_o", n_o, 32)
+    return hmac.new(keys.offerer, MSG_OFFERER + bytes(n_o), hashlib.sha256).digest()
 
 
-def sas(keys: Keys) -> int:
-    """Big-endian u32 of the first 4 bytes of ``HMAC-SHA256(K_sas, "sas")``, modulo 10**6."""
-    digest = hmac.new(keys.sas, MSG_SAS, hashlib.sha256).digest()
+def offerer_reply(keys: Keys, n_o: bytes) -> bytes:
+    """The offerer's ``202`` body: ``N_o || offerer_tag`` (64 bytes)."""
+    return bytes(n_o) + offerer_tag(keys, n_o)
+
+
+def open_offerer_reply(keys: Keys, c: bytes, body: bytes) -> bytes:
+    """Check the offerer's ``202`` body and return ``N_o``: exactly 64 bytes, then the reveal matches the
+    offer's commitment ``c``, then the tag verifies — in that order, each in constant time. The joiner shows
+    no code unless all three pass. The commitment check is the critical one and is never dropped because the
+    tag also covers ``N_o``."""
+    _check_len("c", c, 32)
+    if not isinstance(body, (bytes, bytearray)) or len(body) != OFFERER_REPLY_LEN:
+        raise PairError("the offerer did not confirm")
+    n_o, tag = bytes(body[:32]), bytes(body[32:])
+    if not hmac.compare_digest(commit(n_o), bytes(c)):
+        raise PairError("the offerer did not confirm")
+    if not hmac.compare_digest(offerer_tag(keys, n_o), tag):
+        raise PairError("the offerer did not confirm")
+    return n_o
+
+
+def sas(keys: Keys, n_o: bytes) -> int:
+    """Big-endian u32 of the first 4 bytes of ``HMAC-SHA256(K_sas, "sas" || N_o)`` (35 bytes), modulo 10**6."""
+    _check_len("N_o", n_o, 32)
+    digest = hmac.new(keys.sas, MSG_SAS + bytes(n_o), hashlib.sha256).digest()
     return int.from_bytes(digest[:4], "big") % 10**6
 
 
-def sas_text(keys: Keys) -> str:
+def sas_text(keys: Keys, n_o: bytes) -> str:
     """The SAS as six digits, zero-padded."""
-    return f"{sas(keys):06d}"
+    return f"{sas(keys, n_o):06d}"
 
 
 def seal_payload(keys: Keys, transcript_bytes: bytes, plaintext: bytes) -> bytes:

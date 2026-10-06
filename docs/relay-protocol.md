@@ -250,7 +250,7 @@ empty body.
 | `POST /v1/pair/<id>`, declared `Content-Length` absent or not exactly 64 | `400`, **nothing read** (one status for shorter and longer: no `413`) |
 | `POST /v1/pair/<id>`, offer expired (`now > exp`) or aborted | `410` |
 | `POST /v1/pair/<id>`, body `joiner_pub (32) ‖ HMAC(K_confirm, "confirm") (32)`, wrong tag or a low-order key | `401`, the offer untouched |
-| same, tag valid, offer open | `202`, body = the 32-byte offerer tag `HMAC(K_offerer, "offerer")`; the offer is bound to `joiner_pub` |
+| same, tag valid, offer open | `202`, body = the 64-byte reply `N_o (32) ‖ HMAC(K_offerer, "offerer" ‖ N_o) (32)` (v2, 12-G: the reveal of the nonce the offer committed to in `c`; the joiner checks `SHA-256("disconect/pair/v2/commit" ‖ N_o) == c` and the tag before it shows a code); the offer is bound to `joiner_pub` |
 | same, tag valid, offer already bound to the same `joiner_pub` | `202`, the identical body (idempotent) |
 | same, tag valid, offer already bound to a different `joiner_pub` | `410` and the offer is aborted: every later request is `410` |
 | `GET /v1/pair/<id>/payload`, declared `Content-Length` present and not 0 | `400`, nothing read (a GET with no length is the normal case) |
