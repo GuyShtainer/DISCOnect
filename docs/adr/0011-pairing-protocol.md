@@ -1,8 +1,8 @@
 # ADR 0011 — Device pairing: ephemeral X25519 over a QR secret, mutual key confirmation, a short authentication string, a single-use offer
 
-- **Status:** PROPOSED 2026-10-06 (Bet 12-E pitch v2 after the opus attack of 2026-10-06; ACCEPTED when
-  the Rust build's vectors are frozen in `docs/kb/24-wire-constants.md` and the opus review passes).
-  Refines ADR 0004 §3.
+- **Status:** ACCEPTED 2026-10-06 05:55 (Bet 12-E: vectors frozen in `docs/kb/24-wire-constants.md` § Pairing
+  vectors, routes frozen in `relay-protocol.md` § Pairing routes, opus review ACCEPT WITH FIXES applied
+  `c424280`, two loopback pairings by the release binary). Refines ADR 0004 §3. PROPOSED 2026-10-06 00:40.
 
 ## Decision
 - **Transport:** the LAN relay's server (`relay/lan_server.rs`, ADR 0005's self-hosted adapter) carries
