@@ -318,6 +318,7 @@ def data_contract(session: Session, call: Call) -> dict:
     """The contract's numeric metrics with their unit, cadence and declared scopes, in contract order.
     Reads nothing from the store (so it answers on a locked one) — the Trend screen's metric list."""
     declared = {key for key in contract.STREAMS_FOR if contract.cadence_for(key[0]) is not None}
+    declared |= {key for key in contract.SESSION_STREAMS_FOR if contract.cadence_for(key[0]) is not None}
     metrics = []
     for item in contract.METRICS:
         scopes = [scope for scope in contract.SOURCE_SCOPES if (item.metric, scope) in declared]

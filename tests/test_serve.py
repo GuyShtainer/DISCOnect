@@ -362,12 +362,24 @@ def test_contract_lists_the_numeric_metrics_with_their_declared_scopes_and_answe
         for row in rows:
             assert set(row) == {"metric", "unit", "cadence", "scopes"}
             assert row["unit"] == contract.unit_for(row["metric"]) and row["cadence"] == contract.cadence_for(row["metric"])
-            assert row["scopes"] == [s for s in contract.SOURCE_SCOPES if (row["metric"], s) in contract.STREAMS_FOR]
+            declared_pairs = set(contract.STREAMS_FOR) | set(contract.SESSION_STREAMS_FOR)
+            assert row["scopes"] == [s for s in contract.SOURCE_SCOPES if (row["metric"], s) in declared_pairs]
             assert row["scopes"] and row["cadence"] in ("daily", "sample")
         by = {r["metric"]: r for r in rows}
         assert by["heart_rate"]["cadence"] == "sample" and by["stress"]["cadence"] == "sample"
         assert by["steps"]["cadence"] == "daily"
         assert rows[0]["metric"] == contract.METRICS[0].metric
+
+
+def test_contract_lists_live_last_for_the_folded_metrics_and_for_no_other(tmp_path):
+    rows = Rig(_store_copy(tmp_path)).result("data.contract")["metrics"]
+    folded = {m for (m, scope) in contract.SESSION_STREAMS_FOR if scope == "live"}
+    assert folded == {"heart_rate", "stress", "respiration_rate", "spo2", "energy_reserve"}
+    for row in rows:
+        assert ("live" in row["scopes"]) == (row["metric"] in folded)
+        if row["metric"] in folded:
+            assert row["scopes"][-1] == "live"
+    assert {r["metric"] for r in rows} >= folded
 
 
 def test_live_day_merges_overlapping_records_and_keeps_a_midnight_session_on_both_days(tmp_path):
