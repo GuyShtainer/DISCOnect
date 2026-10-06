@@ -55,6 +55,17 @@ Local import stays first-wins (BACKLOG). FIT never conflicts (its key is its has
 **Damaged local copies:** before applying anything, a pull verifies every stored record the relay has
 carried (`relay_seen`) against its hash and refetches a damaged one from the bundle that carried it
 (`records_repaired`); the relay is the copy of last resort, since a pulled record is never pushed back.
+**A stream this build cannot decode:** a `json` record whose stream has neither a batch decoder nor a
+per-record decoder on the pulling core (a peer on a newer build published it) is **kept**, not dropped:
+its bytes become a `raw_records` row with the sender's scope, device and span, no canonical rows, an
+`import_failures` row (`unrecognized_payload`, the same trail `reparse` leaves for such bytes) and a
+`relay_seen` mark; the pull reports it under `records_kept`. `reparse` leaves such records waiting (a
+warning names the streams; they neither fail the replay nor lose their ledger row) until a build with
+the decoder replays them. Two versions of one key that neither decodes conflict by the **hash alone**
+(the batch-stream rule): the one rule a device without the decoder can apply. Known limitation: a
+device that *can* decode both uses the observed-time rule, so a fleet of mixed builds may keep
+different winners for that key until the lagging build upgrades and a conflict is re-decided — booked
+in kb/22 with the other accepted classes.
 
 The conflict rule converges the **raw set** only. Daily rows converge because every import and
 every pull ends by re-deriving the touched JSON streams from the raw records now stored, in the

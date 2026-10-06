@@ -262,6 +262,11 @@ def rederive_json(conn: sqlite.Connection, writer: Writer, streams: list[str]) -
         writer.stats.dropped = dropped_before
 
 
+def _decodable_stream(stream: str) -> bool:
+    """A stream ``reparse`` can replay on this build: FIT, a batch stream, or one with a record decoder."""
+    return stream.startswith("fit:") or stream in connect_export.BATCH_STREAMS or stream in connect_export.RECORD_DECODERS
+
+
 def _dry_run(writer: Writer, rows: list[tuple[int, str]]) -> list[dict]:
     """Decode every record in scope without writing; return the failures.
 
@@ -370,6 +375,12 @@ def reparse_all(conn: sqlite.Connection, streams: list[str] | None = None,
     writer.begin_run()
     try:
         rows = _raw_ids_by_stream(conn, streams)
+        waiting = sorted({stream for _raw_id, stream in rows if not _decodable_stream(stream)})
+        if waiting:
+            # relayed bytes of a stream this build has no decoder for (relay ``records_kept``): not a
+            # broken decoder, so they neither block the replay nor lose their ``import_failures`` trail
+            rows = [(raw_id, stream) for raw_id, stream in rows if _decodable_stream(stream)]
+            writer.stats.warnings.append(f"records of {', '.join(waiting)} wait for a decoder this build lacks")
         writer.stats.files_seen = len(rows)
         failures = _dry_run(writer, rows)
         if failures and not force:

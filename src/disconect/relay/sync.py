@@ -34,7 +34,7 @@ from disconect.ingest import connect_export, fit_wellness
 from disconect.ingest.clock import ClockOffsets
 from disconect.ingest.model import Decoded
 from disconect.ingest.sources import rederive_json
-from disconect.ingest.writer import DUPLICATE, FAILED, IMPORTED, Writer
+from disconect.ingest.writer import DUPLICATE, FAILED, IMPORTED, KEPT, Writer
 from disconect.relay import bundle as bundle_module
 from disconect.relay.bundle import BundleRejected, account_for, new_name, pack, unpack
 from disconect.relay.folder import Relay
@@ -64,6 +64,7 @@ class PullResult:
     conflicts: int = 0
     ranges_new: int = 0
     records_repaired: int = 0   # stored copies whose bytes no longer matched their hash, refetched from the relay
+    records_kept: int = 0       # bytes of a stream this build has no decoder for, retained for a later reparse
     gaps: list[dict] = dataclasses.field(default_factory=list)
     status: str = "ok"
 
@@ -162,6 +163,11 @@ def _observed(decoded: Decoded) -> str:
     return max(moments).isoformat() if moments else ""
 
 
+def _has_decoder(stream: str) -> bool:
+    """This build can decode records of ``stream`` (a batch stream or a registered per-record decoder)."""
+    return stream in connect_export.BATCH_STREAMS or stream in connect_export.RECORD_DECODERS
+
+
 def _decode_json(stream: str, data: bytes, row: dict | None = None) -> tuple[dict, Decoded] | None:
     record = json.loads(data)
     if stream in connect_export.BATCH_STREAMS:
@@ -197,9 +203,11 @@ class RecordWriteFailed(RuntimeError):
     which is still in place. The bundle stays ``applying`` so the next pull applies it again."""
 
 
-def _decide_conflict(conn: sqlite.Connection, record: dict, incoming: Decoded) -> _Conflict | None:
+def _decide_conflict(conn: sqlite.Connection, record: dict, incoming: Decoded | None) -> _Conflict | None:
     """Same key, different bytes -> who wins. ``None`` when no stored row differs from the incoming bytes
-    (no row at all, or the very same bytes): nothing to decide."""
+    (no row at all, or the very same bytes): nothing to decide. ``incoming=None`` is a record of a stream
+    this build cannot decode: neither side has a time, so the rule is the hash alone (as for a batch
+    stream) -- the one rule a device without the decoder can apply."""
     existing = conn.execute(
         "SELECT id, payload, payload_hash, payload_kind, transport, imported_at FROM raw_records WHERE stream=? AND source_key=?",
         (record["stream"], record["source_key"])).fetchone()
@@ -210,9 +218,10 @@ def _decide_conflict(conn: sqlite.Connection, record: dict, incoming: Decoded) -
         ex_decoded = _decode_json(record["stream"], zlib.decompress(ex_payload))
     except Exception:  # noqa: BLE001 - an undecodable existing record loses by definition
         ex_decoded = None
-    if record["stream"] in connect_export.BATCH_STREAMS:
+    if incoming is None or record["stream"] in connect_export.BATCH_STREAMS:
         # a batch stream's record carries no time of its own (the stored row's span is not
-        # the facts' time), so the protocol's rule is the hash alone -- both sides must agree
+        # the facts' time), so the protocol's rule is the hash alone -- both sides must agree;
+        # a stream with no decoder here has no time either
         ex_observed = in_observed = ""
     else:
         ex_observed = _observed(ex_decoded[1]) if ex_decoded else ""
@@ -359,14 +368,20 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
                 if outcome == DUPLICATE:
                     _mark_existing(conn, record, name)
             for record, data in jsons:
-                try:
-                    decoded = _decode_json(record["stream"], data, record)
-                except (ValueError, TypeError):
-                    decoded = None
-                if decoded is None:
-                    result.records_invalid += 1
-                    continue
-                record_dict, decoded_facts = decoded
+                known = _has_decoder(record["stream"])
+                if known:
+                    try:
+                        decoded = _decode_json(record["stream"], data, record)
+                    except (ValueError, TypeError):
+                        decoded = None
+                    if decoded is None:
+                        result.records_invalid += 1
+                        continue
+                    record_dict, decoded_facts = decoded
+                else:
+                    # a stream a newer build published: the bytes are kept (no canonical rows) for the
+                    # day a decoder arrives -- dropping them would lose them for good
+                    record_dict, decoded_facts = None, None
                 conflict = _decide_conflict(conn, record, decoded_facts)
                 hook = None
                 if conflict is not None and not conflict.incoming_wins:
@@ -388,10 +403,16 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
                         _mark_existing(conn, record, name)
                     continue
                 before = writer.last_raw_id()
-                outcome = writer.write_json_record(record["stream"], record["source_key"], record_dict, decoded_facts,
-                                                   f"relay:{name[-8:]}", origin=(record["transport"], record["imported_at"]),
-                                                   before_write=hook)
-                if outcome == FAILED and writer.last_failure_is_storage() or hook is not None and outcome != IMPORTED:
+                if known:
+                    outcome = writer.write_json_record(record["stream"], record["source_key"], record_dict, decoded_facts,
+                                                       f"relay:{name[-8:]}", origin=(record["transport"], record["imported_at"]),
+                                                       before_write=hook)
+                else:
+                    outcome = writer.keep_undecodable_record(record["stream"], record["source_key"], record, data,
+                                                             f"relay:{name[-8:]}",
+                                                             origin=(record["transport"], record["imported_at"]),
+                                                             before_write=hook)
+                if outcome == FAILED and writer.last_failure_is_storage() or hook is not None and outcome not in (IMPORTED, KEPT):
                     raise RecordWriteFailed(f"{record['stream']} record not stored ({outcome}); nothing it wrote is kept")
                 if hook is not None:
                     result.conflicts += 1
@@ -438,8 +459,11 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
 
 
 def _mark(conn: sqlite.Connection, writer: Writer, before: int, name: str, outcome: str, result: PullResult) -> None:
-    if outcome == IMPORTED:
-        result.records_new += 1
+    if outcome in (IMPORTED, KEPT):
+        if outcome == IMPORTED:
+            result.records_new += 1
+        else:
+            result.records_kept += 1
         for (raw_id,) in conn.execute("SELECT id FROM raw_records WHERE id > ?", (before,)).fetchall():
             conn.execute("INSERT OR IGNORE INTO relay_seen(raw_record_id, bundle, direction) VALUES(?,?,'pulled')", (raw_id, name))
     elif outcome == DUPLICATE:

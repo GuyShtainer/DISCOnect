@@ -146,7 +146,8 @@ def cmd_sync(args: argparse.Namespace) -> int:
             _emit(result.as_dict(), args.json,
                   f"pulled {len(result.applied)} bundle(s): {result.records_new} new, {result.records_duplicate} duplicate, "
                   f"{result.records_invalid} invalid, {result.conflicts} conflict(s), {result.ranges_new} new range(s); "
-                  f"rejected {len(result.rejected)}; gaps {len(result.gaps)}; repaired {result.records_repaired}")
+                  f"rejected {len(result.rejected)}; gaps {len(result.gaps)}; repaired {result.records_repaired}; "
+                  f"kept for a later decoder {result.records_kept}")
             return EXIT_OK if result.status == "ok" else EXIT_FAILED
     except storage.WriteLockBusy as exc:
         print(f"busy: {exc}", file=sys.stderr)

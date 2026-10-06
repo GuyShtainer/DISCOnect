@@ -317,6 +317,94 @@ def test_fit_bytes_under_another_stream_label_are_one_record(tmp_path):
     assert _push(b, relay).bundles == []
 
 
+def _export_with_uds(root: pathlib.Path, record: dict) -> None:
+    agg = root / "DI_CONNECT" / "DI-Connect-Aggregator"
+    agg.mkdir(parents=True)
+    (agg / f"UDSFile_{record['calendarDate']}_{record['calendarDate']}.json").write_text(json.dumps([record]))
+    (root / "DI_CONNECT" / "DI-Connect-Uploaded-Files").mkdir()
+
+
+def _relabel(db_path: pathlib.Path, old: str, new: str) -> None:
+    """Simulate a newer build on this device: its records travel under a stream this build does not know."""
+    with storage.open_for_write(db_path, "test") as conn:
+        conn.execute("UPDATE raw_records SET stream=? WHERE stream=?", (new, old))
+
+
+def test_a_record_of_a_stream_this_build_cannot_decode_is_kept_for_a_later_decoder(tmp_path, monkeypatch):
+    from disconect.ingest import connect_export
+    x = tmp_path / "x"
+    _export_with_uds(x, _uds("2025-06-15", 4000, 50))
+    a, b = tmp_path / "a.db", tmp_path / "b.db"
+    _import(a, x)
+    _relabel(a, "json:uds", "json:future")
+    relay = FolderRelay(tmp_path / "relay")
+    _push(a, relay)
+    _store(b)
+    r = _pull(b, relay)
+    assert (r.records_new, r.records_invalid, r.records_kept, r.status) == (0, 0, 1, "ok")
+    conn = storage.open_read_only(b)
+    row = conn.execute("SELECT id, stream, source_key, payload_hash, source_scope, transport, device_id, start_utc, end_utc, "
+                       "decode_summary FROM raw_records").fetchone()
+    assert row[1:3] == ("json:future", "2025-06-15") and row[4:6] == ("vendor_cloud", "connect_export")
+    assert row[7] and row[8], "the sender's span travels with the bytes, so the ledger can place the failure"
+    assert json.loads(row[9]) == {"kept": "no_decoder"}
+    assert conn.execute("SELECT count(*) FROM daily_metrics").fetchone()[0] == 0, "nothing derived from bytes nobody decoded"
+    failure = conn.execute("SELECT raw_record_id, stream, kind, payload_hash FROM import_failures").fetchone()
+    assert tuple(failure) == (row[0], "json:future", "unrecognized_payload", row[3])
+    assert conn.execute("SELECT direction FROM relay_seen WHERE raw_record_id=?", (row[0],)).fetchone()[0] == "pulled"
+    conn.close()
+    assert _push(b, relay).bundles == [], "a pulled record is never pushed back, kept or not"
+    assert _pull(b, relay).records_kept == 0, "idempotent: the bundle is applied once"
+    # a replay on this build leaves the record waiting and the ledger entry in place; it is not a failed run
+    with storage.open_for_write(b, "test") as conn:
+        stats = sources.reparse_all(conn)
+    assert stats.files_failed == 0 and any("json:future" in w for w in stats.warnings)
+    conn = storage.open_read_only(b)
+    assert conn.execute("SELECT count(*) FROM import_failures").fetchone()[0] == 1
+    conn.close()
+    # the decoder arrives (a later build): the kept bytes become facts, the failure row goes
+    monkeypatch.setitem(connect_export.RECORD_DECODERS, "json:future", connect_export.decode_uds_record)
+    with storage.open_for_write(b, "test") as conn:
+        stats = sources.reparse_all(conn)
+    assert stats.files_failed == 0
+    conn = storage.open_read_only(b)
+    steps = conn.execute("SELECT value FROM daily_metrics WHERE metric='steps' AND source_scope='vendor_cloud'").fetchone()
+    assert steps[0] == 4000.0
+    assert conn.execute("SELECT count(*) FROM import_failures").fetchone()[0] == 0
+    conn.close()
+
+
+def test_two_versions_of_an_undecodable_record_converge_by_hash_in_both_orders(tmp_path):
+    early = _uds("2025-06-15", 4000, 50)
+    late = _uds("2025-06-15", 8000, 50)
+    late["wellnessEndTimeGmt"] = "2025-06-15T23:00:00.0"
+    kept = []
+    for order, (first, second) in enumerate(((early, late), (late, early))):
+        base = tmp_path / f"o{order}"
+        x, y = base / "x", base / "y"
+        _export_with_uds(x, first)
+        _export_with_uds(y, second)
+        a, b, c = base / "a.db", base / "b.db", base / "c.db"
+        _import(a, x)
+        _import(b, y)
+        _relabel(a, "json:uds", "json:future")
+        _relabel(b, "json:uds", "json:future")
+        relay = FolderRelay(base / "relay")
+        _push(a, relay)
+        _push(b, relay)
+        _store(c)
+        rc = _pull(c, relay)
+        assert rc.conflicts == 1 and rc.records_kept >= 1, "a winner that replaced the stored loser counts as kept too"
+        conn = storage.open_read_only(c)
+        assert conn.execute("SELECT count(*) FROM raw_records").fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM raw_superseded").fetchone()[0] == 1, "the loser's bytes are kept too"
+        assert {r[0] for r in conn.execute("SELECT rule FROM sync_conflicts").fetchall()} == {"payload_hash"}
+        assert conn.execute("SELECT count(*) FROM import_failures").fetchone()[0] == 1, "one trail for the record that stayed"
+        conn.close()
+        kept.append(_keys(c))
+    assert kept[0] == kept[1], "without a decoder neither side has a time, so the hash decides on every device"
+
+
 def test_rotation_re_pushes_under_the_new_account(tmp_path):
     a = tmp_path / "a.db"
     folder = tmp_path / "drop"

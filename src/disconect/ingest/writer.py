@@ -27,6 +27,7 @@ IMPORTED = "imported"
 DUPLICATE = "duplicate"
 FAILED = "failed"
 REPARSED = "reparsed"
+KEPT = "kept"          # bytes retained for a decoder this build lacks; no canonical rows
 
 #: Readings further apart than this are not consecutive: the watch recorded nothing in between
 #: (off-wrist, powered down), so the change across the hole is not a step of the day.
@@ -456,6 +457,48 @@ class Writer:
         self._provenance(stream, "write", True, records=written)
         self._account(decoded, written)
         return IMPORTED
+
+    def keep_undecodable_record(self, stream: str, source_key: str, row: dict, data: bytes, label: str,
+                                origin: tuple[str, str] | None = None,
+                                before_write: Callable[[], None] | None = None) -> str:
+        """Retain the bytes of a relayed JSON record whose stream this build has no decoder for.
+
+        A peer on a newer build may publish a stream this one does not know yet. Dropping the record
+        would lose it for good (a pulled record is never pushed back), so the bytes are stored as a
+        ``raw_records`` row with the sender's own scope, device and span (``row``), no canonical rows,
+        and an ``import_failures`` row carrying the same kind and message ``decode_raw`` gives such a
+        record -- the trail ``reparse`` leaves until a decoder arrives and replays the bytes. Same
+        transaction shape as :meth:`write_json_record` (``before_write`` is the relay's conflict hook).
+
+        :returns: ``KEPT``, ``DUPLICATE`` or ``FAILED`` (a storage error).
+        """
+        self.stats.files_seen += 1
+        if before_write is None and self._is_duplicate(stream, source_key):
+            self.stats.files_duplicate += 1
+            return DUPLICATE
+        start = parse_iso_utc(row["start_utc"]) if row.get("start_utc") else None
+        end = parse_iso_utc(row["end_utc"]) if row.get("end_utc") else None
+        try:
+            self.conn.execute("BEGIN")
+            if before_write is not None:
+                before_write()
+            raw_id = self._store_raw(stream, source_key, row.get("source_scope") or "vendor_cloud", row.get("device_id"),
+                                     start, end, "json", data, {"kept": "no_decoder"}, origin)
+            if raw_id is None:
+                self.conn.execute("ROLLBACK")
+                self.stats.files_duplicate += 1
+                return DUPLICATE
+            self.record_parse_failure(stream, label, "unrecognized_payload",
+                                      f"no reparse decoder registered for stream {stream!r}",
+                                      raw_record_id=raw_id, payload_hash=_sha256(data))
+            self.conn.execute("COMMIT")
+        except sqlite.Error as exc:
+            self._rollback()
+            self.stats.files_failed += 1
+            self.stats.failures.append({"file": label, "kind": "storage", "error": redact_text(str(exc))})
+            self._provenance(stream, "write", False, "storage", str(exc))
+            return FAILED
+        return KEPT
 
     def _account(self, decoded: Decoded, written: int) -> None:
         self.stats.files_imported += 1
