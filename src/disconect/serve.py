@@ -43,7 +43,7 @@ Id = int | str | None
 
 DEFAULT_HEALTH_DAYS = 90
 DEFAULT_METRIC_DAYS = 90
-LAST_IMPORTS = 5
+LAST_IMPORTS = health.LAST_IMPORTS
 #: Protocol transport names -> the names the store records.
 TRANSPORTS = {"export": sources.TRANSPORT_CONNECT_EXPORT, "usb": "usb", "ble": sources.TRANSPORT_BLE}
 _DEFERRED = object()
@@ -373,14 +373,10 @@ def import_last(session: Session, call: Call) -> dict:
     """The newest import runs, each with its recorded failure count."""
     with session.reader() as conn:
         has_failures = migrations.has_table(conn, "import_failures")
-        rows = conn.execute(
-            "SELECT id, started_at, finished_at, transport, status, files_seen, files_imported, "
-            "files_duplicate, files_failed, records_written, error FROM import_runs ORDER BY id DESC LIMIT ?",
-            (LAST_IMPORTS,)).fetchall()
+        rows = conn.execute(health.RECENT_RUNS_SQL, (LAST_IMPORTS,)).fetchall()
         runs = []
         for row in rows:
-            run = dict(zip(("id", "started_at", "finished_at", "transport", "status", "files_seen",
-                            "files_imported", "files_duplicate", "files_failed", "records_written", "error"), row))
+            run = dict(zip(health.RUN_COLUMNS, row))
             run["error"] = redact_text(run["error"])
             run["failures"] = (conn.execute("SELECT COUNT(*) FROM import_failures WHERE run_id=?",
                                             (run["id"],)).fetchone()[0] if has_failures else 0)

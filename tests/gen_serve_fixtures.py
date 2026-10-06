@@ -236,7 +236,8 @@ def _extend_for_coverage(conn) -> None:
 def _extend_for_health(conn) -> None:
     """Rows that make ``data.health`` and ``import.last`` meet their redaction and limit branches: more
     runs than the five that are reported (newest first), error texts holding an e-mail address, a path and
-    a long identifier, an empty error (not null), a running run, and provenance messages to redact."""
+    a long identifier, an empty error (not null), a running run, two ``ble`` sweeps (only the newest is
+    listed, and it does not displace a run of another transport), and provenance messages to redact."""
     runs = [
         (4, "2025-07-01T01:00:00Z", "2025-07-01T01:00:05Z", "connect_export", "failed", 9, 0, 0, 9, 0,
          "OSError: cannot read /Users/someone/me@example.com/export.zip for account 12345678901"),
@@ -245,6 +246,8 @@ def _extend_for_health(conn) -> None:
         (7, "2025-07-01T04:00:00Z", "2025-07-01T04:00:01Z", "usb", "ok", 2, 2, 0, 0, 40, None),
         (8, "2025-07-01T05:00:00Z", "2025-07-01T05:00:09Z", "connect_export", "failed", 1, 0, 0, 1, 0,
          "C:\\Users\\someone\\export.zip: call someone@example.org about 9988776"),
+        (9, "2025-07-01T06:00:00Z", "2025-07-01T06:00:01Z", "ble", "ok", 3, 0, 3, 0, 0, None),
+        (10, "2025-07-01T07:00:00Z", "2025-07-01T07:00:01Z", "ble", "ok", 4, 1, 3, 0, 12, None),
     ]
     conn.executemany(
         "INSERT INTO import_runs(id, started_at, finished_at, transport, status, files_seen, files_imported, "

@@ -41,3 +41,32 @@ def test_source_agreement_counts_matches_within_tolerance(db_path):
     text = health.summarize_for_humans(report)
     assert "source agreement" in text and "4/5 days match" in text
     conn.close()
+
+
+def _runs(db_path, transports):
+    with storage.open_for_write(db_path, "test") as conn:
+        conn.executemany("INSERT INTO import_runs(id, started_at, transport, status) VALUES(?, '2025-07-01T00:00:00Z', ?, 'ok')",
+                         list(enumerate(transports, start=1)))
+
+
+def test_recent_imports_list_the_newest_sweep_beside_five_runs_of_the_other_transports(db_path):
+    """A live link ends with a `ble` sweep of the readings folder; listed like any run, the sweeps would
+    push the USB and export runs out of the five-row list within a day (9b review N8)."""
+    _runs(db_path, ["usb", "connect_export", "ble", "usb", "ble", "drop", "usb", "ble", "usb", "ble", "ble"])
+    conn = storage.open_read_only(db_path)
+    runs = health.data_health(conn, 30)["recent_imports"]
+    assert [run["id"] for run in runs] == [11, 9, 7, 6, 4, 2]
+    assert [run["transport"] for run in runs] == ["ble", "usb", "usb", "drop", "usb", "connect_export"]
+    conn.close()
+
+
+def test_recent_imports_without_sweeps_are_the_newest_five_and_only_sweeps_are_one_row(db_path, tmp_path):
+    _runs(db_path, ["usb"] * 7)
+    conn = storage.open_read_only(db_path)
+    assert [run["id"] for run in health.data_health(conn, 30)["recent_imports"]] == [7, 6, 5, 4, 3]
+    conn.close()
+    other = tmp_path / "sweeps.db"
+    _runs(other, ["ble"] * 3)
+    conn = storage.open_read_only(other)
+    assert [run["id"] for run in health.data_health(conn, 30)["recent_imports"]] == [3]
+    conn.close()

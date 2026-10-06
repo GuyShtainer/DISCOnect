@@ -19,6 +19,21 @@ from disconect.storage import sqlite
 UTC = datetime.timezone.utc
 
 
+# The "last imports" list (`recent_imports` here, `import.last` in serve): the newest LAST_IMPORTS runs of
+# every transport but `ble`, plus the newest `ble` run, newest first. A live link ends with a sweep of the
+# readings folder (transport `ble`, usually "0 imported, N duplicate"); listed like any run, the sweeps
+# push the USB and export runs out of the list within a day (9b review N8).
+LAST_IMPORTS = 5
+RUN_COLUMNS = ("id", "started_at", "finished_at", "transport", "status", "files_seen", "files_imported",
+               "files_duplicate", "files_failed", "records_written", "error")
+RECENT_RUNS_SQL = (
+    f"SELECT {', '.join(RUN_COLUMNS)} FROM import_runs WHERE id IN ("
+    "SELECT id FROM (SELECT id FROM import_runs WHERE transport IS NOT 'ble' ORDER BY id DESC LIMIT ?) "
+    "UNION SELECT id FROM (SELECT id FROM import_runs WHERE transport = 'ble' ORDER BY id DESC LIMIT 1)"
+    ") ORDER BY id DESC"
+)
+
+
 def _rows(conn: sqlite.Connection, sql: str, params: tuple = ()) -> list[dict]:
     cursor = conn.execute(sql, params)
     names = [column[0] for column in cursor.description]
@@ -110,9 +125,7 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
     activities = conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
     offsets = conn.execute("SELECT COUNT(*) FROM clock_offsets").fetchone()[0]
 
-    runs = _rows(conn, "SELECT id, started_at, finished_at, transport, status, files_seen, "
-                       "files_imported, files_duplicate, files_failed, records_written, error "
-                       "FROM import_runs ORDER BY id DESC LIMIT 5")
+    runs = _rows(conn, RECENT_RUNS_SQL, (LAST_IMPORTS,))
     for run in runs:
         run["error"] = redact_text(run["error"])
 
