@@ -169,7 +169,8 @@ def _bad_offers() -> dict[str, str]:
     good = _doc()
     return {
         "uppercase hex": _offer_text(_doc(pub=OFFERER_PUB.upper())),
-        "duplicate key": _offer_text(good[:-1] + b',"v":1}'),
+        "duplicate key": _offer_text(good[:-1] + b',"v":2}'),
+        "duplicate c": _offer_text(good[:-1] + b',"c":"' + C.encode() + b'"}'),
         "unknown key": _offer_text(good[:-1] + b',"x":1}'),
         "v=1": _offer_text(_doc(v=1)),
         "uppercase c": _offer_text(_doc(c=C.upper())),

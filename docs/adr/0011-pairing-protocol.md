@@ -76,7 +76,7 @@
   both tags, SAS with a leading-zero case, the sealed payload) and negative vectors pinned on both cores;
   `x25519-dalek` + `curve25519-dalek` (BSD-3) join the core's dependencies **and the app bundle** (the app
   links the core in-process) — notices booked in BACKLOG 02b.
-- The routes and status semantics (`401` wrong tag, `202` bound with the offerer tag, `410` aborted or
+- The routes and status semantics (`401` wrong tag, `202` bound with the offerer's reply `N_o ‖ tag` (64 B), `410` aborted or
   expired, `404` no offer attached, `200` cached payload, exact declared lengths, the 64-byte `202`) are frozen in
   `relay-protocol.md`; the phone's pairing (Bet 12 slice E on iOS, Bet 14) is a client of this protocol and
   of those routes: scan → the same join → the same SAS; nothing depends on the device class. Pairing from
