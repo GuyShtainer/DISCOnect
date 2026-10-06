@@ -27,6 +27,8 @@ from test_privacy import FORBIDDEN_KEYS, FORBIDDEN_TEXT, SERIAL, _seed
 PASS = "a perfectly fine passphrase"
 WRONG = "not the passphrase at all!"
 STATUSES = {"present", "failed", "source_empty", "not_covered"}
+#: The committed live-link store (two overlapping session files on 2025-06-15, one crossing midnight on 06-20/21).
+LIVE_STORE = pathlib.Path(__file__).parent / "fixtures" / "serve" / "synthetic-live.hbdb"
 
 
 class Rig:
@@ -246,6 +248,41 @@ def test_today_lists_every_contract_pair_with_latest_value(plain):
     assert all(r["status"] in STATUSES for r in rows)
 
 
+def test_live_day_lists_sessions_and_folded_minutes(plain):
+    # a day without a session: every folded metric listed, nothing in it
+    empty = plain.result("data.live", day="2025-06-30")
+    assert empty["day"] == "2025-06-30" and empty["sessions"] == []
+    assert [m["metric"] for m in empty["metrics"]] == [m for (m, s) in contract.SESSION_STREAMS_FOR if s == "live"]
+    assert all(m["minutes"] == 0 and m["median"] is None for m in empty["metrics"])
+    assert empty["metrics"][0]["unit"] == contract.unit_for(empty["metrics"][0]["metric"])
+    # the default day is local today; a malformed day is bad_params
+    assert plain.result("data.live")["day"] == plain.result("data.today")["day"]
+    assert plain.error_code("data.live", day="20250630") == "bad_params"
+    assert plain.error_code("data.live", day=5) == "bad_params"
+
+
+def test_live_day_merges_overlapping_records_and_keeps_a_midnight_session_on_both_days(tmp_path):
+    db = tmp_path / "live.hbdb"
+    db.write_bytes(LIVE_STORE.read_bytes())  # a copy: the committed store is never opened for writing
+    rig = Rig(db)
+    # 2025-06-15: a partial file (10:00–10:09) stored before the full one (10:00–10:13) is one session
+    day = rig.result("data.live", day="2025-06-15")
+    # (the store's watch clock runs +3 h, so the local times differ from the UTC ones)
+    assert day["sessions"] == [{"start_utc": "2025-06-15T10:00:00Z", "end_utc": "2025-06-15T10:13:00Z",
+                                "start_local": "2025-06-15T13:00", "end_local": "2025-06-15T13:13", "minutes": 14}]
+    by_metric = {m["metric"]: m for m in day["metrics"]}
+    assert by_metric["heart_rate"]["minutes"] == 14 and by_metric["heart_rate"]["median"] == 96
+    assert by_metric["spo2"] == {"metric": "spo2", "unit": "%", "minutes": 1, "median": 97}
+    # 2025-06-20 23:55Z → 06-21 00:05Z crosses UTC midnight but not the watch's (+3:30 there): one local day
+    assert rig.result("data.live", day="2025-06-20")["sessions"] == []
+    after = rig.result("data.live", day="2025-06-21")
+    assert after["sessions"] == [{"start_utc": "2025-06-20T23:55:00Z", "end_utc": "2025-06-21T00:05:00Z",
+                                  "start_local": "2025-06-21T03:25", "end_local": "2025-06-21T03:35", "minutes": 11}]
+    hr = next(m for m in after["metrics"] if m["metric"] == "heart_rate")
+    assert hr["minutes"] == 11 and hr["median"] == 65
+    assert next(m for m in after["metrics"] if m["metric"] == "spo2")["minutes"] == 0
+
+
 def test_health_and_facts_leave_out_the_core_convention_texts(plain):
     health = plain.result("data.health", window_days=60)
     assert "conventions" not in health and health["coverage"]["window"]["days"] == 60
@@ -339,7 +376,7 @@ def _calls(export_root):
     unlocked_reads = [("data.health", {"window_days": 3650}),
                       ("data.metric", {"metric": "sleep_score", "scope": "device", "days": 60, "last_day": "2025-06-30"}),
                       ("data.metric", {"metric": "stress", "scope": "device", "days": 30, "last_day": "2025-06-30"}),
-                      ("data.today", {}), ("data.facts", {"days": 7, "baseline_days": 28}),
+                      ("data.today", {}), ("data.live", {"day": "2025-06-30"}), ("data.facts", {"days": 7, "baseline_days": 28}),
                       ("sync.status", {}), ("sync.run", {})]
     unlocked_reads += [("tools.call", {"name": name, "arguments": arguments}) for name, arguments in
                        (("get_data_health", {}), ("get_metric_series", {"metrics": ["steps", "heart_rate"]}),

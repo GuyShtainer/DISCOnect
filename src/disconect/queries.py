@@ -321,6 +321,64 @@ def metric_calendar(conn: sqlite.Connection, metric: str, scope: str, first_day:
     return [{"day": day, "value": values.get(day), "status": statuses[day]} for day in days]
 
 
+#: The live link's source scope and its retained stream (``contract.SESSION_STREAMS_FOR``).
+LIVE_SCOPE = "live"
+
+
+def _local_minute(moment: datetime.datetime, offsets: ClockOffsets) -> str:
+    """``YYYY-MM-DDTHH:MM`` on the watch's clock at ``moment`` (UTC assumed where no offset is known)."""
+    local = moment.astimezone(datetime.timezone.utc) + datetime.timedelta(seconds=offsets.offset_at(moment) or 0)
+    return local.strftime("%Y-%m-%dT%H:%M")
+
+
+def live_day(conn: sqlite.Connection, day: str) -> dict:
+    """The live link on one local day: its sessions and, per folded metric, the minutes and their median.
+
+    A session is a run of ``json:live`` records whose spans overlap or touch (a partial file stored
+    before the full one is one session), kept when its start or end falls on ``day`` on the watch's
+    clock; ``minutes`` counts the distinct folded minutes inside it. ``metrics`` lists every metric
+    the fold keeps, in contract order: the minutes whose local day is ``day`` and their lower median
+    (null when none). Raises ValueError for a day that is not ``YYYY-MM-DD``.
+    """
+    parse_day(day, "day")
+    offsets = ClockOffsets.load(conn)
+    streams = tuple(dict.fromkeys(stream for (_, scope), names in contract.SESSION_STREAMS_FOR.items()
+                                  if scope == LIVE_SCOPE for stream in names))
+    sessions: list[list[datetime.datetime]] = []
+    for start, end in conn.execute(
+            f"SELECT start_utc, end_utc FROM raw_records WHERE stream IN ({','.join('?' * len(streams))}) "
+            "AND start_utc IS NOT NULL AND end_utc IS NOT NULL ORDER BY start_utc, end_utc", streams):
+        first, last = parse_iso_utc(start), parse_iso_utc(end)
+        if offsets.local_date(first) != day and offsets.local_date(last) != day:
+            continue
+        if sessions and first <= sessions[-1][1]:
+            sessions[-1][1] = max(sessions[-1][1], last)
+        else:
+            sessions.append([first, last])
+    out_sessions = []
+    for first, last in sessions:
+        lo, hi = first.strftime("%Y-%m-%dT%H:%M:%SZ"), last.strftime("%Y-%m-%dT%H:%M:%SZ")
+        minutes = conn.execute("SELECT count(DISTINCT ts_utc) FROM metric_samples WHERE source_scope=? "
+                               "AND ts_utc BETWEEN ? AND ?", (LIVE_SCOPE, lo, hi)).fetchone()[0]
+        out_sessions.append({"start_utc": lo, "end_utc": hi, "start_local": _local_minute(first, offsets),
+                             "end_local": _local_minute(last, offsets), "minutes": minutes})
+    # local days can begin up to 14 h before/after their UTC namesake; over-fetch and filter
+    date = datetime.date.fromisoformat(day)
+    fetch_lo = (date - datetime.timedelta(days=1)).isoformat()
+    fetch_hi = (date + datetime.timedelta(days=2)).isoformat()
+    metrics = []
+    for item in contract.METRICS:
+        if (item.metric, LIVE_SCOPE) not in contract.SESSION_STREAMS_FOR:
+            continue
+        values = [value for ts_text, value in conn.execute(
+            "SELECT ts_utc, value FROM metric_samples WHERE metric=? AND source_scope=? "
+            "AND ts_utc >= ? AND ts_utc < ? ORDER BY ts_utc", (item.metric, LIVE_SCOPE, fetch_lo, fetch_hi))
+            if offsets.local_date(parse_iso_utc(ts_text)) == day]
+        median = _clean(sorted(values)[(len(values) - 1) // 2]) if values else None
+        metrics.append({"metric": item.metric, "unit": item.unit, "minutes": len(values), "median": median})
+    return {"day": day, "sessions": out_sessions, "metrics": metrics}
+
+
 def latest_value(conn: sqlite.Connection, metric: str, scope: str) -> tuple[str, float] | None:
     """The newest ``(local day, value)`` stored for one numeric metric and scope, or None.
 

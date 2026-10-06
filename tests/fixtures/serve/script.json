@@ -190,6 +190,13 @@
    }
   },
   {
+   "name": "gen: data.live while locked",
+   "send": {
+    "id": 12104,
+    "method": "data.live"
+   }
+  },
+  {
    "name": "gen: import.last while locked",
    "send": {
     "id": 12103,
@@ -19249,6 +19256,92 @@
   {
    "name": "gen: data.today params array",
    "raw": "{\"id\":12003,\"method\":\"data.today\",\"params\":[]}"
+  },
+  {
+   "name": "gen: data.live plain",
+   "send": {
+    "id": 12200,
+    "method": "data.live"
+   }
+  },
+  {
+   "name": "gen: data.live day mid",
+   "send": {
+    "id": 12201,
+    "method": "data.live",
+    "params": {
+     "day": "$MID"
+    }
+   }
+  },
+  {
+   "name": "gen: data.live overlapping session files",
+   "send": {
+    "id": 12202,
+    "method": "data.live",
+    "params": {
+     "day": "2025-06-15"
+    }
+   }
+  },
+  {
+   "name": "gen: data.live session over midnight",
+   "send": {
+    "id": 12203,
+    "method": "data.live",
+    "params": {
+     "day": "2025-06-21"
+    }
+   }
+  },
+  {
+   "name": "gen: data.live ignores extra params",
+   "send": {
+    "id": 12204,
+    "method": "data.live",
+    "params": {
+     "day": "$LAST",
+     "metric": "x"
+    }
+   }
+  },
+  {
+   "name": "gen: data.live compact day",
+   "send": {
+    "id": 12205,
+    "method": "data.live",
+    "params": {
+     "day": "20250615"
+    }
+   }
+  },
+  {
+   "name": "gen: data.live day not a string",
+   "send": {
+    "id": 12206,
+    "method": "data.live",
+    "params": {
+     "day": 5
+    }
+   }
+  },
+  {
+   "name": "gen: data.live day empty",
+   "send": {
+    "id": 12207,
+    "method": "data.live",
+    "params": {
+     "day": ""
+    }
+   }
+  },
+  {
+   "name": "gen: data.live params null",
+   "raw": "{\"id\":12208,\"method\":\"data.live\",\"params\":null}"
+  },
+  {
+   "name": "gen: data.live params array",
+   "raw": "{\"id\":12209,\"method\":\"data.live\",\"params\":[]}"
   },
   {
    "name": "gen: data.health plain",

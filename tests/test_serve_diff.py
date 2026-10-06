@@ -138,7 +138,7 @@ def test_the_generated_script_entries_are_what_the_generator_writes_today(tmp_pa
     (tmp_path / "script.json").write_text(before)
     gen_serve_fixtures.build_script(script["anchors"])
     assert (tmp_path / "script.json").read_text() == before, "regenerate: python tests/gen_serve_fixtures.py"
-    assert len(script["entries"]) < 2000
+    assert len(script["entries"]) < 2200  # raised from 2000 on 2026-10-06 for data.live (the oracle replay stays ≈2 min a store)
 
 
 def test_no_request_is_booked_and_the_once_booked_forms_are_plain_bad_params():
@@ -161,7 +161,7 @@ def test_the_script_asks_for_every_contract_metric_in_every_scope():
              for params in [e["send"].get("params")] if isinstance(params, dict)
              and isinstance(params.get("metric"), str) and isinstance(params.get("scope"), str)}
     # a session scope (live) is asked only for the metrics the contract declares in it, plus one
-    # "absent" probe (steps) — the full cross-product would pass the script's 2000-entry ceiling
+    # "absent" probe (steps) — the full cross-product would pass the script's entry ceiling
     wanted = {(item.metric, scope) for item in contract.METRICS for scope in contract.SOURCE_SCOPES
               if scope not in contract.SESSION_SCOPES or (item.metric, scope) in contract.SESSION_STREAMS_FOR}
     assert wanted <= asked

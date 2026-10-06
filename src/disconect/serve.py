@@ -315,6 +315,15 @@ def data_today(session: Session, call: Call) -> dict:
 
 
 @_unlocked_only
+def data_live(session: Session, call: Call) -> dict:
+    """The live link on one local day (default today): its sessions and, per folded metric, the
+    minute count and median — the Today live card's read."""
+    day = _text_param(call.params, "day", required=False)
+    with session.reader() as conn:
+        return queries.live_day(conn, day if day is not None else queries.local_today(conn))
+
+
+@_unlocked_only
 def data_facts(session: Session, call: Call) -> dict:
     """The recent window against this person's own baseline, as facts with confidence."""
     days = _int_param(call.params, "days", insight.DEFAULT_WINDOW_DAYS)
@@ -492,6 +501,7 @@ METHODS: dict[str, Handler] = {
     "data.health": data_health,
     "data.metric": data_metric,
     "data.today": data_today,
+    "data.live": data_live,
     "data.facts": data_facts,
     "import.run": import_run,
     "import.last": import_last,

@@ -702,6 +702,26 @@ def _today_entries() -> list[dict]:
     ]
 
 
+def _live_entries() -> list[dict]:
+    """``data.live``: today, an anchored day, the live store's session days (empty on the other stores), the
+    bad days and the malformed params. Ids 12200 up."""
+    return [
+        {"name": "gen: data.live plain", "send": {"id": 12200, "method": "data.live"}},
+        {"name": "gen: data.live day mid", "send": {"id": 12201, "method": "data.live", "params": {"day": "$MID"}}},
+        {"name": "gen: data.live overlapping session files", "send": {"id": 12202, "method": "data.live",
+                                                                       "params": {"day": "2025-06-15"}}},
+        {"name": "gen: data.live session over midnight", "send": {"id": 12203, "method": "data.live",
+                                                                   "params": {"day": "2025-06-21"}}},
+        {"name": "gen: data.live ignores extra params", "send": {"id": 12204, "method": "data.live",
+                                                                  "params": {"day": "$LAST", "metric": "x"}}},
+        {"name": "gen: data.live compact day", "send": {"id": 12205, "method": "data.live", "params": {"day": "20250615"}}},
+        {"name": "gen: data.live day not a string", "send": {"id": 12206, "method": "data.live", "params": {"day": 5}}},
+        {"name": "gen: data.live day empty", "send": {"id": 12207, "method": "data.live", "params": {"day": ""}}},
+        {"name": "gen: data.live params null", "raw": '{"id":12208,"method":"data.live","params":null}'},
+        {"name": "gen: data.live params array", "raw": '{"id":12209,"method":"data.live","params":[]}'},
+    ]
+
+
 def build_script(anchors: dict[str, str]) -> None:
     """Regenerate the ``gen:`` entries of ``script.json`` (every other entry is hand-written and kept)."""
     script = json.loads(SCRIPT.read_text())
@@ -710,6 +730,7 @@ def build_script(anchors: dict[str, str]) -> None:
                "send": {"id": 12100, "method": "data.metric", "params": {"metric": "steps", "scope": "local"}}},
               {"name": "gen: data.today while locked", "send": {"id": 12101, "method": "data.today"}},
               {"name": "gen: data.health while locked", "send": {"id": 12102, "method": "data.health"}},
+              {"name": "gen: data.live while locked", "send": {"id": 12104, "method": "data.live"}},
               {"name": "gen: import.last while locked", "send": {"id": 12103, "method": "import.last"}},
               # locked on an encrypted store; plaintext stores are open, so these answer as unlocked ones do
               {"name": "gen: sync.status while locked", "send": {"id": 12105, "method": "sync.status"}},
@@ -727,7 +748,7 @@ def build_script(anchors: dict[str, str]) -> None:
     entries: list[dict] = []
     for entry in kept:
         if entry["name"] == "import.last":
-            entries += _metric_entries() + _today_entries() + _health_entries() + _import_entries() + _sync_entries() + _tools_entries()
+            entries += _metric_entries() + _today_entries() + _live_entries() + _health_entries() + _import_entries() + _sync_entries() + _tools_entries()
         entries.append(entry)
         if entry["name"] == "data.facts while locked":
             entries += locked
