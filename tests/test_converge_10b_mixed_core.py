@@ -577,3 +577,42 @@ def test_a_damaged_copy_is_repaired_from_the_relay_on_either_core(tmp_path, flee
     fleet.rounds([damaged, peer], relay)
     _converged([damaged, peer])
     _quiet([damaged, peer])
+
+
+# k: a stream one build cannot decode is kept, not dropped, on either core (BACKLOG "store unknown-stream
+# bytes on pull", 2026-10-06); the raw set and the ledger trail agree across the cores
+@pytest.mark.parametrize("sender_core,keeper_core", [("py", "rs"), ("rs", "py")])
+def test_a_stream_without_a_decoder_is_kept_on_either_core(tmp_path, fleet, sender_core, keeper_core):
+    sender, keeper = fleet.device("sender", sender_core), fleet.device("keeper", keeper_core)
+    relay = FolderRelay(tmp_path / "relay")
+    fleet.do_import(sender, _export(tmp_path / "export", "X"))
+    with storage.open_for_write(sender.db, "test") as conn:   # a newer build on the sender: one stream relabelled
+        conn.execute("UPDATE raw_records SET stream='json:future' WHERE stream='json:uds'")
+    fleet.push(sender, relay)
+    fleet.pull(keeper, relay)
+    with storage.open_read_only(keeper.db) as conn:
+        kept = conn.execute("SELECT id, source_key, payload_hash, start_utc, end_utc FROM raw_records "
+                            "WHERE stream='json:future' ORDER BY source_key").fetchall()
+        assert kept, "the relabelled records arrived"
+        trail = conn.execute("SELECT f.raw_record_id, f.kind, f.payload_hash FROM import_failures f "
+                             "JOIN raw_records r ON r.id = f.raw_record_id WHERE r.stream='json:future'").fetchall()
+        assert sorted((t[0], t[1], t[2]) for t in trail) == sorted((k[0], "unrecognized_payload", k[2]) for k in kept)
+        assert _count(conn, "SELECT count(*) FROM daily_metrics WHERE metric='steps' AND source_scope='vendor_cloud'") == 0
+        assert _count(conn, "SELECT count(*) FROM relay_seen s JOIN raw_records r ON r.id = s.raw_record_id "
+                            "WHERE r.stream='json:future'") == len(kept)
+    with storage.open_read_only(sender.db) as conn:
+        on_sender = conn.execute("SELECT source_key, payload_hash, start_utc, end_utc FROM raw_records "
+                                 "WHERE stream='json:future' ORDER BY source_key").fetchall()
+    assert [tuple(r[1:]) for r in kept] == [tuple(r) for r in on_sender], "the sender's key, bytes and span travel intact"
+    fleet.push(keeper, relay)   # never pushed back
+    with storage.open_read_only(keeper.db) as conn:
+        assert _count(conn, "SELECT count(*) FROM relay_bundles WHERE direction='pushed'") == 0
+    # the replay on the keeper leaves the records waiting and is not a failed run
+    if keeper.core == "rs":
+        _assert_rust_reparse_quiet(keeper)
+    else:
+        with storage.open_for_write(keeper.db, "test") as conn:
+            stats = sources.reparse_all(conn)
+        assert stats.files_failed == 0 and any("json:future" in w for w in stats.warnings)
+    with storage.open_read_only(keeper.db) as conn:
+        assert _count(conn, "SELECT count(*) FROM import_failures") == len(kept)
