@@ -503,8 +503,12 @@ def test_eof_with_an_import_in_flight_waits_for_it_and_its_answer_is_the_last_li
         release.set()
     thread = threading.Thread(target=releaser, name="releaser")
     thread.start()
-    written = plain.feed(lines())
-    thread.join()
+    try:
+        written = plain.feed(lines())
+    finally:
+        input_ended.set()   # an early failure never leaves the worker held for the full wait
+        release.set()
+        thread.join()
     ids = [line["id"] for line in written if "id" in line]
     assert ids == [2, 1], "the read answers first, the import's final answer is the last line"
     assert "id" in written[-1] and written[-1]["id"] == 1 and written[-1]["result"]["ok"] > 0
