@@ -130,3 +130,13 @@ def test_the_disclaimer_is_the_claims_policys_first_allowed_sentence():
     policy = (ROOT / "disconect" / "CLAIMS-POLICY.md").read_text()
     allow = re.search(r"^```allow\n(.*?)^```", policy, re.S | re.M).group(1).splitlines()
     assert allow[0] == identity.DISCLAIMER == _ts_const("DISCLAIMER") == _rs_const("DISCLAIMER")
+
+
+def test_the_page_and_window_titles_are_the_product_name():
+    import json
+
+    html = (ROOT / "disconect-app" / "index.html").read_text()
+    assert re.search(r"<title>(.*?)</title>", html, re.S).group(1).strip() == identity.PRODUCT
+    conf = json.loads((ROOT / "disconect-app" / "src-tauri" / "tauri.conf.json").read_text())
+    titles = [w["title"] for w in conf["app"]["windows"]]
+    assert titles and all(t == identity.PRODUCT for t in titles), titles
