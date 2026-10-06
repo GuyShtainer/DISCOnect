@@ -283,6 +283,23 @@ def test_live_day_merges_overlapping_records_and_keeps_a_midnight_session_on_bot
     assert next(m for m in after["metrics"] if m["metric"] == "spo2")["minutes"] == 0
 
 
+def test_live_day_of_a_watch_behind_utc_is_the_local_day_not_the_utc_day(tmp_path):
+    # `day` is the date on the watch's own clock (the stated offset nearest the session's start/end), never
+    # the UTC date. The store's watch ran -05:00 from 1 March to 10 April: a session at 2025-03-06T01:00Z..01:05Z
+    # is the evening of 5 March there, so it is reported on the 5th and the UTC day (the 6th) lists nothing.
+    db = tmp_path / "live.hbdb"
+    db.write_bytes(LIVE_STORE.read_bytes())
+    rig = Rig(db)
+    assert rig.result("data.live", day="2025-03-06")["sessions"] == []
+    evening = rig.result("data.live", day="2025-03-05")
+    assert evening["sessions"] == [{"start_utc": "2025-03-06T01:00:00Z", "end_utc": "2025-03-06T01:05:00Z",
+                                    "start_local": "2025-03-05T20:00", "end_local": "2025-03-05T20:05", "minutes": 6}]
+    hr = next(m for m in evening["metrics"] if m["metric"] == "heart_rate")
+    assert hr["minutes"] == 6 and hr["median"] == 72
+    assert next(m for m in rig.result("data.live", day="2025-03-06")["metrics"]
+                if m["metric"] == "heart_rate")["minutes"] == 0
+
+
 def test_health_and_facts_leave_out_the_core_convention_texts(plain):
     health = plain.result("data.health", window_days=60)
     assert "conventions" not in health and health["coverage"]["window"]["days"] == 60

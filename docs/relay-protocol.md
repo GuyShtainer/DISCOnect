@@ -136,7 +136,8 @@ or the user's "stop serving" once the offer has been delivered, because the join
 the same URL right after the payload's `200` and the payload is served on every GET until `exp`; it stops at
 once only on abort, cancel or expiry, after a ~2 s linger so the joiner reads `410` rather than a refused
 connection. While serving, the core checks every ~10 s that the bound address is still assigned to this
-machine; when it is gone the server stops and a `relay` event says so (a laptop that changed networks never
+machine; when it is gone the server stops and a `relay` event says so (`reason` `address_gone`; the stop after an
+offer ends, once the linger or the expiry is over, sends the same event with `reason` `offer_ended`) (a laptop that changed networks never
 serves a foreign network's address). The session's end (the app quitting) aborts the offer and stops the
 server before anything else is awaited. The server's logger is a no-op in this mode. The relay folder is
 still set by the CLI (`sync … --relay <folder> --remember`); the app does not choose one.

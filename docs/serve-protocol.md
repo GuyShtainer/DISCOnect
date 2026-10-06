@@ -13,9 +13,12 @@ side is the only process that ever holds the DB key.
   `{"event": "pair", "state": "bound"|"delivered"|"aborted"|"expired", "reason"?: "another_device"|"codes_differ"|"cancelled"}`
   (`reason` on `aborted` only; each transition exactly once per offer; `bound`: a device answered, the digit input
   may be enabled; `delivered`: the device fetched the payload; never the six digits, a key or a peer address) and
-  `{"event": "relay", "state": "stopped", "reason": "address_gone"}` (the address the server is bound to left the
-  machine; the server is stopped, `sync.status.serving` is null, and an offer that was open ends with this event
-  only — no `pair` event).
+  `{"event": "relay", "state": "stopped", "reason": "address_gone"|"offer_ended"}` (`address_gone`: the address the
+  server is bound to left the machine; the server is stopped, `sync.status.serving` is null, and an offer that was
+  open ends with this event only — no `pair` event. `offer_ended`: an offer ended (expired, or aborted or cancelled
+  after the ~2 s linger) and the server it had started stopped with it, `keep` being off; sent once, when the
+  server actually stops, after the `pair` event of that offer if there was one; not sent when `keep` is on, when a
+  reserved push holds the server, or when `relay.serve off` / the session end stops it).
 - Start-up: the process dup()s fd 1 to a private fd for the protocol and dup2()s fd 1 onto
   fd 2, so any stray print or C-level write goes to stderr. Nothing but protocol lines reach
   the private fd. Exits 0 on stdin EOF. Exit codes are for fatal start-up errors only.

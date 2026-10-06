@@ -19339,6 +19339,26 @@
    }
   },
   {
+   "name": "gen: data.live evening session of a watch behind UTC, local day",
+   "send": {
+    "id": 12210,
+    "method": "data.live",
+    "params": {
+     "day": "2025-03-05"
+    }
+   }
+  },
+  {
+   "name": "gen: data.live evening session of a watch behind UTC, UTC day",
+   "send": {
+    "id": 12211,
+    "method": "data.live",
+    "params": {
+     "day": "2025-03-06"
+    }
+   }
+  },
+  {
    "name": "gen: data.live ignores extra params",
    "send": {
     "id": 12204,

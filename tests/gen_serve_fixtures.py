@@ -12,9 +12,9 @@ import tests build: serial and e-mail shapes are fake, plus the rows ``_extend_f
 baselines, every confidence band, sparse metrics, a cancelling series, half-hour and tied clock offsets) and the
 rows ``_extend_for_coverage`` adds so that the coverage ledger meets every branch (see its docstring) and the
 rows ``_extend_for_health`` adds (runs and provenance messages to redact). The v1 store
-is the same data under the schema-v1 migration alone. ``synthetic-live.hbdb`` is the synthetic store plus three
+is the same data under the schema-v1 migration alone. ``synthetic-live.hbdb`` is the synthetic store plus four
 live-link session files imported through ``sources.import_path`` (``live_files``: one spans midnight, two
-overlap a day that has monitoring rows), so the fold's ``live`` rows are in the differential. The clock is pinned with ``DISCONECT_NOW`` so the
+overlap a day that has monitoring rows, one is an evening session on a negative-offset watch), so the fold's ``live`` rows are in the differential. The clock is pinned with ``DISCONECT_NOW`` so the
 ``imported_at`` stamps are the same every time. ``tools/serve_diff.py`` produces the oracle file.
 """
 
@@ -263,11 +263,12 @@ def _extend_for_health(conn) -> None:
 
 
 def live_files(folder: pathlib.Path) -> None:
-    """Write three invented live-link session files into ``folder`` (the readings are made up, not real).
+    """Write four invented live-link session files into ``folder`` (the readings are made up, not real).
 
     ``live-a`` runs 2025-06-20T23:55Z..2025-06-21T00:05Z: readings on both sides of a UTC midnight, ``t`` an int
     and a float in turn. ``live-b`` runs on 2025-06-15 10:00Z.., a day that has monitoring rows for the same metrics.
     ``live-c`` is ``live-b`` again, longer (bet 9b-2: the fold's de-duplication, median and sentinel cases).
+    ``live-d`` is an evening session of a watch behind UTC (see below): its UTC date is the day after its local day.
     """
     midnight = int(datetime.datetime(2025, 6, 21, tzinfo=datetime.timezone.utc).timestamp())
     first = [{"status": "scanning"}]
@@ -301,15 +302,22 @@ def live_files(folder: pathlib.Path) -> None:
     third.append({"t": start + 60 * 12 + 1, "metric": "stress", "value": -1})
     third.append({"t": start + 60 * 12 + 2, "metric": "spo2", "value": 0})
     third.append({"status": "stopped", "stop": "LinkClosed"})
+    # live-d: 2025-03-06T01:00Z..01:05Z, in the store's -05:00 stretch (1 March - 10 April): the UTC date is
+    # the 6th, the watch's own day is the evening of the 5th (20:00 local), so the session belongs to the 5th
+    evening = int(datetime.datetime(2025, 3, 6, 1, tzinfo=datetime.timezone.utc).timestamp())
+    fourth = [{"status": "scanning"}]
+    for step in range(6):
+        fourth.append({"t": evening + 60 * step, "metric": "heart_rate", "value": 70 + step})
+    fourth.append({"status": "stopped", "stop": "LinkClosed"})
     for name, lines in (("live-20250620T235500Z.jsonl", first), ("live-20250615T100000Z.jsonl", second),
-                        ("live-20250615T100001Z.jsonl", third)):
+                        ("live-20250615T100001Z.jsonl", third), ("live-20250306T010000Z.jsonl", fourth)):
         (folder / name).write_text("".join(json.dumps(line) + "\n" for line in lines))
 
 
 def build(target: pathlib.Path, live: bool = False) -> None:
     """Write the synthetic store at ``target`` as one plain file (WAL mode header, no -wal left over).
 
-    ``live`` also imports the three ``live_files`` (the ``synthetic-live`` store)."""
+    ``live`` also imports the four ``live_files`` (the ``synthetic-live`` store)."""
     os.environ["DISCONECT_NOW"] = PINNED_NOW
     from disconect import storage
     from disconect.ingest import sources
@@ -333,7 +341,7 @@ def build(target: pathlib.Path, live: bool = False) -> None:
                 sessions.mkdir()
                 live_files(sessions)
                 stats = sources.import_path(sessions, conn)
-                assert (stats.files_imported, stats.files_failed) == (3, 0), stats
+                assert (stats.files_imported, stats.files_failed) == (4, 0), stats
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         for leftover in db_path.parent.glob("synthetic.hbdb-*"):
             assert leftover.stat().st_size == 0, f"{leftover.name} still holds data"
@@ -738,6 +746,10 @@ def _live_entries() -> list[dict]:
                                                                        "params": {"day": "2025-06-15"}}},
         {"name": "gen: data.live session over midnight", "send": {"id": 12203, "method": "data.live",
                                                                    "params": {"day": "2025-06-21"}}},
+        {"name": "gen: data.live evening session of a watch behind UTC, local day", "send": {
+            "id": 12210, "method": "data.live", "params": {"day": "2025-03-05"}}},
+        {"name": "gen: data.live evening session of a watch behind UTC, UTC day", "send": {
+            "id": 12211, "method": "data.live", "params": {"day": "2025-03-06"}}},
         {"name": "gen: data.live ignores extra params", "send": {"id": 12204, "method": "data.live",
                                                                   "params": {"day": "$LAST", "metric": "x"}}},
         {"name": "gen: data.live compact day", "send": {"id": 12205, "method": "data.live", "params": {"day": "20250615"}}},

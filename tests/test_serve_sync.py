@@ -127,13 +127,15 @@ def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted,
     assert pulled["push"] == {"bundles": 0, "records": 0, "ranges": 0}
     assert pulled["pull"]["applied"] == 1 and pulled["pull"]["records_new"] > 0
     assert pulled["pull"]["records_new"] + pulled["pull"]["records_invalid"] == result["push"]["records"]
-    again = other.result("sync.run")
-    assert again["pull"]["applied"] == 0 and again["push"]["bundles"] == 0
     status = other.result("sync.status")
     assert status["bundles"] == {"pulled_applied": 1}
     assert status["last_pulled_at"] >= "2020" and status["last_pushed_at"] is None
+    again = other.result("sync.run")
+    assert again["pull"]["applied"] == 0 and again["push"]["bundles"] == 0
     # a run that moved nothing books no bundle, so the times do not advance
-    assert other.result("sync.status")["last_pulled_at"] == status["last_pulled_at"]
+    after = other.result("sync.status")
+    assert after["last_pulled_at"] == status["last_pulled_at"] and after["last_pushed_at"] == status["last_pushed_at"]
+    assert after["bundles"] == status["bundles"]
 
 
 def test_a_lan_relay_is_refused_with_its_own_code_after_the_other_checks(encrypted, db_path, tmp_path):

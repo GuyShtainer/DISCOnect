@@ -1,4 +1,4 @@
-"""Bets 9b/9b-2: the committed ``synthetic-live.hbdb`` (three live files imported on top of the synthetic store)
+"""Bets 9b/9b-2: the committed ``synthetic-live.hbdb`` (four live files imported on top of the synthetic store)
 reads exactly like the same store without them, except at source scope ``live`` -- the fold's rows -- and in
 ``data.health``'s stream list and ``live`` block."""
 
@@ -64,9 +64,9 @@ def test_the_committed_store_is_what_the_generator_builds_today(stores, tmp_path
 def test_the_health_report_lists_the_live_stream_and_the_live_block(stores):
     with_live, without = stores
     health = Rig(with_live).result("data.health")
-    assert health["streams"]["json:live"] == {"records": 3, "first": "2025-06-15T10:00:00Z",
+    assert health["streams"]["json:live"] == {"records": 4, "first": "2025-03-06T01:00:00Z",
                                               "last": "2025-06-21T00:05:00Z"}
-    assert health["live"] == {"records": 3, "samples": 31, "first_day": "2025-06-15", "last_day": "2025-06-21"}
+    assert health["live"] == {"records": 4, "samples": 37, "first_day": "2025-03-06", "last_day": "2025-06-21"}
     plain = Rig(without).result("data.health")
     assert "json:live" not in plain["streams"]
     assert plain["live"] == {"records": 0, "samples": 0, "first_day": None, "last_day": None}
@@ -74,14 +74,14 @@ def test_the_health_report_lists_the_live_stream_and_the_live_block(stores):
 
 def test_the_live_files_fold_only_into_live_scope_samples(stores):
     with_live, without = stores
-    assert _count(with_live, "SELECT COUNT(*) FROM raw_records WHERE stream='json:live'") == 3
+    assert _count(with_live, "SELECT COUNT(*) FROM raw_records WHERE stream='json:live'") == 4
     for table in ("daily_metrics", "daily_labels", "monitoring_intervals", "activities"):
         sql = f"SELECT COUNT(*) FROM {table}"
         assert _count(with_live, sql) == _count(without, sql), table
     sql = "SELECT COUNT(*) FROM metric_samples WHERE source_scope != 'live'"
     assert _count(with_live, sql) == _count(without, sql)
     assert _count(without, "SELECT COUNT(*) FROM metric_samples WHERE source_scope = 'live'") == 0
-    assert _count(with_live, "SELECT COUNT(*) FROM metric_samples WHERE source_scope = 'live'") == 31
+    assert _count(with_live, "SELECT COUNT(*) FROM metric_samples WHERE source_scope = 'live'") == 37
     # one row per metric and UTC minute, no device, the lower median where a minute held two values
     assert _count(with_live, "SELECT COUNT(*) FROM metric_samples WHERE source_scope='live' AND "
                              "(device_id IS NOT NULL OR substr(ts_utc, 18, 2) != '00')") == 0
