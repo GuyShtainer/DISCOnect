@@ -322,6 +322,32 @@ def test_sleep_night_without_a_stored_offset_has_no_local_keys_and_a_stage_can_c
     assert bare["sessions"][0]["stages"][0]["start_utc"] == "2025-06-14T20:30:00Z"
 
 
+def _only_offsets(db, *pairs):
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("DELETE FROM clock_offsets")
+        conn.executemany("INSERT INTO clock_offsets(ts_utc, offset_s) VALUES(?, ?)", pairs)
+
+
+def test_sleep_night_without_an_end_takes_the_offset_nearest_its_start(tmp_path):
+    db = _store_copy(tmp_path)
+    # the 06-30 device session runs 21:00Z..04:00Z; the 05:00Z offset is nearest its end, the 21:00Z one its start
+    _only_offsets(db, ("2025-06-29T21:00:00Z", 3600), ("2025-06-30T05:00:00Z", 7200))
+    rig = Rig(db)
+    assert rig.result("data.sleep")["sessions"][0]["utc_offset_s"] == 7200
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("UPDATE sleep_sessions SET end_utc=NULL WHERE date='2025-06-30'")
+    (device,) = rig.result("data.sleep")["sessions"]
+    assert device["utc_offset_s"] == 3600
+    assert [(g["start_local"], g["end_local"]) for g in device["stages"]] == [("22:00", "23:00")]
+
+
+def test_sleep_night_with_two_equally_near_offsets_takes_the_earlier(tmp_path):
+    db = _store_copy(tmp_path)
+    _only_offsets(db, ("2025-06-30T03:00:00Z", 3600), ("2025-06-30T05:00:00Z", 7200))  # the end, 04:00Z, is between
+    (device,) = Rig(db).result("data.sleep")["sessions"]
+    assert device["utc_offset_s"] == 3600
+
+
 def test_sleep_needs_the_store_unlocked(encrypted):
     assert encrypted.error_code("data.sleep") == "locked"
 
