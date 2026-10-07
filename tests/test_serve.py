@@ -200,6 +200,20 @@ def test_key_cache_round_trip(encrypted, db_path):
     assert encrypted.result("key.status")["keychain"] == "absent"
 
 
+def test_key_lock_drops_the_master_and_is_idempotent(encrypted):
+    locked = {"state": "locked"}
+    assert encrypted.result("key.lock") == locked  # already locked
+    encrypted.result("key.unlock", passphrase=PASS)
+    assert encrypted.result("key.status")["unlocked"] is True
+    assert encrypted.result("key.lock", x=1) == locked  # params are ignored
+    assert encrypted.result("key.status")["unlocked"] is False
+    assert encrypted.error_code("sync.status") == "locked"
+    assert encrypted.error_code("key.cache", enable=True) == "locked"
+    assert encrypted.result("key.lock") == locked
+    assert encrypted.result("key.unlock", passphrase=PASS) == {"unlocked": True}
+    assert encrypted.result("key.status")["unlocked"] is True
+
+
 def test_key_cache_on_a_plaintext_store_has_nothing_to_cache(plain):
     assert plain.error_code("key.cache", enable=True) == "not_encrypted"
 
@@ -558,7 +572,7 @@ def _calls(export_root):
                       ("sync.status", {}), ("sync.run", {}),
                       ("relay.addresses", {}), ("relay.serve", {"on": False}),
                       ("pair.offer", {"listen": "192.168.1.20:24816"}), ("pair.confirm", {"digits": "123456"}),
-                      ("pair.cancel", {})]
+                      ("pair.cancel", {}), ("pair.forget", {})]
     unlocked_reads += [("tools.call", {"name": name, "arguments": arguments}) for name, arguments in
                        (("get_data_health", {}), ("get_metric_series", {"metrics": ["steps", "heart_rate"]}),
                         ("get_sleep_detail", {}), ("list_activities", {"limit": 5}), ("get_period_facts", {}),
@@ -569,7 +583,8 @@ def _calls(export_root):
                ("key.cache", {"enable": True}), ("key.cache", {"enable": False})]
             + unlocked_reads
             + [("import.run", {"path": str(export_root), "transport": "export"}),
-               ("import.run", {"path": "/Users/someone/missing.zip"}), ("import.last", {}), ("key.status", {})])
+               ("import.run", {"path": "/Users/someone/missing.zip"}), ("import.last", {}), ("key.status", {}),
+               ("key.lock", {}), ("key.status", {})])
 
 
 def test_every_method_passes_the_privacy_walk_with_no_network(encrypted, tmp_path, no_network):

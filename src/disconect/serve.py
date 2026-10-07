@@ -248,6 +248,13 @@ def key_unlock(session: Session, call: Call) -> dict:
     return {"unlocked": True}
 
 
+def key_lock(session: Session, call: Call) -> dict:
+    """Drop this session's master key: the session reads as locked until ``key.unlock`` runs again. Idempotent
+    (already locked, or nothing to lock, answers the same). The keychain item, if any, is left alone."""
+    storage.forget(session.db_path)
+    return {"state": "locked"}
+
+
 def key_cache(session: Session, call: Call) -> dict:
     """Store or remove the master key in the OS keychain. Needs the store unlocked."""
     enable = _bool_param(call.params, "enable")
@@ -419,13 +426,16 @@ def import_last(session: Session, call: Call) -> dict:
 @_unlocked_only
 def sync_status(session: Session, call: Call) -> dict:
     """The relay counts of the store (``sync status``): read-only, so a store older than the relay
-    tables answers what a fresh one would."""
+    tables answers what a fresh one would. ``relay_url`` is the LAN relay's ``http://host:port`` from
+    ``relay.json``, null when it names none (a folder relay has no address)."""
+    chosen = relay_config.read(session.db_path.parent / home.RELAY_CONFIG_NAME)
+    relay_url = relay_config.lan_base_url(chosen[1]) if chosen is not None and chosen[0] == "lan" else None
     with session.reader() as conn:
         if migrations.has_table(conn, "relay_bundles"):
-            return {**sync_module.status(conn), "serving": None}
+            return {**sync_module.status(conn), "serving": None, "relay_url": relay_url}
         return {"bundles": {}, "records_unsent": conn.execute("SELECT count(*) FROM raw_records").fetchone()[0],
                 "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [], "last_pushed_at": None,
-                "last_pulled_at": None, "serving": None}
+                "last_pulled_at": None, "serving": None, "relay_url": relay_url}
 
 
 def _sync_event(session: Session, phase: str, state: str, counts: dict | None = None) -> None:
@@ -567,6 +577,14 @@ def pair_cancel(session: Session, call: Call) -> Any:
     raise ServeError("not_found", "there is no offer to cancel")
 
 
+# ---- the phone's own method ----
+
+def pair_forget(session: Session, call: Call) -> Any:
+    """``pair.forget`` is the phone app's method (Rust only): this core is never a phone, so it always refuses, with
+    no ``locked`` check first and whatever the params are."""
+    raise ServeError("unsupported_transport", "this core is not a phone; there is nothing to forget")
+
+
 # ---- tools ----
 
 @_unlocked_only
@@ -606,6 +624,7 @@ METHODS: dict[str, Handler] = {
     "key.status": key_status,
     "key.unlock": key_unlock,
     "key.cache": key_cache,
+    "key.lock": key_lock,
     "data.health": data_health,
     "data.metric": data_metric,
     "data.today": data_today,
@@ -623,6 +642,7 @@ METHODS: dict[str, Handler] = {
     "pair.confirm": pair_confirm,
     "pair.cancel": pair_cancel,
     "tools.call": tools_call,
+    "pair.forget": pair_forget,
 }
 
 

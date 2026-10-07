@@ -39,6 +39,19 @@ def read(path: pathlib.Path) -> tuple[str, str] | None:
     return None
 
 
+def lan_base_url(text: str) -> str | None:
+    """``http://host[:port]`` (no path, query, user info or TLS) for a LAN address, else None: the twin of the Rust
+    core's ``parse_base_url``, which refuses the same texts (here a refusal is None, since nothing is shown for it)."""
+    rest = text.strip()
+    if not rest.startswith("http://"):
+        return None
+    rest = rest[len("http://"):]
+    rest = rest[:-1] if rest.endswith("/") else rest
+    if not rest or not all(c.isascii() and (c.isalnum() or c in ".-:[]") for c in rest):
+        return None
+    return f"http://{rest}"
+
+
 def open_relay(kind: str, value: str) -> FolderRelay:
     """The relay a configuration names; a LAN one raises :class:`UnsupportedTransport`."""
     if kind == "lan":
