@@ -239,8 +239,9 @@ does after a crash). The CLI exits 5 for an unreachable, unverified or clock-ref
 `relay.json` is a list: `{"relays": [{"id": "<8 hex>", "kind": "folder"|"lan", "path"|"url": "...",
 "label"?: "...", "serve"?: true}]}`. The legacy `{"folder": path}` reads as one entry `default` **with
 `serve: true`**; the legacy `{"lan": url}` as one entry `default` (a non-empty `lan` still wins over
-`folder` in that form). `id` is `default` or 1–32 hex chars; a malformed entry, a duplicate id, an empty
-list or two `serve` entries make the file read as nothing (as `{"folder": 5}` does). Only the CLI
+`folder` in that form). `id` is `default` or 1–32 hex chars; a malformed entry, a duplicate id or two
+`serve` entries make the file read as nothing (as `{"folder": 5}` does); an empty list (`{"relays": []}`) reads as "no relay"
+everywhere (`sync relay add` appends to it; `sync relay remove` of the last entry deletes the file). Only the CLI
 rewrites it (`sync relay add|remove`, `--remember`), always in the list form with sorted keys (`id, kind, label,
 path|url, serve`; `label` only when non-empty, `serve` only when true); a folder is stored as typed. At most one entry serves:
 `relay.serve`, `pair.offer` and the offerer's push use that folder; no `serve` entry = a joiner.
@@ -266,13 +267,28 @@ fetches the same way.
 caller passed `"unavailable": true`), `same_relay` (a folder root already opened, by (device, inode); a
 LAN base address already opened), `bad_url` (a LAN address `parse_base_url` refuses),
 `unsupported_transport` (a `lan` entry on the Python core) — each **reported** on that site and skipped,
-never a refusal of the run. The core creates `<root>/<account>` under an existing root, never the root — except
-for the `serve` entry (and so the legacy `{"folder"}`), this Mac's own folder, which the first put creates as before.
+never a refusal of the run. A per-call `lan` entry (the phone's list) must also pass the pairing joiner's address
+class (an IP literal on a private or on-link network with an explicit port; never a name or a public address) or it
+is `bad_url` — the list is the one way an address reaches the sync without the joiner's checks. The core creates
+`<root>/<account>` under an existing root, never the root (a root that vanished after the open fails the put as
+`missing`; nothing is re-created on the boot disk) — except for the `serve` entry (and so the legacy `{"folder"}`),
+this Mac's own folder, which the first put creates as before.
+**Site words during the run** (review 2026-10-07, both cores, the one table the shells map): `too_large`,
+`bad_name`, `unreachable` (a LAN relay not answering, or any HTTP status), `refused` (a verified refusal: the
+clocks), `unverified`, `missing` (the folder or its account level is gone), `no_permission`, `io_error` (any other
+read or write failure, a re-pack that failed included). The stored `rejected` reason of a bundle keeps its own
+words (the oracle compares them); a site word is never a path, an address or an OS message. The heal lists with
+`list_present`: a folder relay counts an evicted cloud placeholder (`.<name>.icloud`) as present, so a provider
+that evicts a file is not fed the same name again with different bytes; the pull keeps `list` (a get of an evicted
+copy would fail). The heal re-packs only names under the current account; a stale account's rows (a rotation whose
+bookkeeping failed to clear) are ignored. An empty list file (`{"relays": []}`, what `sync relay remove` of the
+last entry leaves is nothing — the file is deleted — but an empty array still reads) is no relay; `--remember` on a
+list of more than one entry is refused (`sync relay add` keeps the list).
 **A list of exactly one entry is strict:** that relay's failure is raised as the run's error with the old codes and
 texts (`not_found` unreachable, `relay_auth_failed`, `relay_unverified`, `unsupported_transport` on the Python
 core); with two or more entries every failure is a site `error` and the run is `partial`.
-The result carries `sites: [{id, kind, pushed, healed, behind, pulled, rejected, error}]` (`error` a
-reason word, never a path, an address or an OS message); the run is `partial` when any site has an error
+The result carries `sites: [{id, kind, label, pushed, healed, behind, pulled, rejected, error}]` (`label` the
+entry's label, `""` when it has none — user text, never a path; `error` a reason word, never a path, an address or an OS message); the run is `partial` when any site has an error
 or the push stopped. The phone's shell owns its list (security-scoped bookmarks are per container) and
 passes it per call (`sync.run {"relays": [...]}`); the desktop reads `relay.json`.
 
