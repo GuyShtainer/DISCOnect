@@ -430,3 +430,33 @@ def test_a_midnight_hour_reads_its_samples_through_the_index(db_path):
         ("heart_rate", "device", "2025-06-01T18", "2025-06-01T19", "2025-06-01T18")))
     assert "ts_utc>? AND ts_utc<?" in plan, plan
     conn.close()
+
+
+def test_completeness_dst_night_twin(db_path):
+    """7b-12 review, minor: the day bounds read the offset nearest to each UTC midnight while a reading is
+    dated by the offset nearest to itself, so with an offset moment between a reading and the UTC midnight
+    the reading's worn seconds can land on the day next to the one its value averages into. Pinned here
+    on a spring-forward night (+1 h at 01:00Z) with a file that starts an hour before the change and a
+    file that starts after it; the twins agree (harmless for a fixed-zone watch, by design until a
+    reading's own offset is used for the bounds)."""
+    from disconect.ingest.clock import ClockOffsets
+    from disconect.ingest.model import ClockOffset
+    before = datetime.datetime(2025, 3, 29, 22, 0, tzinfo=UTC)   # local 23:00 under +1 h
+    change = datetime.datetime(2025, 3, 30, 1, 30, tzinfo=UTC)   # local 03:30 under +2 h
+    end = datetime.datetime(2025, 3, 31, 0, 0, tzinfo=UTC)
+    with storage.open_for_write(db_path, "test") as conn:
+        first = _raw(conn, "fit:monitoring_b", "2025-03-29T22:00:00Z", "2025-03-30T01:30:00Z")
+        second = _raw(conn, "fit:monitoring_b", "2025-03-30T01:30:00Z", "2025-03-31T00:00:00Z")
+        ClockOffsets.persist(conn, [ClockOffset(before, 3600)], None, first)
+        ClockOffsets.persist(conn, [ClockOffset(change, 7200)], None, second)
+        _minutes(conn, first, "heart_rate", before, change)
+        _minutes(conn, second, "heart_rate", change, end)
+    conn = storage.open_read_only(db_path)
+    statuses = coverage.day_statuses(conn, "heart_rate", "device", "2025-03-29", "2025-03-31")
+    shares = coverage.day_completeness(conn, "heart_rate", "device", "2025-03-29", "2025-03-31")
+    # 22:00-23:00Z is dated 03-29 (local 23:xx under +1 h) -> present; but the 03-30 bound is 03-29T22:00Z
+    # (the UTC midnight 03-30T00:00Z is nearer the +2 h moment at 01:30Z than the +1 h one at 22:00Z), so
+    # that hour's covered and worn seconds land in 03-30 and 03-29 has no completeness at all
+    assert statuses == {"2025-03-29": "present", "2025-03-30": "present", "2025-03-31": "present"}
+    assert shares == {"2025-03-29": None, "2025-03-30": 100, "2025-03-31": 100}
+    conn.close()
