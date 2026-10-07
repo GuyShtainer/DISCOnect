@@ -512,7 +512,7 @@ def _run_sync(session: Session, master: bytes, specs: list[sync_module.SiteSpec]
         _sync_event(session, "push", "done", push)
         _sync_event(session, "pull", "start")
         try:
-            pulled = (sync_module.pull_strict if strict else sync_module.pull_all)(conn, master, sites, reports)
+            pulled = (sync_module.pull_strict if strict else sync_module.pull_all)(conn, master, sites, reports, auto)
         except Exception:
             keep()
             raise

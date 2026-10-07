@@ -35,14 +35,15 @@ for FIT also = `source_key`; `payload_bytes` matches) → the normal `Writer` as
 same bytes under another stream label from another core version are one record), then JSON
 records through the export decoders, then the readiness batch re-decode if any arrived, then the
 derived dailies. Ranges union. A bundle that fails any check is recorded `rejected` with a
-class-name reason and retried on the next pull (a rejection counts as a failed file, so the
-`relay` import run ends `partial`); other bundles proceed. A bundle is marked `applying` when its
+class-name reason (a rejection counts as a failed file, so the `relay` import run ends `partial`); a click, the
+CLI and the phone's pull retry it on every pull, while the desktop's automatic run holds it for a day (see Back-off);
+other bundles proceed. A bundle is marked `applying` when its
 records start landing and `applied` only after the derived dailies ran; a pull that finds an
 `applying` bundle (a crash) applies it again and re-derives its streams in full. Applying is
 idempotent: a re-pull changes nothing. Objects larger than any bundle can be are refused before
 they are read; a zlib bomb stops at the 64 MB plaintext cap. A renamed copy of an object is
-rejected on every pull (`authentication_failed`), so the operator's stray copy keeps a pull
-`partial` until it is removed.
+rejected on every pull that does not hold (`authentication_failed`), so the operator's stray copy keeps a click's
+pull `partial` until it is removed; the desktop's automatic run retries it once a day.
 
 ## Conflict rule
 JSON streams keyed by a date can carry two different records for one key (a mid-day export and a
@@ -79,9 +80,14 @@ the relay does not repair it (the hash still matches, so a peer's copy counts as
 such a device can differ by that record's rows until the bytes are restored (BACKLOG). An import
 re-derives every JSON stream in the store, so an interrupted import is healed by running it again (its run row is marked `interrupted` on the next write open).
 
-Back-off (BL-4b): a name booked `rejected` is left out of the next pulls while its booking (`noted_at`, the core's clock)
-is younger than 24 h, then retried once; a held-back name is not a failure of the run, and the per-site `rejected`
-counter marks a site only when the name ends rejected (a copy another site satisfied marks nothing).
+Back-off (BL-4b): only the desktop's automatic run (`sync.run` with `auto`) holds a name booked `rejected`: it leaves
+the name out while its booking (`noted_at`, the core's clock) is at least 0 and under 24 h old, then retries it once
+a day. A click, the CLI, the phone's pull and the single-relay `pull` always retry. A booking whose reason is an I/O
+failure of the folder (`OSError`, `TimeoutError`, `BlockingIOError`, `InterruptedError`, `BrokenPipeError`,
+`PermissionError`, `IsADirectoryError`, `NotADirectoryError`, `FileExistsError`) is never held, and a booking in the
+future (a clock set back) counts as expired, so an automatic run never parks a good bundle behind a hiccup. A
+held-back name is not a failure of the run, and the per-site `rejected` counter marks a site only when the name
+ends rejected on every site that holds it (a copy another site satisfied marks nothing).
 
 ## Echo prevention and ordering
 `relay_seen` marks every record pushed **or received**; push = records not in it (pulled rows keep
@@ -267,9 +273,9 @@ nothing keys on the bytes. No schema change: a site holds what its listing shows
 
 **Pull.** The union of the listings minus the applied names; each name is tried on every site that lists
 it, in list order, until one `get`s and unpacks. A transient error (unreachable, unverified, a clock
-refusal, a status) takes that site out of the run; a non-transient error or a failed unpack counts as
-`rejected` on that site and the next site is tried; a name is booked `rejected` only when every site
-failed it, and stays pending (unbooked) when every site that lists it was transient. `repair_damaged`
+refusal, a status) takes that site out of the run; a non-transient error or a failed unpack is tried on the
+next site, and a site is marked `rejected` only when the name ends rejected on every site that holds it; a name is
+booked `rejected` only when every site failed it, and stays pending (unbooked) when every site that lists it was transient. `repair_damaged`
 fetches the same way.
 
 **Sites.** Before the run every entry is opened: `unavailable` (the folder root is missing, or the

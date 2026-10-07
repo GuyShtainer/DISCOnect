@@ -187,13 +187,12 @@ def test_late_and_out_of_order_bundles_are_applied_and_rejected_ones_retried(tmp
     relay.put(garbage, secrets.token_bytes(70_000))
     r = _pull(b, relay)
     assert r.applied == [first] and set(r.rejected) == {garbage} and r.status == "partial"
-    # a late bundle (older data, pushed after) is applied on the next pull; the garbage is retried and rejected again
+    # a late bundle (older data, pushed after) is applied on the next pull; the garbage is retried and rejected again: pull() never holds (only the desktop auto run does)
     (folder / "0.fit").write_bytes(_monitoring_day(datetime.datetime(2025, 6, 12, 21, 0, tzinfo=UTC), 500))
     _import(a, folder)
     second = _push(a, relay).bundles[0]
     r2 = _pull(b, relay)
-    # BL-4b: the garbage booked a moment ago is held back (retried once a day), so this run is clean
-    assert r2.applied == [second] and r2.rejected == {} and r2.status == "ok"
+    assert r2.applied == [second] and set(r2.rejected) == {garbage}
     assert _keys(a) == _keys(b)
     with storage.open_for_write(b, "test") as conn:
         report = sync.status(conn)

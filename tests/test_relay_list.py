@@ -185,9 +185,9 @@ def _push_all(db, sites, reports):
         return push_all(conn, MASTER, sites, reports)
 
 
-def _pull_all(db, sites, reports):
+def _pull_all(db, sites, reports, hold_rejected=False):
     with storage.open_for_write(db, "sync") as conn:
-        return pull_all(conn, MASTER, sites, reports)
+        return pull_all(conn, MASTER, sites, reports, hold_rejected)
 
 
 def _count(db, sql: str) -> int:
@@ -364,28 +364,73 @@ def test_a_rejected_name_is_not_fetched_again_for_a_day_and_the_run_is_ok(tmp_pa
     monkeypatch.setattr(FolderRelay, "get", counting_get)
     b = _device(tmp_path, "b")
     sites, reports = _open(roots[0])
-    run1 = _pull_all(b, sites, reports)
+    run1 = _pull_all(b, sites, reports, True)
     assert (list(run1.rejected), run1.status, reports[0].rejected) == ([first], "partial", 1)
     assert fetched == [first]
     assert _booked(b, first) == "2026-03-01T10:00:00Z"
-    # a second bundle arrives an hour later: the garbage is held back, the run is clean
+    # a run that does not hold (a click, the CLI, the phone) fetches it again at once, rejects it again, and the
+    # booking moves to the new time
+    monkeypatch.setenv("DISCONECT_NOW", "2026-03-01T10:30:00Z")
+    fetched.clear()
+    sites, reports = _open(roots[0])
+    click = _pull_all(b, sites, reports, False)
+    assert (list(click.rejected), click.status, reports[0].rejected) == ([first], "partial", 1)
+    assert fetched == [first]
+    assert _booked(b, first) == "2026-03-01T10:30:00Z"
+    # a second bundle arrives half an hour later: under an automatic run the garbage is held back, the run is clean
     monkeypatch.setenv("DISCONECT_NOW", "2026-03-01T11:00:00Z")
     _import_day(a, tmp_path, "2025-06-16", 5000, "2025-06-16T12:00:00.0")
     second = _push_all(a, sites, _fresh(1)).bundles[0]
     fetched.clear()
     sites, reports = _open(roots[0])
-    run2 = _pull_all(b, sites, reports)
+    run2 = _pull_all(b, sites, reports, True)
     assert run2.applied == [second] and run2.rejected == {} and run2.status == "ok"
     assert fetched == [second] and (reports[0].rejected, reports[0].pulled) == (0, 1)
-    assert _booked(b, first) == "2026-03-01T10:00:00Z"
+    assert _booked(b, first) == "2026-03-01T10:30:00Z"
     # a day after the booking it is retried once, rejected again, and the booking carries the new time
-    monkeypatch.setenv("DISCONECT_NOW", "2026-03-02T10:00:01Z")
+    monkeypatch.setenv("DISCONECT_NOW", "2026-03-02T10:30:01Z")
     fetched.clear()
     sites, reports = _open(roots[0])
-    run3 = _pull_all(b, sites, reports)
+    run3 = _pull_all(b, sites, reports, True)
     assert (list(run3.rejected), run3.status, reports[0].rejected) == ([first], "partial", 1)
     assert fetched == [first]
-    assert _booked(b, first) == "2026-03-02T10:00:01Z"
+    assert _booked(b, first) == "2026-03-02T10:30:01Z"
+
+
+def test_an_io_failure_is_never_held_and_a_booking_in_the_future_is_retried(tmp_path, monkeypatch):
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    monkeypatch.setenv("DISCONECT_NOW", "2026-03-01T10:00:00Z")
+    _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
+    sites, reports = _open(roots[0])
+    name = _push_all(a, sites, reports).bundles[0]
+    object_path = roots[0] / ACCOUNT / name.split("/", 1)[1]
+    good = object_path.read_bytes()
+    # run 1: a permission-denied read is booked rejected (a folder error is never transient)
+    object_path.chmod(0o000)
+    try:
+        b = _device(tmp_path, "b")
+        sites, reports = _open(roots[0])
+        run1 = _pull_all(b, sites, reports, True)
+        assert run1.rejected == {name: "PermissionError"} and run1.applied == []
+    finally:
+        object_path.chmod(0o644)
+    # run 2: the read is good again; the I/O reason is not held, so the bundle applies under hold true
+    sites, reports = _open(roots[0])
+    run2 = _pull_all(b, sites, reports, True)
+    assert run2.applied == [name] and run2.rejected == {} and run2.status == "ok"
+    # a booking in the future (a clock set back) counts as expired: fetched under hold true, booked at the new time
+    object_path.write_bytes(b"not a bundle")
+    c = _device(tmp_path, "c")
+    sites, reports = _open(roots[0])
+    assert list(_pull_all(c, sites, reports, True).rejected) == [name]
+    with storage.open_for_write(c, "test") as conn:
+        conn.execute("UPDATE relay_bundles SET noted_at='2026-03-05T10:00:00Z' WHERE name=?", (name,))
+    sites, reports = _open(roots[0])
+    run4 = _pull_all(c, sites, reports, True)
+    assert (list(run4.rejected), run4.status, reports[0].rejected) == ([name], "partial", 1)
+    assert _booked(c, name) == "2026-03-01T10:00:00Z"
+    object_path.write_bytes(good)
 
 
 def test_a_copy_damaged_on_site_one_and_good_on_site_two_marks_site_one_nothing(tmp_path):

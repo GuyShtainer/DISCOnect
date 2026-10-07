@@ -8,7 +8,8 @@ Pull  = ``relay.list(account)`` minus ``relay_bundles`` (a set difference: no wa
         (clock-offset pre-pass, dedup by the bytes' sha256 alone), then JSON records through the
         same decoders the export import uses, then the touched JSON streams re-derived in content order (readiness as a batch),
         then the derived dailies. Ranges merge as a union. A bundle that fails authentication or
-        validation is recorded ``rejected`` and retried on the next pull; it never blocks the rest.
+        validation is recorded ``rejected``; it never blocks the rest. A click, the CLI and the phone's pull retry it on every pull;
+        the desktop's automatic run holds it a day (I/O reasons and future bookings excepted).
 
 Conflict rule (JSON streams keyed by date only): same (stream, source_key), different
 payload_hash → the record whose decoded facts carry the later observed time wins (``end_utc``,
@@ -624,24 +625,27 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
     """:func:`pull_all` over one site, its failure raised as an error (the CLI's ``--relay``, pairing, tests)."""
     reports = [SiteReport("default", "folder")]
     faults: list[Exception | None] = [None]
-    result = _pull_core(conn, master, [(relay, 0)], reports, faults)
+    result = _pull_core(conn, master, [(relay, 0)], reports, faults, False)
     if faults[0] is not None:
         raise faults[0]
     return result
 
 
-def pull_all(conn: sqlite.Connection, master: bytes, sites: list[Site], reports: list[SiteReport]) -> PullResult:
+def pull_all(conn: sqlite.Connection, master: bytes, sites: list[Site], reports: list[SiteReport],
+             hold_rejected: bool = False) -> PullResult:
     """Fetch and apply every bundle any site lists that this store has not applied: the union of the listings, each
     name tried on every site that lists it, in site order, until one unpacks (``rejected`` only when all fail). A
     site that cannot be listed contributes nothing; a transient failure skips that site for the rest of the run and
-    leaves its names pending (the run is ``partial``). Failures are the reports' ``error``, never the run's."""
-    return _pull_core(conn, master, _targets(sites), reports, [None] * len(sites))
+    leaves its names pending (the run is ``partial``). Failures are the reports' ``error``, never the run's.
+    ``hold_rejected`` (the desktop's automatic run only) leaves out a name booked ``rejected`` less than a day ago."""
+    return _pull_core(conn, master, _targets(sites), reports, [None] * len(sites), hold_rejected)
 
 
-def pull_strict(conn: sqlite.Connection, master: bytes, sites: list[Site], reports: list[SiteReport]) -> PullResult:
+def pull_strict(conn: sqlite.Connection, master: bytes, sites: list[Site], reports: list[SiteReport],
+                hold_rejected: bool = False) -> PullResult:
     """:func:`pull_all` for a list of one: the site's first failure is raised as the error, its report is filled all the same."""
     faults: list[Exception | None] = [None] * len(sites)
-    result = _pull_core(conn, master, _targets(sites), reports, faults)
+    result = _pull_core(conn, master, _targets(sites), reports, faults, hold_rejected)
     first = next((fault for fault in faults if fault is not None), None)
     if first is not None:
         raise first
@@ -651,29 +655,38 @@ def pull_strict(conn: sqlite.Connection, master: bytes, sites: list[Site], repor
 REJECTED_BACKOFF_SECONDS = 24 * 3600   # a name booked rejected is not fetched again for a day
 
 
+# Reasons of a folder I/O failure: a hiccup of the storage says nothing about the bundle, so such a name is never held
+# (the Rust twin's HOLD_EXEMPT_REASONS is the same list).
+HOLD_EXEMPT_REASONS = frozenset({"OSError", "TimeoutError", "BlockingIOError", "InterruptedError", "BrokenPipeError",
+                                 "PermissionError", "IsADirectoryError", "NotADirectoryError", "FileExistsError"})
+
+
 def _held_back(conn: sqlite.Connection) -> set[str]:
-    """Names booked ``rejected`` less than a day ago (the core's clock): left out of the run, retried once a day."""
+    """Names booked ``rejected`` less than a day ago (the core's clock), not for an I/O reason and not booked in the
+    future (a clock set back): left out of an automatic run, retried once a day."""
     now = now_utc()
     held = set()
-    for name, noted_at in conn.execute("SELECT name, noted_at FROM relay_bundles WHERE status='rejected'").fetchall():
+    for name, noted_at, reason in conn.execute("SELECT name, noted_at, reason FROM relay_bundles WHERE status='rejected'").fetchall():
+        if reason in HOLD_EXEMPT_REASONS:
+            continue
         try:
             booked = parse_iso_utc(noted_at)
         except (ValueError, TypeError):
             continue
-        if (now - booked).total_seconds() < REJECTED_BACKOFF_SECONDS:
+        if 0 <= (now - booked).total_seconds() < REJECTED_BACKOFF_SECONDS:
             held.add(name)
     return held
 
 
 def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], reports: list[SiteReport],
-               faults: list[Exception | None]) -> PullResult:
+               faults: list[Exception | None], hold_rejected: bool) -> PullResult:
     """Stored copies the relays carried are verified first and repaired from them when damaged (``records_repaired``)."""
     account = account_for(master)
     result = PullResult()
     _repair_damaged(conn, master, relays, result)
     known = {row[0] for row in conn.execute("SELECT name FROM relay_bundles WHERE status='applied'").fetchall()}
     half_applied = {row[0] for row in conn.execute("SELECT name FROM relay_bundles WHERE status='applying'").fetchall()}
-    held_back = _held_back(conn)
+    held_back = _held_back(conn) if hold_rejected else set()
     # the union of the listings in first-seen order (site order, then listing order), each name with its sites
     pending: dict[str, list[int]] = {}
     for position, (relay, report) in enumerate(relays):

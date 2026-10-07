@@ -190,7 +190,7 @@ def _run_sync_list(args: argparse.Namespace, db_path: pathlib.Path, master: byte
             pushed = (sync_module.push_strict if strict else sync_module.push_all)(conn, master, sites, reports)
             _print_push(args, pushed, shown())
             return EXIT_FAILED if pushed.partial or failed() else EXIT_OK
-        pulled = (sync_module.pull_strict if strict else sync_module.pull_all)(conn, master, sites, reports)
+        pulled = (sync_module.pull_strict if strict else sync_module.pull_all)(conn, master, sites, reports, False)
         _print_pull(args, pulled, shown())
         return EXIT_OK if pulled.status == "ok" else EXIT_FAILED
 
