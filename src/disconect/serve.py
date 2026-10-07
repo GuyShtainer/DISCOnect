@@ -484,7 +484,7 @@ def _sync_event(session: Session, phase: str, state: str, counts: dict | None = 
         session.channel.event({"event": "progress", "op": "sync", "phase": phase, "state": state, **(counts or {})})
 
 
-def _run_sync(session: Session, master: bytes, specs: list[sync_module.SiteSpec]) -> dict:
+def _run_sync(session: Session, master: bytes, specs: list[sync_module.SiteSpec], auto: bool = False) -> dict:
     """Push, then pull, over one connection and one hold of the write lock (never waiting for it), over every relay
     of the list. Counts only: bundle names are random per push and nothing in a UI needs them. A list of one raises
     its relay's failure as the error (the single-relay behaviour); a longer list reports each site's failure in
@@ -494,8 +494,13 @@ def _run_sync(session: Session, master: bytes, specs: list[sync_module.SiteSpec]
         strict = len(specs) == 1
 
         def keep() -> None:
+            rows = [report.as_dict() for report in reports]
             with session.sites_lock:
-                session.last_sites = [report.as_dict() for report in reports]
+                if auto and session.last_sites:
+                    # an auto run never opened a ``not_auto`` site: the click's row (counts, error, label) stays the news
+                    old = {row["id"]: row for row in session.last_sites}
+                    rows = [old.get(row["id"], row) if row["error"] == "not_auto" else row for row in rows]
+                session.last_sites = rows
 
         _sync_event(session, "push", "start")
         try:
@@ -523,9 +528,9 @@ def _run_sync(session: Session, master: bytes, specs: list[sync_module.SiteSpec]
             "status": "partial" if partial else "ok"}
 
 
-def _sync_worker(session: Session, call: Call, master: bytes, specs: list[sync_module.SiteSpec]) -> None:
+def _sync_worker(session: Session, call: Call, master: bytes, specs: list[sync_module.SiteSpec], auto: bool) -> None:
     """The worker thread body: sync, free the slot, then answer the request."""
-    line = _line_for(call.id, lambda: _run_sync(session, master, specs))
+    line = _line_for(call.id, lambda: _run_sync(session, master, specs, auto))
     session.import_slot.release()
     with contextlib.suppress(OSError):
         session.channel.write(line)
@@ -603,6 +608,8 @@ def sync_run(session: Session, call: Call) -> Any:
             raise ServeError("not_folder", "auto sync runs over folder relays only; the list has none")
         for spec in specs:
             spec.not_auto = spec.kind == "lan"
+            # a timer never creates a vanished root (a deleted or signed-out cloud folder): it is ``unavailable``
+            spec.create_root = False
     strict_lan = len(specs) == 1 and not specs[0].unavailable and specs[0].kind == "lan"
     if strict_lan:
         # a list of one with a malformed address is refused before anything is opened; a well-formed one is a
@@ -626,7 +633,7 @@ def sync_run(session: Session, call: Call) -> Any:
         raise relay_config.UnsupportedTransport(relay_config.LAN_TEXT)
     if not held:
         raise ServeError("busy", "an import or a sync is already running")
-    session.import_thread = threading.Thread(target=_sync_worker, args=(session, call, master, specs), name="sync")
+    session.import_thread = threading.Thread(target=_sync_worker, args=(session, call, master, specs, auto), name="sync")
     session.import_thread.start()
     return _DEFERRED
 

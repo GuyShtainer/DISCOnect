@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import socket
 import threading
 
 import pytest
@@ -385,20 +386,64 @@ def test_auto_runs_the_folder_sites_and_reports_lan_not_auto(encrypted, db_path,
     for root in (one, two):
         root.mkdir()
     # on this core a lan entry would otherwise be unsupported_transport; under auto it is never looked at
+    # a listener that counts: a connection attempt of the run would be an accept
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+    listener.setblocking(False)
     _relay_json(db_path, {"relays": [
         {"id": "0000000a", "kind": "folder", "path": str(one)},
         {"id": "0000000b", "kind": "folder", "path": str(two)},
-        {"id": "0000000c", "kind": "lan", "url": "http://127.0.0.1:9", "label": "mac"}]})
+        {"id": "0000000c", "kind": "lan", "url": f"http://127.0.0.1:{listener.getsockname()[1]}", "label": "mac"}]})
     result = encrypted.result("sync.run", auto=True)
     assert result["status"] == "ok"
     assert _sites_ids(result) == [("0000000a", "folder", None), ("0000000b", "folder", None),
                                   ("0000000c", "lan", "not_auto")]
+    accepted = []
+    try:
+        listener.accept()
+        accepted.append(1)
+    except BlockingIOError:
+        pass
+    listener.close()
+    assert accepted == [], "no connection was opened"
+
     assert [s["pushed"] for s in result["sites"]] == [1, 1, 0]
     lan = {"id": "0000000c", "kind": "lan", "label": "mac", "pushed": 0, "healed": 0, "behind": 0, "pulled": 0,
            "rejected": 0, "error": "not_auto"}
     assert result["sites"][2] == lan
     status = encrypted.result("sync.status")
     assert status["relays"][2] == lan and status["relay_kind"] == "mixed"
+
+
+def test_an_auto_run_never_creates_a_vanished_serve_root_and_a_click_does(encrypted, db_path, tmp_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    root = tmp_path / "cloud"
+    root.mkdir()
+    _relay_json(db_path, {"relays": [{"id": "0000000a", "kind": "folder", "path": str(root), "serve": True}]})
+    shutil.rmtree(root)
+    response = encrypted.send("sync.run", auto=True)
+    assert not root.exists(), "an auto run does not re-create the root"
+    assert response["result"]["status"] == "partial", response
+    assert response["result"]["sites"][0]["error"] == "unavailable"
+    assert encrypted.result("sync.status")["relays"][0]["error"] == "unavailable"
+    assert encrypted.result("sync.run")["status"] == "ok"
+    assert root.is_dir(), "a click re-creates the serve root"
+
+
+def test_an_auto_run_keeps_each_not_auto_sites_click_row_in_the_remembered_relays(encrypted, db_path, tmp_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    folder = tmp_path / "one"
+    folder.mkdir()
+    _relay_json(db_path, {"relays": [
+        {"id": "0000000a", "kind": "folder", "path": str(folder)},
+        {"id": "0000000b", "kind": "lan", "url": "http://127.0.0.1:9", "label": "mac"}]})
+    assert encrypted.result("sync.run")["sites"][1]["error"] == "unsupported_transport"  # this core has no lan transport
+    click_lan = encrypted.result("sync.status")["relays"][1]
+    assert encrypted.result("sync.run", auto=True)["sites"][1]["error"] == "not_auto"
+    relays = encrypted.result("sync.status")["relays"]
+    assert relays[1] == click_lan and relays[1]["error"] == "unsupported_transport"
+    assert relays[0]["pushed"] == 0, "the folder row is the auto run's own"
 
 
 def test_auto_with_no_folder_site_is_not_folder(encrypted, db_path):
