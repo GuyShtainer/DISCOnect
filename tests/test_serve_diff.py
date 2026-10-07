@@ -87,7 +87,8 @@ def test_the_relay_list_path_is_allowed_only_at_sync_status_relay_list_and_maske
     walk = serve_diff.privacy_walk
     assert walk([json.dumps(line)], (), "sync.status") == []
     assert walk([json.dumps(line)], (), methods={7: "sync.status"}) == []
-    assert walk([json.dumps(line)], (), "sync.run") == ["forbidden key at .result.relay_list[0]"]
+    assert sorted(set(walk([json.dumps(line)], (), "sync.run"))) == [
+        "forbidden key at .result.relay_list[0]", "forbidden text at .result.relay_list[0].path", "manufacturer name at .result.relay_list[0].path"]
     assert walk([json.dumps({"id": 7, "result": {"other": [{"path": "p"}]}})], (), "sync.status") \
         == ["forbidden key at .result.other[0]"]
     # masked only when the path IS the core's own scratch relay; a fixed literal compares unmasked
