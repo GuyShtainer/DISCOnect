@@ -12,6 +12,7 @@ import contextlib
 import dataclasses
 import ipaddress
 import json
+import math
 import os
 import pathlib
 import re
@@ -86,6 +87,36 @@ def _parse_entry(value: object) -> RelayEntry | None:
     return RelayEntry(ident, kind, place, label, serve)
 
 
+def _refuse_constant(name: str) -> object:
+    raise ValueError(f"not a JSON number: {name}")
+
+
+def _finite(text: str) -> float:
+    number = float(text)
+    if not math.isfinite(number):
+        raise ValueError("number out of range")
+    return number
+
+
+def _integer(text: str) -> int | float:
+    # an integer the Rust core cannot hold as i64/u64 is read as a float there; one beyond f64 is refused
+    number = int(text)
+    return number if -(2 ** 63) <= number < 2 ** 64 else _finite(text)
+
+
+def strict_json(text: str) -> object:
+    """``json.loads`` with the Rust core's (serde_json's) refusals, so a hand-edited file reads the same on both cores:
+    no ``NaN``/``Infinity``, no number beyond f64, no lone surrogate escape (``"\\ud800"`` is not text)."""
+    value = json.loads(text, parse_constant=_refuse_constant, parse_float=_finite, parse_int=_integer)
+    json.dumps(value, ensure_ascii=False).encode("utf-8")  # UnicodeEncodeError (a ValueError) on a lone surrogate
+    return value
+
+
+# What the Rust core's ``str::trim`` removes (Unicode White_Space); Python's ``str.strip()`` also strips U+001C–U+001F
+# and would read a url the Rust core refuses.
+WHITE_SPACE = "\t\n\x0b\x0c\r \x85\xa0\u1680" + "".join(chr(c) for c in range(0x2000, 0x200B)) + "\u2028\u2029\u202f\u205f\u3000"
+
+
 def read_list(path: pathlib.Path) -> list[RelayEntry] | None:
     """The list in ``relay.json``, or None when the file is missing, unreadable, not an object, or names nothing.
     ``{"relays": []}`` is an empty list: every caller reads it as "no relay", never as malformed.
@@ -95,7 +126,7 @@ def read_list(path: pathlib.Path) -> list[RelayEntry] | None:
     ``{"folder": ...}`` is the one entry ``default`` with ``serve: true``; a legacy ``{"lan": ...}`` is the one entry
     ``default`` (a non-empty ``lan`` string wins over ``folder``, as ever)."""
     try:
-        value = json.loads(path.read_text())
+        value = strict_json(path.read_text())
     except (OSError, ValueError):
         return None
     if not isinstance(value, dict):
@@ -185,7 +216,7 @@ def open_entry(entry: RelayEntry) -> FolderRelay:
 def parse_base_url(text: str) -> str:
     """``http://host[:port]`` (no path, query, user info or TLS), without a trailing slash: the twin of the Rust
     core's ``parse_base_url``. The :class:`ValueError` text names the rule, never the address."""
-    rest = text.strip()
+    rest = text.strip(WHITE_SPACE)
     if rest.startswith("https://"):
         raise ValueError("a LAN relay is plain http:// (the bodies are encrypted; https is not supported)")
     if not rest.startswith("http://"):

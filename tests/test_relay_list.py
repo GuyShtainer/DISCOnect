@@ -75,9 +75,26 @@ def test_the_list_form_wins_and_every_malformed_case_reads_as_nothing(tmp_path):
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a"}, {"id": "ab", "kind": "folder", "path": "/b"}]}',
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "serve": true},'
         ' {"id": "cd", "kind": "folder", "path": "/b", "serve": true}]}',
+        # what the Rust core's JSON reader refuses (BL-8): a lone surrogate escape, NaN/Infinity, a number beyond f64
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "\\ud800"}]}',
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": NaN}]}',
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": -Infinity}]}',
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": 1e400}]}',
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": 1%s}]}' % ("0" * 400),
     ):
         path.write_text(bad)
         assert relay_config.read_list(path) is None, bad
+    # an extra key the Rust core can hold is no reason to refuse
+    path.write_text('{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": 18446744073709551615, "y": 1e300}]}')
+    assert relay_config.read_list(path) == [RelayEntry("ab", "folder", "/a", "", False)]
+
+
+def test_a_lan_url_is_trimmed_of_white_space_only_like_the_rust_core(tmp_path):
+    """BL-8: ``str.strip()`` would also remove U+001C–U+001F and read a url the Rust core's ``trim`` refuses."""
+    assert relay_config.lan_base_url(" http://10.0.0.1:1 ") == "http://10.0.0.1:1"
+    assert relay_config.lan_base_url("\u3000http://10.0.0.1:1\n") == "http://10.0.0.1:1"
+    for bad in ("\x1fhttp://10.0.0.1:1", "http://10.0.0.1:1\x1c", "\x00http://10.0.0.1:1"):
+        assert relay_config.lan_base_url(bad) is None, repr(bad)
 
 
 def test_write_list_round_trips_in_sorted_keys_and_refuses_two_servers(tmp_path):
