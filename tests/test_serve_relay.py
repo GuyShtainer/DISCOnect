@@ -212,6 +212,8 @@ def test_pair_forget_is_the_phones_method_and_this_core_always_refuses_it(encryp
 NOT_A_PHONE = {"code": "unsupported_transport", "message": "this core is not a phone; it does not join a pairing"}
 CLOCK_EXPIRED = "This offer expired by this phone's clock. Check the date and time."
 CLOCK_AHEAD = "This offer is too far ahead of this phone's clock. Check the date and time."
+BAD_ADDRESS = "the offer's address cannot be a pairing address"
+FORGET_PENDING = "This phone has not finished forgetting its last pairing. Close and reopen the app, then try again."
 
 
 def _offer(url: str, exp: int) -> str:
@@ -241,12 +243,58 @@ def test_pair_join_runs_the_phones_prefix_in_order_then_refuses(db_path):
         ({"offer": _offer(url, now + 1500)}, failed(CLOCK_AHEAD)),
         ({"offer": _offer(url, now - 400)}, failed(CLOCK_EXPIRED)),
         ({"offer": _offer(url, now + 600)}, NOT_A_PHONE),
-        ({"offer": _offer(url, now - 100)}, NOT_A_PHONE),       # inside the 300 s tolerance
+        ({"offer": _offer(url, now - 100)}, failed(CLOCK_EXPIRED)),     # no tolerance past exp
+        ({"offer": _offer(url, now - 5)}, failed(CLOCK_EXPIRED)),
+        ({"offer": _offer("http://0.0.0.0:24816", 1000)}, bad(BAD_ADDRESS)),       # the class before the clock
         ({"offer": _offer("http://[fd00::5]:24816", now + 600)}, NOT_A_PHONE),
     ):
         assert rig.send("pair.join", **params)["error"] == expected, params
     # nothing of the offer is echoed
     assert "192.168" not in json.dumps(rig.send("pair.join", offer=_offer(url, now - 400)))
+
+
+def test_pair_join_refuses_addresses_that_are_never_a_pairing_address(db_path):
+    import time
+
+    rig = Rig(db_path)
+    now = int(time.time())
+    for host in ("0.0.0.0", "0.1.2.3", "255.255.255.255", "224.0.0.1", "239.255.255.250", "240.0.0.1", "169.254.1.1",
+                 "[::]", "[ff02::1]", "[fe80::1]", "[febf::1]", "[::ffff:0:0]", "[::ffff:a9fe:101]"):
+        reply = rig.send("pair.join", offer=_offer(f"http://{host}:24816", now + 600))
+        assert reply["error"] == {"code": "bad_params", "message": BAD_ADDRESS}, host
+    # loopback, private and global addresses pass the class check (stage 2 is the phone's alone)
+    for host in ("127.0.0.1", "[::1]", "10.0.0.5", "192.168.1.20", "100.64.0.1", "[fd00::5]", "8.8.8.8", "[fec0::1]",
+                 "[2001:4860:4860::8888]", "223.255.255.255", "169.253.1.1"):
+        reply = rig.send("pair.join", offer=_offer(f"http://{host}:24816", now + 600))
+        assert reply["error"] == NOT_A_PHONE, host
+
+
+def test_pair_join_trims_exactly_what_rust_trims(db_path):
+    import time
+
+    rig = Rig(db_path)
+    good = _offer("http://192.168.1.20:24816", int(time.time()) + 600)
+    for lead, trail in ((" ", "\n"), ("\u3000", ""), ("\x85", "\xa0"), ("\x0b\x0c", "\r"), ("\u2028", "\u202f")):
+        assert rig.send("pair.join", offer=lead + good + trail)["error"] == NOT_A_PHONE, repr((lead, trail))
+    # str.strip() would also strip these; Rust's str::trim does not
+    for text in ("\x1c" + good, good + "\x1f", "\x1d" + good, "\u200b" + good):
+        assert rig.send("pair.join", offer=text)["error"] == {
+            "code": "bad_params", "message": "that is not a pairing offer"}, repr(text[:2])
+
+
+def test_pair_join_refuses_after_an_unfinished_forget(db_path):
+    import time
+
+    rig = Rig(db_path)
+    now = int(time.time())
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    (db_path.parent / "forget.pending").write_bytes(b"")
+    url = "http://192.168.1.20:24816"
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == {
+        "code": "pair_failed", "message": FORGET_PENDING}
+    assert rig.send("pair.join", offer=_offer(url, 1000))["error"]["message"] == CLOCK_EXPIRED   # the clock first
+    db_path.write_bytes(b"x")                                                                 # "already paired" first
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"]["message"] == "This phone is already paired"
 
 
 def test_pair_join_refuses_an_already_paired_phone_after_the_expiry_check(db_path):
