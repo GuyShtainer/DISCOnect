@@ -79,13 +79,17 @@ the relay does not repair it (the hash still matches, so a peer's copy counts as
 such a device can differ by that record's rows until the bytes are restored (BACKLOG). An import
 re-derives every JSON stream in the store, so an interrupted import is healed by running it again (its run row is marked `interrupted` on the next write open).
 
+Back-off (BL-4b): a name booked `rejected` is left out of the next pulls while its booking (`noted_at`, the core's clock)
+is younger than 24 h, then retried once; a held-back name is not a failure of the run, and the per-site `rejected`
+counter marks a site only when the name ends rejected (a copy another site satisfied marks nothing).
+
 ## Echo prevention and ordering
 `relay_seen` marks every record pushed **or received**; push = records not in it (pulled rows keep
 their origin transport, so the marks alone stop echoes). After a rotation every device re-pushes
 what it holds, received records included: that is intended (the new account must hold everything).
 Per-device chains (`device_seq`, `prev`) travel inside the ciphertext; `sync status` reports a
 missing link as a gap, and lists the chains it holds (19b: per writer id among the applied bundles, the
-bundle and record counts, the highest `device_seq` and whether the id is this store's own; the row key is `chain`).
+bundle and record counts, the highest `device_seq`, `last_at` = the newest `created_utc` among them (BL-4b), and whether the id is this store's own; the row key is `chain`).
 Cost: `sync forget` (and a re-pair) wipes `relay_device` and `relay_bundles`, so the next push mints a new id, and
 nothing deletes relay objects: the old id's row stays on every device while its bundles stay on the relay, including
 on the device that forgot (where it reads as another writer). `records` counts what a writer's bundles carried, not

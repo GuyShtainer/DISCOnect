@@ -315,7 +315,8 @@ def test_a_pull_falls_through_a_bad_copy_to_the_next_site_and_applies_each_name_
     assert sorted(pulled.applied) == sorted([shared, lonely]), pulled
     assert pulled.rejected == {}, "a bad copy on one site is not a rejection"
     assert pulled.status == "ok"
-    assert (reports[0].rejected, reports[0].pulled) == (1, 0)
+    # BL-4b: the counter marks a site only when the name ends rejected; a copy another site satisfied marks nothing
+    assert (reports[0].rejected, reports[0].pulled) == (0, 0)
     assert (reports[1].rejected, reports[1].pulled) == (0, 2)
     assert _count(b, "SELECT count(*) FROM relay_bundles WHERE status='rejected'") == 0
     assert _count(b, "SELECT count(*) FROM relay_bundles WHERE direction='pulled' AND status='applied'") == 2
@@ -335,6 +336,88 @@ def test_a_name_every_site_rejects_is_rejected_once(tmp_path):
     assert (len(pulled.applied), len(pulled.rejected), pulled.status) == (0, 1, "partial")
     assert (reports[0].rejected, reports[1].rejected) == (1, 1)
     assert _count(b, "SELECT count(*) FROM relay_bundles WHERE status='rejected'") == 1
+
+
+def _booked(db, name: str) -> str:
+    conn = storage.open_read_only(db)
+    try:
+        return conn.execute("SELECT noted_at FROM relay_bundles WHERE name=? AND status='rejected'", (name,)).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_a_rejected_name_is_not_fetched_again_for_a_day_and_the_run_is_ok(tmp_path, monkeypatch):
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    monkeypatch.setenv("DISCONECT_NOW", "2026-03-01T10:00:00Z")
+    _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
+    sites, reports = _open(roots[0])
+    first = _push_all(a, sites, reports).bundles[0]
+    (roots[0] / ACCOUNT / first.split("/", 1)[1]).write_bytes(b"not a bundle")
+    fetched: list[str] = []
+    real_get = FolderRelay.get
+
+    def counting_get(self, name):
+        fetched.append(name)
+        return real_get(self, name)
+
+    monkeypatch.setattr(FolderRelay, "get", counting_get)
+    b = _device(tmp_path, "b")
+    sites, reports = _open(roots[0])
+    run1 = _pull_all(b, sites, reports)
+    assert (list(run1.rejected), run1.status, reports[0].rejected) == ([first], "partial", 1)
+    assert fetched == [first]
+    assert _booked(b, first) == "2026-03-01T10:00:00Z"
+    # a second bundle arrives an hour later: the garbage is held back, the run is clean
+    monkeypatch.setenv("DISCONECT_NOW", "2026-03-01T11:00:00Z")
+    _import_day(a, tmp_path, "2025-06-16", 5000, "2025-06-16T12:00:00.0")
+    second = _push_all(a, sites, _fresh(1)).bundles[0]
+    fetched.clear()
+    sites, reports = _open(roots[0])
+    run2 = _pull_all(b, sites, reports)
+    assert run2.applied == [second] and run2.rejected == {} and run2.status == "ok"
+    assert fetched == [second] and (reports[0].rejected, reports[0].pulled) == (0, 1)
+    assert _booked(b, first) == "2026-03-01T10:00:00Z"
+    # a day after the booking it is retried once, rejected again, and the booking carries the new time
+    monkeypatch.setenv("DISCONECT_NOW", "2026-03-02T10:00:01Z")
+    fetched.clear()
+    sites, reports = _open(roots[0])
+    run3 = _pull_all(b, sites, reports)
+    assert (list(run3.rejected), run3.status, reports[0].rejected) == ([first], "partial", 1)
+    assert fetched == [first]
+    assert _booked(b, first) == "2026-03-02T10:00:01Z"
+
+
+def test_a_copy_damaged_on_site_one_and_good_on_site_two_marks_site_one_nothing(tmp_path):
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
+    both, reports = _open(roots[0], roots[1])
+    name = _push_all(a, both, reports).bundles[0]
+    (roots[0] / ACCOUNT / name.split("/", 1)[1]).write_bytes(b"not a bundle")
+    b = _device(tmp_path, "b")
+    sites, reports = _open(roots[0], roots[1])
+    pulled = _pull_all(b, sites, reports)
+    assert pulled.applied == [name] and pulled.rejected == {} and pulled.status == "ok"
+    assert (reports[0].rejected, reports[0].pulled) == (0, 0)
+    assert (reports[1].rejected, reports[1].pulled) == (0, 1)
+
+
+def test_a_chains_last_at_is_the_newest_applied_bundles_created_utc(tmp_path, monkeypatch):
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    sites, _ = _open(roots[0])
+    for day, steps, stamp in (("2025-06-15", 4000, "2026-03-01T10:00:00Z"), ("2025-06-16", 5000, "2026-03-03T08:30:00Z")):
+        monkeypatch.setenv("DISCONECT_NOW", stamp)
+        _import_day(a, tmp_path, day, steps, f"{day}T12:00:00.0")
+        _push_all(a, sites, _fresh(1))
+    b = _device(tmp_path, "b")
+    monkeypatch.setenv("DISCONECT_NOW", "2026-03-09T00:00:00Z")
+    sites, reports = _open(roots[0])
+    assert len(_pull_all(b, sites, reports).applied) == 2
+    with storage.open_for_write(b, "sync") as conn:
+        (chain,) = sync.status(conn)["chains"]
+    assert (chain["bundles"], chain["last_at"]) == (2, "2026-03-03T08:30:00Z")
 
 
 class _Flaky:

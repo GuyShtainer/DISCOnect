@@ -192,7 +192,8 @@ def test_late_and_out_of_order_bundles_are_applied_and_rejected_ones_retried(tmp
     _import(a, folder)
     second = _push(a, relay).bundles[0]
     r2 = _pull(b, relay)
-    assert r2.applied == [second] and set(r2.rejected) == {garbage}
+    # BL-4b: the garbage booked a moment ago is held back (retried once a day), so this run is clean
+    assert r2.applied == [second] and r2.rejected == {} and r2.status == "ok"
     assert _keys(a) == _keys(b)
     with storage.open_for_write(b, "test") as conn:
         report = sync.status(conn)
@@ -200,6 +201,7 @@ def test_late_and_out_of_order_bundles_are_applied_and_rejected_ones_retried(tmp
     # 19b: the rejected object adds no chain row; A's chain is the one row, and it is not B's own
     (chain,) = report["chains"]
     assert (chain["bundles"], chain["last_seq"], chain["self"]) == (2, 2, False)
+    assert chain["last_at"] is not None
 
 
 def test_conflict_rule_is_order_independent_and_keeps_the_loser(tmp_path):

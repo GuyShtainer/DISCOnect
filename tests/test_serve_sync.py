@@ -492,7 +492,7 @@ def test_sync_status_chains_name_each_writer_with_counts_and_a_self_flag(encrypt
     b.result("sync.run")
     (row,) = _chains(encrypted)
     assert (row["bundles"], row["last_seq"], row["self"]) == (1, 1, True) and row["records"] > 0
-    assert len(row["chain"]) == 16 and set(row) == {"chain", "bundles", "records", "last_seq", "self"}
+    assert len(row["chain"]) == 16 and set(row) == {"chain", "bundles", "records", "last_seq", "self", "last_at"}
     (theirs,) = _chains(b)
     assert theirs == {**row, "self": False}
     # B publishes something of its own (a different day), A pulls: two rows sorted by id, each self on its own

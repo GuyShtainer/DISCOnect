@@ -42,6 +42,7 @@ from disconect.relay import config as relay_config
 from disconect.relay.bundle import BundleRejected, account_for, new_name, pack, unpack
 from disconect.relay.folder import FolderRelay, Relay
 from disconect.storage import parse_iso_utc, sqlite, utc_now_iso
+from disconect.storage._time import now_utc
 
 TRANSPORT_RELAY = "relay"
 PUSH_BYTES_LIMIT = 8 * 1024 * 1024
@@ -647,6 +648,23 @@ def pull_strict(conn: sqlite.Connection, master: bytes, sites: list[Site], repor
     return result
 
 
+REJECTED_BACKOFF_SECONDS = 24 * 3600   # a name booked rejected is not fetched again for a day
+
+
+def _held_back(conn: sqlite.Connection) -> set[str]:
+    """Names booked ``rejected`` less than a day ago (the core's clock): left out of the run, retried once a day."""
+    now = now_utc()
+    held = set()
+    for name, noted_at in conn.execute("SELECT name, noted_at FROM relay_bundles WHERE status='rejected'").fetchall():
+        try:
+            booked = parse_iso_utc(noted_at)
+        except (ValueError, TypeError):
+            continue
+        if (now - booked).total_seconds() < REJECTED_BACKOFF_SECONDS:
+            held.add(name)
+    return held
+
+
 def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], reports: list[SiteReport],
                faults: list[Exception | None]) -> PullResult:
     """Stored copies the relays carried are verified first and repaired from them when damaged (``records_repaired``)."""
@@ -655,6 +673,7 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
     _repair_damaged(conn, master, relays, result)
     known = {row[0] for row in conn.execute("SELECT name FROM relay_bundles WHERE status='applied'").fetchall()}
     half_applied = {row[0] for row in conn.execute("SELECT name FROM relay_bundles WHERE status='applying'").fetchall()}
+    held_back = _held_back(conn)
     # the union of the listings in first-seen order (site order, then listing order), each name with its sites
     pending: dict[str, list[int]] = {}
     for position, (relay, report) in enumerate(relays):
@@ -665,7 +684,7 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
             faults[position] = exc
             continue
         for name in listing:
-            if name not in known:
+            if name not in known and name not in held_back:
                 pending.setdefault(name, []).append(position)
     if any(fault is not None for fault in faults):
         result.status = "partial"
@@ -681,6 +700,7 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
         for name, holders in pending.items():
             fetched = None
             failed = 0
+            failed_at: list[int] = []   # the report of each failed copy, counted only if the name ends rejected
             first_reason: str | None = None
             for position in holders:
                 if skipped[position]:
@@ -697,7 +717,7 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
                         if faults[position] is None:
                             faults[position] = exc
                         continue
-                    reports[report].rejected += 1
+                    failed_at.append(report)
                     failed += 1
                     if first_reason is None:
                         first_reason = reason_of(exc)
@@ -705,7 +725,7 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
                 try:
                     unpacked = unpack(master, name, blob)
                 except BundleRejected as exc:
-                    reports[report].rejected += 1
+                    failed_at.append(report)
                     failed += 1
                     if first_reason is None:
                         first_reason = reason_of(exc)
@@ -716,6 +736,8 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
             if fetched is None:
                 if failed == len(holders):
                     reason = first_reason or ""
+                    for report in failed_at:
+                        reports[report].rejected += 1
                     result.rejected[name] = reason
                     writer.stats.files_failed += 1
                     conn.execute("INSERT OR REPLACE INTO relay_bundles(name, direction, status, noted_at, reason) "
@@ -898,8 +920,8 @@ def status(conn: sqlite.Connection) -> dict:
         "SELECT direction, max(noted_at) FROM relay_bundles WHERE status='applied' GROUP BY 1").fetchall()}
     own = conn.execute("SELECT device_id FROM relay_device WHERE id=1").fetchone()
     chains = [{"chain": row[0], "bundles": row[1], "records": row[2] or 0, "last_seq": row[3] or 0,
-               "self": own is not None and row[0] == own[0]} for row in conn.execute(
-        "SELECT device_id, count(*), sum(records), max(device_seq) FROM relay_bundles WHERE status='applied' "
+               "self": own is not None and row[0] == own[0], "last_at": row[4]} for row in conn.execute(
+        "SELECT device_id, count(*), sum(records), max(device_seq), max(created_utc) FROM relay_bundles WHERE status='applied' "
         "AND device_id IS NOT NULL GROUP BY device_id ORDER BY device_id").fetchall()]
     return {"bundles": counts, "records_unsent": unsent,
             "records_seen": conn.execute("SELECT count(*) FROM relay_seen").fetchone()[0],
