@@ -280,6 +280,9 @@ def test_the_gate_passes_on_the_committed_synthetic_stores(capsys, store, label,
     assert "post-import core_diff: 0 differing rows" in report and "import leg run_id equal: 8/8" in report
     assert "sync leg: 123 steps" in report and "identical 123, differing 0" in report
     assert "sync.run results: python 7, rust 7" in report and "post-sync core_diff: 0 differing rows" in report
+    # BL-7 review blocker: a step that removes relay.json turns every later bad_params check into not_found on both
+    # cores (identical, so the diff stays 0) — the code histogram pins the mix the leg must answer
+    assert "sync leg Rust error codes: None 32, bad_params 66, busy 5, locked 3, not_folder 1, not_found 6, pair_failed 10" in report
     assert "site leg: 8 pair.join steps beside no store, identical 8, differing 0" in report      # 12-H (d)
     assert "prefix passed (unsupported_transport) python 4, rust 4, expected 4" in report
     assert "site leg stores created: python False, rust False" in report
@@ -311,3 +314,4 @@ def test_the_gate_passes_through_the_apps_in_process_core(capsys, store, label):
     assert "import leg: " in report and ", differing 0" in report
     assert "post-import core_diff: 0 differing rows" in report
     assert "sync leg: 123 steps" in report and "identical 123, differing 0" in report
+    assert "sync leg Rust error codes: None 32, bad_params 66, busy 5, locked 3, not_folder 1, not_found 6, pair_failed 10" in report
