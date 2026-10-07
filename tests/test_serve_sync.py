@@ -81,7 +81,7 @@ def test_a_plaintext_store_reports_empty_counts_and_cannot_run(plain, db_path, t
     assert plain.result("sync.status")["bundles"] == {}
     status = plain.result("sync.status")
     assert set(status) == {"bundles", "records_unsent", "records_seen", "conflicts", "superseded", "gaps",
-                           "last_pushed_at", "last_pulled_at", "serving", "relay_url", "relays"}
+                           "last_pushed_at", "last_pulled_at", "serving", "relay_url", "relay_kind", "relays"}
     assert status["serving"] is None and status["relay_url"] is None and status["relays"] is None
     assert status["records_unsent"] > 0 and status["gaps"] == []
     assert status["last_pushed_at"] is None and status["last_pulled_at"] is None
@@ -112,7 +112,7 @@ def test_a_store_older_than_the_relay_tables_answers_like_a_fresh_one(db_path):
     conn.close()
     status = Rig(db_path).result("sync.status")
     assert status == {"bundles": {}, "records_unsent": 0, "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [],
-                      "last_pushed_at": None, "last_pulled_at": None, "serving": None, "relay_url": None, "relays": None}
+                      "last_pushed_at": None, "last_pulled_at": None, "serving": None, "relay_url": None, "relay_kind": None, "relays": None}
 
 
 def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted, db_path, tmp_path):
@@ -377,3 +377,52 @@ def test_a_strict_single_lan_failure_never_replaces_the_sites_of_a_run_in_flight
         "rejected": 0, "error": "unsupported_transport"}]
     assert encrypted.session.import_slot.acquire(blocking=False), "the slot was released"
     encrypted.session.import_slot.release()
+
+
+def test_auto_runs_the_folder_sites_and_reports_lan_not_auto(encrypted, db_path, tmp_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    one, two = tmp_path / "one", tmp_path / "two"
+    for root in (one, two):
+        root.mkdir()
+    # on this core a lan entry would otherwise be unsupported_transport; under auto it is never looked at
+    _relay_json(db_path, {"relays": [
+        {"id": "0000000a", "kind": "folder", "path": str(one)},
+        {"id": "0000000b", "kind": "folder", "path": str(two)},
+        {"id": "0000000c", "kind": "lan", "url": "http://127.0.0.1:9", "label": "mac"}]})
+    result = encrypted.result("sync.run", auto=True)
+    assert result["status"] == "ok"
+    assert _sites_ids(result) == [("0000000a", "folder", None), ("0000000b", "folder", None),
+                                  ("0000000c", "lan", "not_auto")]
+    assert [s["pushed"] for s in result["sites"]] == [1, 1, 0]
+    lan = {"id": "0000000c", "kind": "lan", "label": "mac", "pushed": 0, "healed": 0, "behind": 0, "pulled": 0,
+           "rejected": 0, "error": "not_auto"}
+    assert result["sites"][2] == lan
+    status = encrypted.result("sync.status")
+    assert status["relays"][2] == lan and status["relay_kind"] == "mixed"
+
+
+def test_auto_with_no_folder_site_is_not_folder(encrypted, db_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    _relay_json(db_path, {"lan": "http://127.0.0.1:9"})
+    assert encrypted.send("sync.run", auto=True)["error"] == {
+        "code": "not_folder", "message": "auto sync runs over folder relays only; the list has none"}
+    response = encrypted.send("sync.run", auto=True, relays=[{"id": "0000000a", "kind": "lan", "url": "http://8.8.8.8:1"}])
+    assert response["error"]["code"] == "not_folder"
+    assert encrypted.send("sync.run", auto=True, relays=[])["error"]["code"] == "not_found"
+
+
+def test_auto_must_be_true_or_absent(encrypted, db_path, tmp_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    _relay_json(db_path, {"folder": str(tmp_path / "relay")})
+    for bad in (False, None, 1, "true"):
+        assert encrypted.send("sync.run", auto=bad)["error"] == {"code": "bad_params", "message": "auto: true or absent"}, bad
+
+
+def test_relay_kind_in_sync_status(encrypted, db_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    assert encrypted.result("sync.status")["relay_kind"] is None
+    for body, kind in (({"relays": []}, None), ({"folder": "/f"}, "folder"), ({"lan": "http://127.0.0.1:9"}, "lan"),
+                       ({"relays": [{"id": "0000000a", "kind": "folder", "path": "/f"},
+                                    {"id": "0000000b", "kind": "lan", "url": "http://127.0.0.1:9"}]}, "mixed")):
+        _relay_json(db_path, body)
+        assert encrypted.result("sync.status")["relay_kind"] == kind, body

@@ -273,6 +273,9 @@ is `bad_url` — the list is the one way an address reaches the sync without the
 `<root>/<account>` under an existing root, never the root (a root that vanished after the open fails the put as
 `missing`; nothing is re-created on the boot disk) — except for the `serve` entry (and so the legacy `{"folder"}`),
 this Mac's own folder, which the first put creates as before.
+**`not_auto`** (19a): under `sync.run {"auto": true}` every `lan` entry is reported `not_auto` and never opened or
+connected to — a `lan` site is never polled on a schedule, only by a click; the run stays `ok` when that is the only
+site word (it is the rule, not a failure), and a list with no folder entry is refused `not_folder`.
 **Site words during the run** (review 2026-10-07, both cores, the one table the shells map): `too_large`,
 `bad_name`, `unreachable` (a LAN relay not answering, or any HTTP status), `refused` (a verified refusal: the
 clocks), `unverified`, `missing` (the folder or its account level is gone), `no_permission`, `io_error` (any other

@@ -459,19 +459,24 @@ def import_last(session: Session, call: Call) -> dict:
 def sync_status(session: Session, call: Call) -> dict:
     """The relay counts of the store (``sync status``): read-only, so a store older than the relay
     tables answers what a fresh one would. ``relay_url`` is the first LAN entry's ``http://host:port`` from
-    ``relay.json``, null when it names none (a folder relay has no address); ``relays`` is the ``sites`` of the
+    ``relay.json``, null when it names none (a folder relay has no address); ``relay_kind`` is ``folder``, ``lan`` or
+    ``mixed`` over the list's entries, null with no file or an empty list; ``relays`` is the ``sites`` of the
     last ``sync.run`` of this session, null before the first."""
     entries = relay_config.read_list(session.db_path.parent / home.RELAY_CONFIG_NAME)
     lan = relay_config.first_lan_url(entries) if entries else None
     relay_url = relay_config.lan_base_url(lan) if lan is not None else None
+    kinds = {entry.kind for entry in entries or []}
+    relay_kind = None if not kinds else next(iter(kinds)) if len(kinds) == 1 else "mixed"
     with session.sites_lock:
         relays = session.last_sites
     with session.reader() as conn:
         if migrations.has_table(conn, "relay_bundles"):
-            return {**sync_module.status(conn), "serving": None, "relay_url": relay_url, "relays": relays}
+            return {**sync_module.status(conn), "serving": None, "relay_url": relay_url, "relay_kind": relay_kind,
+                    "relays": relays}
         return {"bundles": {}, "records_unsent": conn.execute("SELECT count(*) FROM raw_records").fetchone()[0],
                 "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [], "last_pushed_at": None,
-                "last_pulled_at": None, "serving": None, "relay_url": relay_url, "relays": relays}
+                "last_pulled_at": None, "serving": None, "relay_url": relay_url, "relay_kind": relay_kind,
+                "relays": relays}
 
 
 def _sync_event(session: Session, phase: str, state: str, counts: dict | None = None) -> None:
@@ -513,7 +518,7 @@ def _run_sync(session: Session, master: bytes, specs: list[sync_module.SiteSpec]
                 "records_kept": pulled.records_kept, "gaps": len(pulled.gaps), "status": pulled.status}
         _sync_event(session, "pull", "done", pull)
         keep()
-    partial = pushed.partial or pulled.status != "ok" or any(report.error is not None for report in reports)
+    partial = pushed.partial or pulled.status != "ok" or any(report.error not in (None, "not_auto") for report in reports)
     return {"push": push, "pull": pull, "sites": [report.as_dict() for report in reports],
             "status": "partial" if partial else "ok"}
 
@@ -572,8 +577,8 @@ def _relays_param(value: Any) -> list[sync_module.SiteSpec]:
 def sync_run(session: Session, call: Call) -> Any:
     """Start a push-then-pull over the relays of the call's ``relays`` param, else of ``relay.json``; the answer is
     sent when it finishes. Checked in this order: unlocked (``locked``), a relay configured (``not_found``; an empty
-    ``relays`` counts as none), an encrypted store (``not_encrypted``), the shape of ``relays`` (``bad_params``), a
-    list of one that is a malformed or a ``lan`` address (``bad_params``, ``unsupported_transport``: this core has no
+    ``relays`` counts as none), an encrypted store (``not_encrypted``), the shape of ``relays`` and ``auto`` (``bad_params``), ``auto`` over a list with no
+    folder site (``not_folder``), a list of one that is a malformed or a ``lan`` address (``bad_params``, ``unsupported_transport``: this core has no
     LAN transport), the slot shared with ``import.run`` (``busy``)."""
     not_found = ServeError("not_found", "no relay is configured (relay.json in the data folder)")
     per_call = "relays" in call.params
@@ -589,7 +594,15 @@ def sync_run(session: Session, call: Call) -> Any:
     master = storage.unlocked_master(session.db_path)
     if master is None:
         raise ServeError("not_encrypted", f"the relay needs an encrypted store: run '{identity.COMMAND} key init' first")
+    auto = call.params.get("auto", False)
+    if "auto" in call.params and auto is not True:
+        raise ServeError("bad_params", "auto: true or absent")
     specs = _relays_param(given) if per_call else [sync_module.SiteSpec.from_entry(entry) for entry in entries or []]
+    if auto:
+        if not any(spec.kind == "folder" for spec in specs):
+            raise ServeError("not_folder", "auto sync runs over folder relays only; the list has none")
+        for spec in specs:
+            spec.not_auto = spec.kind == "lan"
     strict_lan = len(specs) == 1 and not specs[0].unavailable and specs[0].kind == "lan"
     if strict_lan:
         # a list of one with a malformed address is refused before anything is opened; a well-formed one is a

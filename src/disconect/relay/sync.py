@@ -142,7 +142,8 @@ def site_word(error: Exception) -> str:
     any other ``OSError`` (or a failed re-pack)              ``io_error``
     =======================================================  ===============
 
-    :func:`open_sites` adds ``unavailable``, ``same_relay``, ``bad_url`` and ``unsupported_transport``. The stored
+    :func:`open_sites` adds ``unavailable``, ``same_relay``, ``bad_url``, ``unsupported_transport`` and ``not_auto`` (a
+    ``lan`` site of an ``auto`` run: skipped by rule, never opened; not a failure of the run). The stored
     ``rejected`` reason of a bundle keeps :func:`reason_of`."""
     if getattr(error, "reason", None) == "too_large":
         return "too_large"
@@ -182,6 +183,7 @@ class SiteSpec:
     create_root: bool = False   # a missing root is opened anyway and the first put creates it (the entry this device serves)
     label: str = ""             # the entry's label; echoed in the site's report
     check_address: bool = False   # a ``lan`` address must also pass the pairing joiner's class: set for per-call entries
+    not_auto: bool = False        # a ``lan`` site of an ``auto`` run (19a): reported ``not_auto``, never opened
 
     @classmethod
     def from_entry(cls, entry: relay_config.RelayEntry) -> SiteSpec:
@@ -200,7 +202,7 @@ def _folder_identity(root: pathlib.Path) -> tuple[int, int] | None:
 def open_sites(specs: list[SiteSpec], master: bytes) -> tuple[list[Site], list[SiteReport]]:
     """Open every relay of a run. One report per spec, in the specs' order; a spec that cannot be used carries its
     reason word (``unavailable``, ``same_relay``, ``bad_url``, ``unsupported_transport`` for a ``lan`` entry, which
-    this core cannot open) and has no site. Never an error, and nothing is created."""
+    this core cannot open, ``not_auto`` for a ``lan`` entry of an ``auto`` run) and has no site. Never an error, and nothing is created."""
     sites: list[Site] = []
     reports: list[SiteReport] = []
     folders: list[tuple[int, int]] = []
@@ -209,7 +211,9 @@ def open_sites(specs: list[SiteSpec], master: bytes) -> tuple[list[Site], list[S
         report = SiteReport(spec.id, spec.kind, label=spec.label)
         word: str | None = None
         relay: Relay | None = None
-        if spec.unavailable:
+        if spec.not_auto:
+            word = "not_auto"
+        elif spec.unavailable:
             word = "unavailable"
         elif spec.kind == "folder":
             root = pathlib.Path(spec.value).expanduser()
