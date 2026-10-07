@@ -235,6 +235,42 @@ does after a crash). The CLI exits 5 for an unreachable, unverified or clock-ref
 `{"lan": "http://host:port"}` (a non-empty `lan` wins); `--relay http://host:port` selects LAN, and
 `https://` or a URL with a path is a usage error.
 
+## Relay list (Bet 19d, 2026-10-07): several relays, one name per bundle
+`relay.json` is a list: `{"relays": [{"id": "<8 hex>", "kind": "folder"|"lan", "path"|"url": "...",
+"label"?: "...", "serve"?: true}]}`. The legacy `{"folder": path}` reads as one entry `default` **with
+`serve: true`**; the legacy `{"lan": url}` as one entry `default` (a non-empty `lan` still wins over
+`folder` in that form). `id` is `default` or 1–32 hex chars; a malformed entry, a duplicate id, an empty
+list or two `serve` entries make the file read as nothing (as `{"folder": 5}` does). Only the CLI
+rewrites it (`sync relay add|remove`, `--remember`), always in the list form. At most one entry serves:
+`relay.serve`, `pair.offer` and the offerer's push use that folder; no `serve` entry = a joiner.
+`relay_url` is the first `lan` entry's base address.
+
+**Push.** A new bundle is packed once and the same bytes are `put` to every site in list order under one
+name; it is booked when at least one site took it; when none did the push stops there (the `prev` chain
+never skips an unbooked bundle). **Heal:** per site, the names this device pushed (`relay_bundles`
+direction `pushed`, status `applied`) that the site's listing lacks are re-packed from the stored header
+(`device_id`, `device_seq`, `prev`, `created_utc`) and the rows still linked to the name (`relay_seen`,
+`relay_seen_ranges`) and `put` under the same name — at most 16 bundles / 64 MiB per site per run, the
+rest reported as `behind`. A re-pack has a fresh nonce and may lack a record retired by a later conflict;
+nothing keys on the bytes. No schema change: a site holds what its listing shows.
+
+**Pull.** The union of the listings minus the applied names; each name is tried on every site that lists
+it, in list order, until one `get`s and unpacks. A transient error (unreachable, unverified, a clock
+refusal, a status) takes that site out of the run; a non-transient error or a failed unpack counts as
+`rejected` on that site and the next site is tried; a name is booked `rejected` only when every site
+failed it, and stays pending (unbooked) when every site that lists it was transient. `repair_damaged`
+fetches the same way.
+
+**Sites.** Before the run every entry is opened: `unavailable` (the folder root is missing, or the
+caller passed `"unavailable": true`), `same_relay` (a folder root already opened, by (device, inode); a
+LAN base address already opened), `bad_url` (a LAN address `parse_base_url` refuses),
+`unsupported_transport` (a `lan` entry on the Python core) — each **reported** on that site and skipped,
+never a refusal of the run. The core creates `<root>/<account>` under an existing root, never the root.
+The result carries `sites: [{id, kind, pushed, healed, behind, pulled, rejected, error}]` (`error` a
+reason word, never a path, an address or an OS message); the run is `partial` when any site has an error
+or the push stopped. The phone's shell owns its list (security-scoped bookmarks are per container) and
+passes it per call (`sync.run {"relays": [...]}`); the desktop reads `relay.json`.
+
 ## Pairing routes (Bet 12-E): one offer slot on the same server
 Only a server started by `disconect-core pair offer` (or a library caller that attaches an offer) carries these
 routes; a plain `relay-serve` answers `404` to all of them. The offer's `url` follows the kb/24 offer URL grammar (IPv4, bracketed IPv6 or lowercase hostname, explicit port; shared vectors in `tests/fixtures/pair-offer-urls.json`). The protocol (offer text, key schedule, tags, the six

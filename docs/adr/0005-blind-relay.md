@@ -43,3 +43,28 @@
 - Bet 10 implements the folder adapter and the protocol (pitch 10 v2); networked adapters
   (S3/GCS) move to Bet 12's shaping. Evidence must show the relay operator cannot read anything
   (canary + AEAD-only put + wrong-master failure), and that two desktops converge.
+
+## Amendment 2026-10-07 (Bet 19d, after the opus attack) — a list of blind stores
+Guy's condition on the Phase 4 amendment: more than one cloud service **and** the desktop at once, no
+restrictions. The relay becomes a **list** (`relay.json {"relays": [...]}`; the legacy `{"folder"}` and
+`{"lan"}` forms read as a one-entry list). Every bundle goes to every relay under the **same name** and
+the pull is the union of the listings minus what is applied, each name tried on every site that lists
+it until one unpacks. **A site holds what its listing shows:** no per-site table — per site, the names
+this device pushed minus the listing are re-packed and put again, within a budget (16 bundles /
+64 MiB per site per run). What the attack weighed and this ADR accepts:
+- The account prefix already links a user's objects across relays, so the same name and size on every
+  relay add nothing an observer of several relays did not have; per-relay names would break the `prev`
+  chain and the union by name; per-relay padding buys nothing while the prefix is shared.
+- The LAN token is per master, not per host: a captured request works at any relay of the account for
+  300 s — PUT writes the same ciphertext, GET returns ciphertext, DELETE is 405. Accepted.
+- A rotation leaves the old account's objects on every relay in the list (as it left them on the one).
+- A re-packed bundle carries a fresh nonce and only the rows still linked to its name (a version
+  retired by a later conflict is absent; the winner travels in its own bundle). Every consumer keys by
+  name, `seq`/`prev` or record identity, so the two versions are interchangeable.
+- A served folder that is also a cloud folder: the client writes `.tmp-` files readers ignore, a bundle
+  is packed once per run and no name is ever overwritten with different content, so two routes to one
+  name never make provider conflict copies.
+- One compromised cloud client can keep every pull `partial` with a planted object (re-fetched on every
+  run, times N sites); a bad copy on one site never shadows a good one on another. Backing off a
+  rejected name is BACKLOG.
+
