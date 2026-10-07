@@ -283,6 +283,7 @@ def get_contract() -> dict[str, Any]:
 def main() -> None:
     """Entry point for ``disconect-mcp``: unlock once (never prompting), then serve over stdio."""
     import sys
+    storage.home.announce_legacy_env()      # before the store resolves, so the warning survives a no-$HOME refusal
     try:
         db_path = storage.default_db_path()
     except storage.NoHome as exc:

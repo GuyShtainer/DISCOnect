@@ -291,6 +291,9 @@ def cmd_sync(args: argparse.Namespace) -> int:
             if refusal.text:
                 print(refusal.text, file=sys.stderr)
             return refusal.code
+        except FileNotFoundError as exc:    # relay.json vanished between exists() and the read
+            print(f"usage: {exc}", file=sys.stderr)
+            return EXIT_USAGE
     db_path = pathlib.Path(args.db)
     try:
         if args.action == "forget":
@@ -920,6 +923,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    home.announce_legacy_env()      # before the store resolves, so the warning survives a no-$HOME refusal
     if args.db is None and args.command != "migrate-home":
         try:
             args.db = str(storage.default_db_path())

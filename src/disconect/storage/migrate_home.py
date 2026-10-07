@@ -198,7 +198,7 @@ def migrate_home(home: pathlib.Path | None = None, environ: dict | os._Environ |
         home_text = home_dir()
         if home_text is None:
             raise NoHome(HOME_NOT_SET)
-        home = home_text
+        home = pathlib.Path(home_text)
     home = pathlib.Path(home)
     environ = os.environ if environ is None else environ
     find_running = running_programs if find_running is None else find_running

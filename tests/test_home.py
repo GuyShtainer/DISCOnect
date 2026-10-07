@@ -1,5 +1,6 @@
 """Where the data folder is (Bet 02a): pure resolution, the legacy read-through, one stderr hint."""
 
+import argparse
 import os
 import pathlib
 import subprocess
@@ -219,7 +220,6 @@ def test_a_bare_tilde_expands_and_a_named_user_is_left_alone_like_the_rust_core(
     assert relay_config.open_relay("folder", "~root/x").root == pathlib.Path("~root/x")
 
 
-
 NO_STORE = "no store: pass --db <path> or set DISCONECT_DB (HOME is not set)"
 
 
@@ -246,9 +246,13 @@ def test_no_home_means_no_default_store_and_the_password_database_is_never_asked
     assert home.resolve_default_db() == (pathlib.Path("~/y.db"), None)
 
 
-def _no_home_cli(args, tmp_path):
-    env = {k: v for k, v in os.environ.items() if k not in ("HOME", "DISCONECT_DB")}
-    return subprocess.run([sys.executable, "-m", "disconect.cli", *args], env=env, cwd=tmp_path,
+def _no_home_cli(args, tmp_path, module="disconect.cli", home=None):
+    """Run a Python entry point with no ``$HOME`` (unset, or the given text), no ``$DISCONECT_DB`` and no old names."""
+    scrubbed = ("HOME", "DISCONECT_DB", "HEARTHBEAT_DB", "HEARTHBEAT_KEYS", "HEARTHBEAT_PASSPHRASE", "HEARTHBEAT_RECOVERY_WORDS")
+    env = {k: v for k, v in os.environ.items() if k not in scrubbed}
+    if home is not None:
+        env["HOME"] = home
+    return subprocess.run([sys.executable, "-m", module, *args], env=env, cwd=tmp_path,
                           capture_output=True, text=True, timeout=60, check=False)
 
 
@@ -261,11 +265,23 @@ def test_the_cli_without_a_home_prints_no_store_and_exits_1_but_help_and_version
     assert (done.returncode, done.stderr.strip()) == (1, "error: HOME is not set")
     done = _no_home_cli(["sync", "relay", "list"], tmp_path)
     assert (done.returncode, done.stderr.strip()) == (1, "error: HOME is not set")
+    # the serve and MCP entry points are the twins of the Rust binary's serve/mcp legs; an empty HOME is no home
+    for module in ("disconect.serve", "disconect.mcp_server"):
+        for home in (None, ""):
+            done = _no_home_cli([], tmp_path, module=module, home=home)
+            assert (done.returncode, done.stderr.strip()) == (1, f"error: {NO_STORE}"), (module, home, done.stderr)
+    # the old-name warning still prints first, like the Rust binary (legacy_env_warning_now() before the store)
+    env_with_old_name = dict(os.environ, HEARTHBEAT_DB="x")
+    env_with_old_name.pop("HOME", None)
+    env_with_old_name.pop("DISCONECT_DB", None)
+    done = subprocess.run([sys.executable, "-m", "disconect.cli", "status"], env=env_with_old_name, cwd=tmp_path,
+                          capture_output=True, text=True, timeout=60, check=False)
+    assert done.returncode == 1
+    assert done.stderr.splitlines() == ["warning: HEARTHBEAT_DB is no longer read; set DISCONECT_DB instead", f"error: {NO_STORE}"]
 
 
 def test_remembering_a_relay_without_a_home_is_the_rust_cores_refusal(monkeypatch, tmp_path):
     """`--remember` writes `relay.json` beside the default store, so it has nowhere to go (the Rust text, exit 1)."""
-    import argparse
     monkeypatch.delenv("HOME")
     monkeypatch.delenv("DISCONECT_DB", raising=False)
     args = argparse.Namespace(relay=str(tmp_path), remember=True)

@@ -59,7 +59,8 @@ class NotEncrypted(StorageError):
 def default_db_path() -> pathlib.Path:
     """``$DISCONECT_DB``, else ``~/.disconect/disconect.db``, else the old folder's file while it exists.
 
-    Pure: no side effects (see :mod:`disconect.storage.home`).
+    Pure: no side effects (see :mod:`disconect.storage.home`). Raises :class:`NoHome` when ``$DISCONECT_DB``
+    is not set and ``$HOME`` is unset or empty (no password-database fallback, like the Rust core).
     """
     return home.resolve_default_db()[0]
 

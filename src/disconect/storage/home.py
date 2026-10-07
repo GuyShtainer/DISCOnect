@@ -108,14 +108,23 @@ def legacy_env_warning(environ: Mapping[str, str] | None = None) -> str | None:
     return f"warning: {old} {'is' if len(stale) == 1 else 'are'} no longer read; set {new} instead"
 
 
-def announce_default_resolution(db_path: str | os.PathLike) -> None:
-    """Print the env warning and, when ``db_path`` is the legacy default, the legacy hint (stderr only).
+def announce_legacy_env() -> None:
+    """Print the old-name warning (stderr) when any ``HEARTHBEAT_*`` variable is set.
 
-    Call once per process, after argument parsing, so ``--help`` and ``--version`` stay silent.
+    Entry points call it once, before resolving the default store, so the warning survives a no-``$HOME``
+    refusal, in the Rust binary's order (``legacy_env_warning_now()`` first, then the store).
     """
     warning = legacy_env_warning()
     if warning:
         print(warning, file=sys.stderr)
+
+
+def announce_default_resolution(db_path: str | os.PathLike) -> None:
+    """Print the legacy hint (stderr) when ``db_path`` is the old folder's default; the old-name warning is
+    :func:`announce_legacy_env`, which the entry points print first.
+
+    Call once per process, after argument parsing, so ``--help`` and ``--version`` stay silent.
+    """
     try:
         resolved, legacy = resolve_default_db()
     except NoHome:

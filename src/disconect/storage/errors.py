@@ -20,7 +20,8 @@ class HomeMoved(NotConfigured):
 
 
 class NoHome(StorageError):
-    """There is no default store: ``$HOME`` is unset or empty and ``$DISCONECT_DB`` is not set.
+    """``$HOME`` is unset or empty where a home is needed: the default store (unless ``$DISCONECT_DB`` is set),
+    ``relay.json`` beside it, or the folder ``migrate-home`` moves.
 
     The password database is never consulted (the Rust core never does); the CLI prints it as ``error: <text>``, exit 1.
     """

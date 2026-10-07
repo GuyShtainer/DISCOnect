@@ -985,6 +985,7 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"SQLite file (default ${storage.DEFAULT_DB_ENV} or ~/{identity.DATA_DIR}/{identity.DB_FILENAME}; "
                              f"the legacy ~/{identity.LEGACY_HOMES[0]} is read until {identity.COMMAND} migrate-home)")
     args = parser.parse_args(argv)
+    storage.home.announce_legacy_env()      # before the store resolves, so the warning survives a no-$HOME refusal
     if args.db is None:
         try:
             args.db = str(storage.default_db_path())
