@@ -39,7 +39,8 @@ class-name reason (a rejection counts as a failed file, so the `relay` import ru
 CLI and the phone's pull retry it on every pull, while the desktop's automatic run holds it for a day (see Back-off);
 other bundles proceed. A bundle is marked `applying` when its
 records start landing and `applied` only after the derived dailies ran; a pull that finds an
-`applying` bundle (a crash) applies it again and re-derives its streams in full. Applying is
+`applying` bundle (a crash) applies it again and re-derives its streams in full; a rejected
+refetch of such a bundle keeps the marker (only the reason and time are noted), so the next good copy re-derives it. Applying is
 idempotent: a re-pull changes nothing. Objects larger than any bundle can be are refused before
 they are read; a zlib bomb stops at the 64 MB plaintext cap. A renamed copy of an object is
 rejected on every pull that does not hold (`authentication_failed`), so the operator's stray copy keeps a click's

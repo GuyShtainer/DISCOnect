@@ -753,8 +753,13 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
                         reports[report].rejected += 1
                     result.rejected[name] = reason
                     writer.stats.files_failed += 1
-                    conn.execute("INSERT OR REPLACE INTO relay_bundles(name, direction, status, noted_at, reason) "
-                                 "VALUES(?, 'pulled', 'rejected', ?, ?)", (name, utc_now_iso(), reason))
+                    if name in half_applied:
+                        # BL-5b: a half-applied bundle keeps its marker, so a good copy re-derives it
+                        conn.execute("UPDATE relay_bundles SET noted_at=?, reason=? WHERE name=?",
+                                     (utc_now_iso(), reason, name))
+                    else:
+                        conn.execute("INSERT OR REPLACE INTO relay_bundles(name, direction, status, noted_at, reason) "
+                                     "VALUES(?, 'pulled', 'rejected', ?, ?)", (name, utc_now_iso(), reason))
                 else:
                     # a site that may hold a good copy was out of reach: nothing is booked, the next pull retries
                     result.status = "partial"

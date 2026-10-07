@@ -567,6 +567,39 @@ def test_crash_after_the_record_loop_is_repaired_by_the_next_pull(tmp_path, monk
     assert _fingerprint(a) == _fingerprint(b), "the re-applied bundle re-derived its streams"
 
 
+def test_a_half_applied_bundle_rejected_on_refetch_keeps_its_marker_and_re_derives_on_the_next_good_copy(tmp_path):
+    export = tmp_path / "export"
+    export.mkdir()
+    _build_export(export)
+    a, b = tmp_path / "a.db", tmp_path / "b.db"
+    _import(a, export)
+    _store(b)
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
+    name = _push(a, relay).bundles[0]
+    _pull(b, relay)
+    with storage.open_for_write(b, "test") as conn:
+        for table in ("daily_metrics", "daily_labels", "metric_samples", "monitoring_intervals",
+                      "sleep_stages", "sleep_sessions", "clock_offsets"):
+            conn.execute(f"DELETE FROM {table}")
+        conn.execute("UPDATE relay_bundles SET status='applying'")
+    path = tmp_path / "relay" / name
+    good = path.read_bytes()
+    bad = bytearray(good)
+    bad[len(bad) // 2] ^= 0xFF
+    path.write_bytes(bytes(bad))
+    r = _pull(b, relay)
+    assert r.applied == [] and name in r.rejected
+    conn = storage.open_read_only(b)
+    assert [x[0] for x in conn.execute("SELECT status FROM relay_bundles WHERE direction='pulled'")] == ["applying"]
+    conn.close()
+    counts = sync.status(storage.open_read_only(b))["bundles"]
+    assert counts.get("pulled_applying") == 1 and "pulled_rejected" not in counts
+    path.write_bytes(good)
+    r = _pull(b, relay)
+    assert len(r.applied) == 1
+    assert _fingerprint(a) == _fingerprint(b), "the re-applied bundle re-derived its streams"
+
+
 def test_a_poison_bundle_and_a_renamed_copy_are_rejected_without_blocking_the_rest(tmp_path):
     a, b = tmp_path / "a.db", tmp_path / "b.db"
     _import(a, _drop(tmp_path, "d", 14))
