@@ -85,6 +85,17 @@ def source_agreement(conn: sqlite.Connection) -> list[dict]:
     return report
 
 
+def _live_day(offsets: ClockOffsets, stamp: str | None) -> str | None:
+    """The watch-local day of a stored live stamp; None stays None; a day the calendar cannot hold (year 9999
+    plus a positive offset) keeps the UTC prefix, like the Rust core's ``live_day``."""
+    if stamp is None:
+        return None
+    try:
+        return offsets.local_date(parse_iso_utc(stamp))
+    except OverflowError:
+        return stamp[:10]
+
+
 def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
     """Coverage, provenance and recent imports as plain data. PII-free."""
     window_days = max(1, min(int(window_days), 3650))
@@ -111,11 +122,11 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
     live_records = conn.execute("SELECT COUNT(*) FROM raw_records WHERE stream='json:live'").fetchone()[0]
     live_samples, live_first, live_last = conn.execute(
         "SELECT COUNT(*), MIN(ts_utc), MAX(ts_utc) FROM metric_samples WHERE source_scope = 'live'").fetchone()
-    # the live block's days are the watch's local days, like every other day in the product (BL-9)
+    # the live block's days are the watch's local days, like data.live's (BL-9); every other day in this report
+    # (samples_total, streams, coverage) is the UTC prefix of the stored stamp
     live_offsets = ClockOffsets.load(conn)
     live = {"records": live_records, "samples": live_samples,
-            "first_day": None if live_first is None else live_offsets.local_date(parse_iso_utc(live_first)),
-            "last_day": None if live_last is None else live_offsets.local_date(parse_iso_utc(live_last))}
+            "first_day": _live_day(live_offsets, live_first), "last_day": _live_day(live_offsets, live_last)}
 
     daily_total = {}
     for metric, scope, days, first, last in conn.execute(
