@@ -104,11 +104,45 @@ def _integer(text: str) -> int | float:
     return number if -(2 ** 63) <= number < 2 ** 64 else _finite(text)
 
 
+MAX_DEPTH = 128  # serde_json's recursion limit: it refuses the 128th nested array or object
+
+
+def _object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    # every key and value is checked, not only the last of a repeated key: serde refuses the text while parsing it
+    json.dumps(pairs, ensure_ascii=False).encode("utf-8")  # UnicodeEncodeError (a ValueError) on a lone surrogate
+    return dict(pairs)
+
+
+def _refuse_deep(text: str) -> None:
+    depth = 0
+    in_string = escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth >= MAX_DEPTH:
+                raise ValueError("nested too deep")
+        elif char in "]}":
+            depth -= 1
+
+
 def strict_json(text: str) -> object:
     """``json.loads`` with the Rust core's (serde_json's) refusals, so a hand-edited file reads the same on both cores:
-    no ``NaN``/``Infinity``, no number beyond f64, no lone surrogate escape (``"\\ud800"`` is not text)."""
-    value = json.loads(text, parse_constant=_refuse_constant, parse_float=_finite, parse_int=_integer)
-    json.dumps(value, ensure_ascii=False).encode("utf-8")  # UnicodeEncodeError (a ValueError) on a lone surrogate
+    no ``NaN``/``Infinity``, no number beyond f64, no lone surrogate escape (``"\\ud800"`` is not text, in any key or
+    value, also one a repeated key overwrites), no nesting 128 deep (which would also be a RecursionError here)."""
+    _refuse_deep(text)
+    value = json.loads(
+        text, object_pairs_hook=_object, parse_constant=_refuse_constant, parse_float=_finite, parse_int=_integer
+    )
+    json.dumps(value, ensure_ascii=False).encode("utf-8")  # a lone surrogate inside an array or at the top
     return value
 
 
@@ -126,7 +160,7 @@ def read_list(path: pathlib.Path) -> list[RelayEntry] | None:
     ``{"folder": ...}`` is the one entry ``default`` with ``serve: true``; a legacy ``{"lan": ...}`` is the one entry
     ``default`` (a non-empty ``lan`` string wins over ``folder``, as ever)."""
     try:
-        value = strict_json(path.read_text())
+        value = strict_json(path.read_text(encoding="utf-8"))  # the Rust core reads UTF-8 whatever the locale says
     except (OSError, ValueError):
         return None
     if not isinstance(value, dict):

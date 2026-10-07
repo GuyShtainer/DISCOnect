@@ -255,7 +255,7 @@ def test_the_sync_leg_catches_a_core_that_differs_in_an_event_or_the_response(tm
     assert serve_diff.main(["--db", str(STORE_EMPTY), "--rust-bin", str(fake), "--anchors-from", str(STORE),
                             "--no-import-leg"]) == 1, what
     report = capsys.readouterr().out
-    assert "RESULT: FAILED" in report and "sync leg: " in report and "identical 127, differing 0" not in report, what
+    assert "RESULT: FAILED" in report and "sync leg: " in report and "identical 129, differing 0" not in report, what
 
 
 @pytest.mark.skipif(not RUST_DEBUG.exists(), reason="build projects/disconect-core first (cargo build)")
@@ -278,11 +278,11 @@ def test_the_gate_passes_on_the_committed_synthetic_stores(capsys, store, label,
     assert "not yet ported (Rust unknown_method): 0 " in report, "every method of the oracle is ported"
     assert "import leg: " in report and ", differing 0" in report and "import leg events: python " in report
     assert "post-import core_diff: 0 differing rows" in report and "import leg run_id equal: 8/8" in report
-    assert "sync leg: 127 steps" in report and "identical 127, differing 0" in report
+    assert "sync leg: 129 steps" in report and "identical 129, differing 0" in report
     assert "sync.run results: python 7, rust 7" in report and "post-sync core_diff: 0 differing rows" in report
     # BL-7 review blocker: a step that removes relay.json turns every later bad_params check into not_found on both
     # cores (identical, so the diff stays 0) — the code histogram pins the mix the leg must answer
-    assert "sync leg Rust error codes: None 36, bad_params 66, busy 5, locked 3, not_folder 1, not_found 6, pair_failed 10" in report
+    assert "sync leg Rust error codes: None 38, bad_params 66, busy 5, locked 3, not_folder 1, not_found 6, pair_failed 10" in report
     assert "site leg: 8 pair.join steps beside no store, identical 8, differing 0" in report      # 12-H (d)
     assert "prefix passed (unsupported_transport) python 4, rust 4, expected 4" in report
     assert "site leg stores created: python False, rust False" in report
@@ -313,5 +313,5 @@ def test_the_gate_passes_through_the_apps_in_process_core(capsys, store, label):
     assert "binary: in-process" in report and "differing: 0" in report and "RESULT: 0 differences" in report
     assert "import leg: " in report and ", differing 0" in report
     assert "post-import core_diff: 0 differing rows" in report
-    assert "sync leg: 127 steps" in report and "identical 127, differing 0" in report
-    assert "sync leg Rust error codes: None 36, bad_params 66, busy 5, locked 3, not_folder 1, not_found 6, pair_failed 10" in report
+    assert "sync leg: 129 steps" in report and "identical 129, differing 0" in report
+    assert "sync leg Rust error codes: None 38, bad_params 66, busy 5, locked 3, not_folder 1, not_found 6, pair_failed 10" in report

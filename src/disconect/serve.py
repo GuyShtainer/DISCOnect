@@ -752,8 +752,6 @@ def pair_forget(session: Session, call: Call) -> Any:
 MAX_OFFER_TEXT = 1024
 _EXP_AHEAD_MAX = 900 + 300     # an offerer sets exp = now + 900; the relay's own clock window is the slack
 NOT_A_PHONE = "this core is not a phone; it does not join a pairing"
-#: Rust's ``str::trim`` strips exactly the Unicode White_Space characters; ``str.strip()`` also strips U+001C..U+001F.
-_RUST_WHITE_SPACE = "\t\n\x0b\x0c\r \x85\xa0\u1680" + "".join(chr(c) for c in range(0x2000, 0x200B)) + "\u2028\u2029\u202f\u205f\u3000"
 #: The phone's ``forget.pending`` marker (``pair_forget.rs`` ``MARKER_NAME``), beside the store.
 _FORGET_MARKER = "forget.pending"
 
@@ -785,7 +783,7 @@ def _join_prefix(text: str, db_path) -> None:
     offer."""
     from disconect import pair as pair_module   # late: the module name is also a method family here
 
-    text = text.strip(_RUST_WHITE_SPACE)
+    text = text.strip(relay_config.WHITE_SPACE)
     if len(text.encode("utf-8", "surrogatepass")) > MAX_OFFER_TEXT:      # bytes, as in Rust
         raise ServeError("bad_params", "that is not a pairing offer")
     try:

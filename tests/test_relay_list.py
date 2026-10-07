@@ -81,9 +81,29 @@ def test_the_list_form_wins_and_every_malformed_case_reads_as_nothing(tmp_path):
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": -Infinity}]}',
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": 1e400}]}',
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": 1%s}]}' % ("0" * 400),
+        # a lone surrogate a repeated key overwrites (serde refuses it while parsing), one in a key, and in a bare array
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "\\ud800"}], "relays": [{"id": "cd", "kind": "folder", "path": "/b"}]}',
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": "\\udc00", "x": 1}]}',
+        '{"folder": "\\ud800", "folder": "/f"}',
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "\\ud800": 1}]}',
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": ["\\ud800"]}]}',
+        # nested 128 deep (serde_json's limit; far deeper would be a RecursionError here, not a ValueError)
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": %s}]}' % ("[" * 126 + "]" * 126),
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": %s}]}' % ("[" * 100000 + "]" * 100000),
+        '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[["}]}'[:-1],  # brackets inside a string do not nest; the missing brace refuses it
     ):
         path.write_text(bad)
-        assert relay_config.read_list(path) is None, bad
+        assert relay_config.read_list(path) is None, bad[:120]
+    # nested 127 deep in all (3 levels of structure + 124) still reads; brackets inside a string never count
+    path.write_text('{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": %s}]}' % ("[" * 124 + "]" * 124))
+    assert relay_config.read_list(path) == [RelayEntry("ab", "folder", "/a", "", False)]
+    path.write_text('{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": "%s\\"%s"}]}' % ("[" * 300, "{" * 300))
+    assert relay_config.read_list(path) == [RelayEntry("ab", "folder", "/a", "", False)]
+    # the file is UTF-8 whatever the locale says, like the Rust core: a Latin-1 byte refuses it, a UTF-8 path reads
+    path.write_bytes(b'{"relays": [{"id": "ab", "kind": "folder", "path": "/caf\xe9"}]}')
+    assert relay_config.read_list(path) is None
+    path.write_bytes('{"relays": [{"id": "ab", "kind": "folder", "path": "/caf\u00e9"}]}'.encode("utf-8"))
+    assert relay_config.read_list(path) == [RelayEntry("ab", "folder", "/caf\u00e9", "", False)]
     # an extra key the Rust core can hold is no reason to refuse
     path.write_text('{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": 18446744073709551615, "y": 1e300}]}')
     assert relay_config.read_list(path) == [RelayEntry("ab", "folder", "/a", "", False)]
