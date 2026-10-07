@@ -108,4 +108,12 @@ def test_a_symlinked_store_name_shares_the_write_lock(tmp_path):
     with storage.write_lock(link, "after", timeout_s=0.1):
         pass
     missing = tmp_path / "not-yet.hbdb"
-    assert wl.lock_path_for(missing) == missing.with_name("not-yet.hbdb.write-lock")   # as spelled until it exists
+    real_dir = tmp_path.resolve()
+    assert wl.lock_path_for(missing) == real_dir / "not-yet.hbdb.write-lock"   # as spelled (folder resolved) until it exists
+    dangling = tmp_path / "dangling.hbdb"                                       # SQLite would create the target
+    dangling.symlink_to(tmp_path / "target.hbdb")
+    assert wl.lock_path_for(dangling) == real_dir / "target.hbdb.write-lock"
+    with storage.write_lock(dangling, "via the link", timeout_s=1):
+        with pytest.raises(wl.WriteLockBusy):
+            with storage.write_lock(tmp_path / "target.hbdb", "via the target", timeout_s=0.1):
+                pass
