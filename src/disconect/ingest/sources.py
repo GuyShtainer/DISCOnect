@@ -35,6 +35,9 @@ DROPPED_LIVE_CUT_OFF = "live_file_cut_off"
 
 #: ``progress(done, total_or_None, note)``; ``note`` is the write outcome (``imported`` | ``duplicate`` | ``failed``) in the FIT phase and the live phase (which also says `skipped` for a live file with no readings) and the stream name (``json:...``) in the export-JSON phase — never a file name or path.
 ProgressCallback = Callable[[int, int | None, str], None]
+#: ``cancel()`` is asked after each file, right after ``progress``: True stops the import there (the file that was
+#: being read is kept, nothing later is read, the phases not yet started are skipped, the run is booked ``cancelled``).
+CancelCheck = Callable[[], bool]
 
 
 def iter_fit_files(path: pathlib.Path) -> Iterator[tuple[str, bytes]]:
@@ -76,7 +79,7 @@ def iter_live_files(path: pathlib.Path) -> Iterator[tuple[str, list[list], bool]
 
 
 def _import_live_batch(files: list[tuple[str, list[list], bool]], writer: Writer,
-                       progress: ProgressCallback | None = None) -> None:
+                       progress: ProgressCallback | None = None, cancel: CancelCheck | None = None) -> None:
     """One ``json:live`` raw record per file; a file without readings is counted and skipped, a
     file cut off mid-line is counted and its whole lines imported."""
     for done, (label, readings, cut_off) in enumerate(files, start=1):
@@ -92,26 +95,34 @@ def _import_live_batch(files: list[tuple[str, list[list], bool]], writer: Writer
                                                origin=(TRANSPORT_BLE, utc_now_iso()))
         if progress is not None:
             progress(done, len(files), outcome)
+        if cancel is not None and cancel():
+            writer.stats.cancelled = True
+            return
 
 
 def _import_fit_batch(files: list[tuple[str, bytes]], writer: Writer,
-                      progress: ProgressCallback | None = None) -> None:
+                      progress: ProgressCallback | None = None, cancel: CancelCheck | None = None) -> None:
     for _label, data in files:
         writer.offsets.extend(fit_wellness.scan_clock_offsets(data))
     for done, (label, data) in enumerate(files, start=1):
         stream = writer.write_fit(data, label)
         if progress is not None:
             progress(done, len(files), stream)
+        if cancel is not None and cancel():
+            writer.stats.cancelled = True   # the batch's own derivations still run for what was written
+            break
     writer.derive_daily_steps()
     writer.derive_daily_from_samples()
 
 
 def import_path(path: pathlib.Path, conn: sqlite.Connection, transport: str | None = None,
-                progress: ProgressCallback | None = None) -> ImportStats:
+                progress: ProgressCallback | None = None, cancel: CancelCheck | None = None) -> ImportStats:
     """Import whatever ``path`` is into ``conn`` (a writable connection) and report.
 
     ``progress(done, total, note)`` is called after each file; ``total`` is None when the
-    count is not known up front (the JSON files of a Connect export).
+    count is not known up front (the JSON files of a Connect export). ``cancel()`` is asked
+    after each file (see :data:`CancelCheck`): a True answer ends the import after that file,
+    skips the phases not yet started and books the run ``cancelled`` (``stats.cancelled``).
     """
     path = pathlib.Path(path)
     if not path.exists():
@@ -123,16 +134,19 @@ def import_path(path: pathlib.Path, conn: sqlite.Connection, transport: str | No
     try:
         if is_export:
             fits = list(connect_export.collect_fit_members(path))
-            _import_fit_batch(fits, writer, progress)
-            connect_export.import_connect_export(path, writer, progress)
-            rederive_json(conn, writer, _stored_json_streams(conn))
-            writer.derive_live_samples()
+            _import_fit_batch(fits, writer, progress, cancel)
+            if not writer.stats.cancelled:
+                connect_export.import_connect_export(path, writer, progress, cancel)
+            if not writer.stats.cancelled:
+                rederive_json(conn, writer, _stored_json_streams(conn))
+                writer.derive_live_samples()
         else:
             live_files = list(iter_live_files(path))
-            _import_live_batch(live_files, writer, progress)
+            _import_live_batch(live_files, writer, progress, cancel)
             fit_files = [] if path.is_file() and live_files else list(iter_fit_files(path))
-            _import_fit_batch(fit_files, writer, progress)
-            writer.derive_live_samples()
+            if not writer.stats.cancelled:
+                _import_fit_batch(fit_files, writer, progress, cancel)
+            writer.derive_live_samples()   # also after a cancel: the live files written get their samples
     except Exception as exc:  # noqa: BLE001 - recorded, then re-raised for the caller
         writer.finish_run(error=f"{type(exc).__name__}: {exc}")
         raise

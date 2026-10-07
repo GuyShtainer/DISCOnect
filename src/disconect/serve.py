@@ -89,6 +89,8 @@ class Session:
         self.channel = channel
         self.import_slot = threading.Lock()
         self.import_thread: threading.Thread | None = None
+        self.importing = False                   # the slot's holder is an import (not a sync): what import.cancel reaches
+        self.import_cancel = threading.Event()   # set by import.cancel; the worker asks it after each file
 
     def require_unlocked(self) -> None:
         """Raise ``locked`` while an encrypted store has not been unlocked in this process."""
@@ -378,14 +380,18 @@ def _run_import(session: Session, path: pathlib.Path, transport: str | None) -> 
             session.channel.event({"event": "progress", "op": "import", "done": done, "total": total,
                                    "note": redact_text(note)})
     with storage.open_for_write(session.db_path, purpose="import", timeout_s=0.0) as conn:
-        stats = sources.import_path(path, conn, transport=transport, progress=progress)
+        stats = sources.import_path(path, conn, transport=transport, progress=progress,
+                                    cancel=session.import_cancel.is_set)
         run_id = conn.execute("SELECT MAX(id) FROM import_runs").fetchone()[0]
+    if stats.cancelled:
+        raise ServeError("cancelled", CANCELLED_IMPORT)
     return _import_result(stats, run_id)
 
 
 def _import_worker(session: Session, call: Call, path: pathlib.Path, transport: str | None) -> None:
     """The worker thread body: run the import, free the slot, then answer the request."""
     line = _line_for(call.id, lambda: _run_import(session, path, transport))
+    session.importing = False
     session.import_slot.release()
     with contextlib.suppress(OSError):
         session.channel.write(line)
@@ -400,10 +406,28 @@ def import_run(session: Session, call: Call) -> Any:
         raise ServeError("bad_params", f"transport must be one of {sorted(TRANSPORTS)}")
     if not session.import_slot.acquire(blocking=False):
         raise ServeError("busy", "an import is already running")
+    session.import_cancel.clear()
+    session.importing = True
     session.import_thread = threading.Thread(
         target=_import_worker, args=(session, call, path, TRANSPORTS.get(name)), name="import")
     session.import_thread.start()
     return _DEFERRED
+
+
+#: What the cancelled ``import.run`` request answers (code ``cancelled``); ``import.cancel`` itself says only "cancelling".
+CANCELLED_IMPORT = "the import was cancelled; the files read so far are kept"
+
+
+@_unlocked_only
+def import_cancel(session: Session, call: Call) -> dict:
+    """Ask the running import to stop after the file it is reading (a stop path: only ``locked`` is checked).
+    ``{"state": "cancelling"}`` while an import owns the slot, again on a repeat; the ``import.run`` request
+    then answers ``cancelled`` — or its result, when the cancel came after the last file's check. No import
+    (also a sync or a pair push holding the slot) → ``not_found``."""
+    if not session.importing:
+        raise ServeError("not_found", "no import is running")
+    session.import_cancel.set()
+    return {"state": "cancelling"}
 
 
 @_unlocked_only
@@ -738,6 +762,7 @@ METHODS: dict[str, Handler] = {
     "data.facts": data_facts,
     "import.run": import_run,
     "import.last": import_last,
+    "import.cancel": import_cancel,
     "sync.status": sync_status,
     "sync.run": sync_run,
     "relay.addresses": relay_addresses,

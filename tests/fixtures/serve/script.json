@@ -218,6 +218,13 @@
    }
   },
   {
+   "name": "gen: import.cancel while locked",
+   "send": {
+    "id": 12117,
+    "method": "import.cancel"
+   }
+  },
+  {
    "name": "gen: sync.status while locked",
    "send": {
     "id": 12105,
@@ -19898,9 +19905,37 @@
    "raw": "{\"id\":14003,\"method\":\"import.last\",\"params\":[]}"
   },
   {
+   "name": "gen: import.cancel plain (no import running)",
+   "send": {
+    "id": 14004,
+    "method": "import.cancel"
+   }
+  },
+  {
+   "name": "gen: import.cancel ignores params",
+   "send": {
+    "id": 14005,
+    "method": "import.cancel",
+    "params": {
+     "limit": 1,
+     "x": [
+      1
+     ]
+    }
+   }
+  },
+  {
+   "name": "gen: import.cancel params null",
+   "raw": "{\"id\":14006,\"method\":\"import.cancel\",\"params\":null}"
+  },
+  {
+   "name": "gen: import.cancel params array",
+   "raw": "{\"id\":14007,\"method\":\"import.cancel\",\"params\":[]}"
+  },
+  {
    "name": "gen: import.run bad path: None",
    "send": {
-    "id": 14104,
+    "id": 14108,
     "method": "import.run",
     "params": {
      "path": null,
@@ -19911,7 +19946,7 @@
   {
    "name": "gen: import.run bad path: ''",
    "send": {
-    "id": 14105,
+    "id": 14109,
     "method": "import.run",
     "params": {
      "path": "",
@@ -19922,7 +19957,7 @@
   {
    "name": "gen: import.run bad path: 5",
    "send": {
-    "id": 14106,
+    "id": 14110,
     "method": "import.run",
     "params": {
      "path": 5,
@@ -19933,7 +19968,7 @@
   {
    "name": "gen: import.run bad path: True",
    "send": {
-    "id": 14107,
+    "id": 14111,
     "method": "import.run",
     "params": {
      "path": true,
@@ -19944,7 +19979,7 @@
   {
    "name": "gen: import.run bad path: False",
    "send": {
-    "id": 14108,
+    "id": 14112,
     "method": "import.run",
     "params": {
      "path": false,
@@ -19955,7 +19990,7 @@
   {
    "name": "gen: import.run bad path: ['x']",
    "send": {
-    "id": 14109,
+    "id": 14113,
     "method": "import.run",
     "params": {
      "path": [
@@ -19968,7 +20003,7 @@
   {
    "name": "gen: import.run bad path: {'a': 1}",
    "send": {
-    "id": 14110,
+    "id": 14114,
     "method": "import.run",
     "params": {
      "path": {
@@ -19981,7 +20016,7 @@
   {
    "name": "gen: import.run bad path: 1.5",
    "send": {
-    "id": 14111,
+    "id": 14115,
     "method": "import.run",
     "params": {
      "path": 1.5,
@@ -19992,7 +20027,7 @@
   {
    "name": "gen: import.run missing path, bad transport",
    "send": {
-    "id": 14112,
+    "id": 14116,
     "method": "import.run",
     "params": {
      "transport": "carrier pigeon"
@@ -20002,7 +20037,7 @@
   {
    "name": "gen: import.run bad transport: 5",
    "send": {
-    "id": 14113,
+    "id": 14117,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20013,7 +20048,7 @@
   {
    "name": "gen: import.run bad transport: True",
    "send": {
-    "id": 14114,
+    "id": 14118,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20024,7 +20059,7 @@
   {
    "name": "gen: import.run bad transport: False",
    "send": {
-    "id": 14115,
+    "id": 14119,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20035,7 +20070,7 @@
   {
    "name": "gen: import.run bad transport: ''",
    "send": {
-    "id": 14116,
+    "id": 14120,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20046,7 +20081,7 @@
   {
    "name": "gen: import.run bad transport: 'Export'",
    "send": {
-    "id": 14117,
+    "id": 14121,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20057,7 +20092,7 @@
   {
    "name": "gen: import.run bad transport: 'usb '",
    "send": {
-    "id": 14118,
+    "id": 14122,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20068,7 +20103,7 @@
   {
    "name": "gen: import.run bad transport: 'carrier pigeon'",
    "send": {
-    "id": 14119,
+    "id": 14123,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20079,7 +20114,7 @@
   {
    "name": "gen: import.run bad transport: 'gadgetbridge'",
    "send": {
-    "id": 14120,
+    "id": 14124,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20090,7 +20125,7 @@
   {
    "name": "gen: import.run bad transport: ['export']",
    "send": {
-    "id": 14121,
+    "id": 14125,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20103,7 +20138,7 @@
   {
    "name": "gen: import.run bad transport: {'a': 1}",
    "send": {
-    "id": 14122,
+    "id": 14126,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20116,7 +20151,7 @@
   {
    "name": "gen: import.run bad transport: 1.5",
    "send": {
-    "id": 14123,
+    "id": 14127,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20127,7 +20162,7 @@
   {
    "name": "gen: import.run bad transport: 0",
    "send": {
-    "id": 14124,
+    "id": 14128,
     "method": "import.run",
     "params": {
      "path": "x",
@@ -20138,7 +20173,7 @@
   {
    "name": "gen: import.run bad path before bad transport",
    "send": {
-    "id": 14125,
+    "id": 14129,
     "method": "import.run",
     "params": {
      "path": 5,

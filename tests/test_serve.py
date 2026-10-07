@@ -158,7 +158,7 @@ def test_locked_until_unlocked_then_data(encrypted):
     assert status["kdf"]["p"] == 1
     for method, params in [("data.health", {}), ("data.metric", {"metric": "sleep_score", "scope": "device"}),
                            ("data.today", {}), ("data.facts", {}), ("import.run", {"path": "x"}),
-                           ("import.last", {}), ("key.cache", {"enable": True})]:
+                           ("import.last", {}), ("import.cancel", {}), ("key.cache", {"enable": True})]:
         assert encrypted.error_code(method, **params) == "locked", method
     assert encrypted.error_code("key.unlock", passphrase=WRONG) == "wrong_passphrase"
     assert encrypted.error_code("data.health") == "locked"
@@ -482,10 +482,10 @@ def test_second_import_while_one_runs_is_busy(plain, tmp_path, monkeypatch):
     started, release = threading.Event(), threading.Event()
     real = sources.import_path
 
-    def slow(path, conn, transport=None, progress=None):
+    def slow(path, conn, transport=None, progress=None, cancel=None):
         started.set()
         assert release.wait(10)
-        return real(path, conn, transport, progress)
+        return real(path, conn, transport, progress, cancel)
     monkeypatch.setattr(sources, "import_path", slow)
     root = tmp_path / "export"
     root.mkdir()
@@ -510,10 +510,10 @@ def test_eof_with_an_import_in_flight_waits_for_it_and_its_answer_is_the_last_li
     started, release, input_ended = threading.Event(), threading.Event(), threading.Event()
     real = sources.import_path
 
-    def held(path, conn, transport=None, progress=None):
+    def held(path, conn, transport=None, progress=None, cancel=None):
         started.set()
         assert release.wait(10)
-        return real(path, conn, transport, progress)
+        return real(path, conn, transport, progress, cancel)
     monkeypatch.setattr(sources, "import_path", held)
     root = tmp_path / "export"
     root.mkdir()
@@ -542,6 +542,44 @@ def test_eof_with_an_import_in_flight_waits_for_it_and_its_answer_is_the_last_li
     assert "id" in written[-1] and written[-1]["id"] == 1 and written[-1]["result"]["ok"] > 0
     new_run = next(run for run in plain.result("import.last")["runs"] if run["id"] == written[-1]["result"]["run_id"])
     assert new_run["finished_at"], "the run row was written and finished before the process exited"
+
+
+def test_import_cancel_stops_after_the_file_being_read_and_books_the_run_cancelled(plain, tmp_path, monkeypatch):
+    """Twin of the Rust 'a held import cancelled before release reads one file': the flag is set while the worker is
+    held, so exactly the first file is read (the check sits right after each file's progress event)."""
+    started, release = threading.Event(), threading.Event()
+    real = sources.import_path
+
+    def held(path, conn, transport=None, progress=None, cancel=None):
+        started.set()
+        assert release.wait(10)
+        return real(path, conn, transport, progress, cancel)
+    monkeypatch.setattr(sources, "import_path", held)
+    root = tmp_path / "export"
+    root.mkdir()
+    _build_export(root)
+    request = lambda i, method, **p: json.dumps({"id": i, "method": method, "params": p})   # noqa: E731
+
+    def lines():
+        yield request(1, "import.run", path=str(root), transport="export")
+        assert started.wait(10)
+        yield request(2, "import.cancel")
+        yield request(3, "import.cancel")   # a repeat while it runs says the same
+        release.set()
+    written = plain.feed(lines())
+    by_id = {line["id"]: line for line in written if "id" in line}
+    assert by_id[2]["result"] == {"state": "cancelling"} and by_id[3]["result"] == {"state": "cancelling"}
+    assert by_id[1]["error"] == {"code": "cancelled", "message": "the import was cancelled; the files read so far are kept"}
+    assert [e["done"] for e in written if e.get("event") == "progress"] == [1], "the file being read finished; nothing later"
+    run = plain.result("import.last")["runs"][0]
+    assert (run["status"], run["files_seen"], run["files_imported"], run["error"]) == ("cancelled", 1, 1, None)
+    assert plain.send("import.cancel")["error"] == {"code": "not_found", "message": "no import is running"}, "nothing runs now"
+    again = plain.result("import.run", path=str(root), transport="export")
+    assert again["duplicate"] == 1 and again["ok"] > 0, "the slot is free; the one file kept counts as a duplicate"
+
+
+def test_import_cancel_with_no_import_is_not_found(plain):
+    assert plain.send("import.cancel")["error"] == {"code": "not_found", "message": "no import is running"}
 
 
 def test_import_is_busy_while_another_process_holds_the_write_lock(plain, db_path, tmp_path):
@@ -598,7 +636,7 @@ def _calls(export_root):
                ("key.cache", {"enable": True}), ("key.cache", {"enable": False})]
             + unlocked_reads
             + [("import.run", {"path": str(export_root), "transport": "export"}),
-               ("import.run", {"path": "/Users/someone/missing.zip"}), ("import.last", {}), ("key.status", {}),
+               ("import.run", {"path": "/Users/someone/missing.zip"}), ("import.last", {}), ("import.cancel", {}), ("key.status", {}),
                ("key.lock", {}), ("key.status", {})])
 
 

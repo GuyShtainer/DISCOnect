@@ -545,7 +545,7 @@ def _import_entry(entry: _Entry, stream: str, writer: Writer) -> None:
         writer.write_json_record(stream, key, record, decoded, label)
 
 
-def import_connect_export(path: pathlib.Path, writer: Writer, progress=None) -> None:
+def import_connect_export(path: pathlib.Path, writer: Writer, progress=None, cancel=None) -> None:
     """Feed every recognised part of the export to ``writer``.
 
     JSON families handled are listed in :data:`FILE_FAMILIES` (the daily spine
@@ -556,7 +556,8 @@ def import_connect_export(path: pathlib.Path, writer: Writer, progress=None) -> 
     pre-pass the caller orchestrates). Each file's claimed date window (from
     its name) is recorded for the coverage ledger, and a file that is not
     valid JSON is recorded as a failure instead of being skipped silently.
-    ``progress(done, None, stream)`` is called after each imported file.
+    ``progress(done, None, stream)`` is called after each imported file, then ``cancel()`` is
+    asked (``sources.CancelCheck``): True ends the phase there with ``writer.stats.cancelled`` set.
     """
     path = pathlib.Path(path)
     done = 0
@@ -569,3 +570,6 @@ def import_connect_export(path: pathlib.Path, writer: Writer, progress=None) -> 
         done += 1
         if progress is not None:
             progress(done, None, stream)
+        if cancel is not None and cancel():
+            writer.stats.cancelled = True
+            return

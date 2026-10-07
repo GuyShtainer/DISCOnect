@@ -75,8 +75,12 @@ class ImportStats:
     warnings: list[str] = dataclasses.field(default_factory=list)
     dates_assumed_utc: int = 0
     derived_days: int = 0
+    #: The run was cancelled after a file (``import.cancel``): the counters above are what it read before that.
+    cancelled: bool = False
 
     def status(self) -> str:
+        if self.cancelled:
+            return "cancelled"
         if self.files_failed and not self.files_imported:
             return "failed"
         return "partial" if self.files_failed else "ok"

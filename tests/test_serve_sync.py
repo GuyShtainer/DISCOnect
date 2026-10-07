@@ -199,6 +199,27 @@ def test_sync_run_and_import_run_share_one_slot(encrypted, db_path, tmp_path, mo
     assert encrypted.result("sync.run")["push"]["bundles"] == 1, "the slot is free again"
 
 
+def test_import_cancel_during_a_sync_is_not_found(encrypted, db_path, tmp_path, monkeypatch):
+    """The slot is shared, the cancel is not: a sync holding it is no import (Python only; the Rust sync has no hold hook)."""
+    _relay_json(db_path, {"folder": str(tmp_path / "relay")})
+    encrypted.result("key.unlock", passphrase=PASS)
+    started, release = threading.Event(), threading.Event()
+    real = sync.push
+
+    def slow(*args, **kwargs):
+        started.set()
+        release.wait(5)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(sync, "push", slow)
+    encrypted.next_id += 1
+    serve.handle_line(encrypted.session, json.dumps({"id": encrypted.next_id, "method": "sync.run", "params": {}}))
+    assert started.wait(5)
+    assert encrypted.send("import.cancel")["error"] == {"code": "not_found", "message": "no import is running"}
+    release.set()
+    encrypted.session.import_thread.join()
+
+
 def test_sync_status_is_read_only_and_ignores_params(plain, db_path):
     before = db_path.read_bytes()
     assert plain.result("sync.status", limit=1, x=[1]) == plain.result("sync.status")

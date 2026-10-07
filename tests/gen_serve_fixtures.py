@@ -452,6 +452,12 @@ def _import_entries() -> list[dict]:
                                                               "params": {"limit": 1, "x": [1]}}},
         {"name": "gen: import.last params null", "raw": '{"id":14002,"method":"import.last","params":null}'},
         {"name": "gen: import.last params array", "raw": '{"id":14003,"method":"import.last","params":[]}'},
+        # import.cancel (BL-3): a stop path; no import runs in the differential, so not_found on both cores
+        {"name": "gen: import.cancel plain (no import running)", "send": {"id": 14004, "method": "import.cancel"}},
+        {"name": "gen: import.cancel ignores params", "send": {"id": 14005, "method": "import.cancel",
+                                                                "params": {"limit": 1, "x": [1]}}},
+        {"name": "gen: import.cancel params null", "raw": '{"id":14006,"method":"import.cancel","params":null}'},
+        {"name": "gen: import.cancel params array", "raw": '{"id":14007,"method":"import.cancel","params":[]}'},
     ]
 
     def add(label: str, **params) -> None:
@@ -810,6 +816,7 @@ def build_script(anchors: dict[str, str]) -> None:
               {"name": "gen: data.sleep while locked", "send": {"id": 12115, "method": "data.sleep"}},
               {"name": "gen: data.contract while locked", "send": {"id": 12116, "method": "data.contract"}},
               {"name": "gen: import.last while locked", "send": {"id": 12103, "method": "import.last"}},
+              {"name": "gen: import.cancel while locked", "send": {"id": 12117, "method": "import.cancel"}},
               # locked on an encrypted store; plaintext stores are open, so these answer as unlocked ones do
               {"name": "gen: sync.status while locked", "send": {"id": 12105, "method": "sync.status"}},
               {"name": "gen: sync.run while locked", "send": {"id": 12106, "method": "sync.run"}},
