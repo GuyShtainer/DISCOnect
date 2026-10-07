@@ -5,6 +5,7 @@ Synthetic stores in scratch HOMEs only (conftest points HOME at tmp_path); the r
 
 import fcntl
 import os
+import re
 import pathlib
 import subprocess
 import sys
@@ -300,11 +301,17 @@ def test_an_idle_running_program_refuses_the_move_and_touches_nothing(tmp_path, 
     before = _names(db.parent)
     proc = _named_sleeper(tmp_path, name)
     try:
+        found = REAL_RUNNING_PROGRAMS()
         code, _, err = _run(capsys)
     finally:
         _stop(proc)
     assert code == cli.EXIT_USAGE
-    assert f"migrate-home: {name} (pid {proc.pid}) is running; quit the app and Claude Desktop, then retry" in err
+    # the refusal names the lowest pid of ours that is running; a sibling session's real core or app may come
+    # before the sleeper, so match on the launched pid being among the found, and the named one being one of them
+    assert (name, proc.pid) in found
+    named = re.search(r"migrate-home: (\S+) \(pid (\d+)\) is running; quit the app and Claude Desktop, then retry", err)
+    assert named, err
+    assert (named.group(1), int(named.group(2))) in found
     _assert_untouched(tmp_path, before)
 
 
