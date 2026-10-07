@@ -60,10 +60,17 @@ this device pushed minus the listing are re-packed and put again, within a budge
 - A rotation leaves the old account's objects on every relay in the list (as it left them on the one).
 - A re-packed bundle carries a fresh nonce and only the rows still linked to its name (a version
   retired by a later conflict is absent; the winner travels in its own bundle). Every consumer keys by
-  name, `seq`/`prev` or record identity, so the two versions are interchangeable.
-- A served folder that is also a cloud folder: the client writes `.tmp-` files readers ignore, a bundle
-  is packed once per run and no name is ever overwritten with different content, so two routes to one
-  name never make provider conflict copies.
+  name, `seq`/`prev` or record identity, so the two versions are interchangeable. Stated plainly
+  (review 2026-10-07): a site written only by this device therefore never holds a retired version at
+  all after a heal — a fresh reader of that site alone sees the winners only, which is the converged
+  state, not a loss.
+- A served folder that is also a cloud folder: the client writes `.tmp-` files readers ignore and a
+  bundle is packed once per run. A heal, however, puts *different bytes under a name the listing lacks*
+  (fresh nonce), so two routes to one cloud folder (the phone's and the Mac's) or a provider that evicts
+  a file from the listing (iCloud's `.name.icloud` placeholder) can make a provider conflict copy and a
+  re-upload of up to the heal budget per site per sync. Corrected 2026-10-07 (review): the heal counts
+  an evicted placeholder as present; two routes to one folder remain a known cost (BACKLOG: dedupe by
+  listing the sibling route's names before healing).
 - One compromised cloud client can keep every pull `partial` with a planted object (re-fetched on every
   run, times N sites); a bad copy on one site never shadows a good one on another. Backing off a
   rejected name is BACKLOG.
