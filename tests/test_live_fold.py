@@ -7,7 +7,7 @@ import zlib
 
 import pytest
 
-from disconect import chart, contract, coverage, health, insight, storage
+from disconect import chart, contract, coverage, health, insight, queries, storage
 from disconect.ingest import live, sources
 from disconect.ingest.clock import ClockOffsets
 from disconect.ingest.model import ClockOffset
@@ -248,6 +248,25 @@ def test_the_live_block_days_are_the_watchs_local_days(tmp_path, sessions):
                      "VALUES('heart_rate', '9999-12-31T23:46:00Z', 60, 'live', ?)", (raw,))
     with storage.open_read_only(db) as conn:
         assert health.data_health(conn)["live"]["last_day"] == "9999-12-31"
+
+
+def test_a_reading_at_the_last_accepted_stamp_reads_back_at_a_plus_14_hour_offset(tmp_path):
+    """T_LIMIT - 1 is 9998-12-31T23:59:59Z; at +14 h its local day is 9999-01-01 and no read overflows."""
+    assert live.T_LIMIT == int(datetime.datetime(9999, 1, 1, tzinfo=UTC).timestamp()) == 253370764800
+    folder = tmp_path / "late"
+    folder.mkdir()
+    _lines(folder / "live-late.jsonl", [{"t": live.T_LIMIT - 1, "metric": "heart_rate", "value": 61}])
+    db = tmp_path / "s.db"
+    _import(db, folder)
+    with storage.open_for_write(db, "test") as conn:
+        raw = conn.execute("SELECT id FROM raw_records WHERE stream='json:live'").fetchone()[0]
+        ClockOffsets.persist(conn, [ClockOffset(datetime.datetime(2025, 6, 1, 12, tzinfo=UTC), 50400)], None, raw)
+    with storage.open_read_only(db) as conn:
+        day = queries.live_day(conn, "9999-01-01")
+        assert [(s["start_utc"], s["end_local"]) for s in day["sessions"]] == [
+            ("9998-12-31T23:59:59Z", "9999-01-01T13:59")]
+        assert [(m["metric"], m["minutes"]) for m in day["metrics"] if m["minutes"]] == [("heart_rate", 1)]
+        assert health.data_health(conn)["live"]["last_day"] == "9999-01-01"
 
 
 def test_the_contract_names_the_scope_and_every_scope_has_a_chart_colour():

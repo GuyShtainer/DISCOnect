@@ -199,9 +199,10 @@ def test_relay_carries_the_live_record_and_the_peer_stores_the_bytes(tmp_path):
 
 def test_a_live_file_with_a_millisecond_stamp_is_not_a_live_file(tmp_path):
     bound = live.T_LIMIT
+    assert bound == int(datetime.datetime(9999, 1, 1, tzinfo=datetime.timezone.utc).timestamp()) == 253370764800
     assert live.parse_live_file(json.dumps({"t": bound - 1, "metric": "steps", "value": 1}).encode()) == [[bound - 1, "steps", 1]]
     assert live.parse_live_file(json.dumps({"t": 0, "metric": "steps", "value": 1}).encode()) == [[0, "steps", 1]]
-    for t in (bound, 1750000000123, -1, -0.5):
+    for t in (bound, 253402300800, 1750000000123, -1, -0.5):
         line = json.dumps({"t": t, "metric": "steps", "value": 1}).encode()
         assert live.parse_live_file(line) is None, t
     assert live.parse_live_file(b'{"t": NaN, "metric": "steps", "value": 1}\n') is None
