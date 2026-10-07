@@ -164,7 +164,7 @@ def test_ring_with_one_rust_device(tmp_path, fleet, rust_seat, names):
     for device, name in zip(devices, names):
         fleet.do_import(device, exports[name])
     _quiet(devices)   # after the imports themselves
-    fleet.ring(devices, FolderRelay(tmp_path / "relay"))
+    fleet.ring(devices, FolderRelay(tmp_path / "relay", create_root=True))
     _converged(devices)
     _quiet(devices)   # after the pulls
 
@@ -178,7 +178,7 @@ def test_ties(tmp_path, fleet, cores, order):
     first, second = ((x, y), (y, x))[order]
     a, b = fleet.device("a", cores[0]), fleet.device("b", cores[1])
     fleet.do_import(a, first), fleet.do_import(b, second)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     fleet.push(a, relay), fleet.push(b, relay), fleet.pull(a, relay), fleet.pull(b, relay)
     rows = _converged([a, b])
     assert {row[2] for row in rows} == {"fitness_age", "weight_kg"}
@@ -203,7 +203,7 @@ def test_supersession(tmp_path, fleet, challenger_wins, rust_seat):
     devices = [fleet.device(letter, "rs" if seat == rust_seat else "py") for seat, letter in enumerate("abc")]
     for device, source in zip(devices, sources_):
         fleet.do_import(device, source)
-    fleet.ring(devices, FolderRelay(tmp_path / "relay"))
+    fleet.ring(devices, FolderRelay(tmp_path / "relay", create_root=True))
     rows = _converged(devices)
     acute = {row[5] for row in rows if row[2] == "training_load_acute"}
     assert acute == ({180.0} if challenger_wins else {190.0})
@@ -221,7 +221,7 @@ def test_null_instant(tmp_path, fleet, cores, order):
     first, second = ((x, y), (y, x))[order]
     a, b = fleet.device("a", cores[0]), fleet.device("b", cores[1])
     fleet.do_import(a, first), fleet.do_import(b, second)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     fleet.push(a, relay), fleet.push(b, relay), fleet.pull(a, relay), fleet.pull(b, relay)
     rows = _converged([a, b])
     assert len({row[5] for row in rows if row[2] == "training_load_acute"}) == 1
@@ -232,7 +232,7 @@ def test_null_instant(tmp_path, fleet, cores, order):
 @pytest.mark.parametrize("importer,puller", [("py", "rs"), ("rs", "py")])
 def test_split_readiness_importer_and_fresh_puller(tmp_path, fleet, importer, puller):
     desktop, phone = fleet.device("desktop", importer), fleet.device("phone", puller)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     fleet.do_import(desktop, _split_readiness_export(tmp_path / "export"))
     fleet.push(desktop, relay)
     fleet.pull(phone, relay)
@@ -248,7 +248,7 @@ def test_split_readiness_importer_and_fresh_puller(tmp_path, fleet, importer, pu
 def test_readiness_only_pull(tmp_path, fleet, feeder_core, store_core):
     feeder, store = fleet.device("feeder", feeder_core), fleet.device("store", store_core)
     whole = fleet.device("whole", "py")
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     readiness = _split_readiness_export(tmp_path / "readiness_export")
     full = _export(tmp_path / "full_export", "Y")
     fleet.do_import(feeder, readiness)
@@ -314,7 +314,7 @@ def test_failed_conflict_write_leaves_the_loser_and_the_retry_converges(tmp_path
     feeder, puller = fleet.device("feeder", feeder_core), fleet.device("puller", puller_core)
     fleet.do_import(puller, _store_with(tmp_path / "x", early))
     fleet.do_import(feeder, _store_with(tmp_path / "y", late))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     fleet.push(feeder, relay), fleet.push(puller, relay)
     incoming, loser = _hash_of(feeder.db), _hash_of(puller.db)
     # a permanent trigger (a TEMP one would not survive into the Rust process) refuses the winner's raw row
@@ -385,7 +385,7 @@ def _pair_of_devices(tmp_path, fleet, feeder_core, puller_core, puller_records):
     feeder, puller = fleet.device("feeder", feeder_core), fleet.device("puller", puller_core)
     fleet.do_import(puller, _store_many(tmp_path / "x", puller_records))
     fleet.do_import(feeder, _store_with(tmp_path / "y", _rec("2025-06-15", LATE_STEPS, "21")))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     fleet.push(feeder, relay), fleet.push(puller, relay)
     return feeder, puller, relay
 
@@ -439,7 +439,7 @@ def _history_of(conn) -> tuple[int, int]:
 def test_f3_plain_record_storage_failure_is_retried(tmp_path, fleet, feeder_core, puller_core, abort):
     feeder, puller = fleet.device("feeder", feeder_core), fleet.device("puller", puller_core)
     fleet.do_import(feeder, _store_with(tmp_path / "y", _rec("2025-06-15", LATE_STEPS, "21")))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     fleet.push(feeder, relay)
     incoming = _hash_of(feeder.db)
     _trigger(puller, "inject_f3", f"BEFORE INSERT ON raw_records WHEN NEW.payload_hash='{incoming}' BEGIN SELECT RAISE({abort},'injected'); END")
@@ -460,7 +460,7 @@ def test_f4_reapplied_bundle_keeps_one_history_row_per_conflict(tmp_path, fleet,
     fleet.do_import(feeder, _store_many(tmp_path / "f", [_rec("2025-06-14", 1000, "12"), _rec("2025-06-15", LATE_STEPS, "21")]))
     fleet.do_import(puller, _store_many(tmp_path / "p", [_rec("2025-06-14", 2000, "21"), _rec("2025-06-15", EARLY_STEPS, "12")]))
     fleet.do_import(third, _store_many(tmp_path / "t", [_rec("2025-06-16", 3000, "21")]))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     for device in (feeder, puller, third):
         fleet.push(device, relay)
     winner = _read(feeder, "SELECT payload_hash FROM raw_records WHERE source_key LIKE '%2025-06-15%'")[0][0]
@@ -539,7 +539,7 @@ def test_conflict_counts_agree_across_devices_whatever_bundles_each_one_met(tmp_
     fleet.do_import(holder, _store_with(tmp_path / "late", late))
     for i, twin in enumerate(twins):
         fleet.do_import(twin, _store_with(tmp_path / f"early{i}", early))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     for device in (holder, *twins):
         fleet.push(device, relay)
     for device in (holder, *twins):
@@ -564,7 +564,7 @@ def test_a_damaged_copy_is_repaired_from_the_relay_on_either_core(tmp_path, flee
     late, early = _load(_day(4), 5 * 3600_000, 175), _load(_day(4), 0, 190)
     damaged, peer = fleet.device("damaged", damaged_core), fleet.device("peer", peer_core)
     fleet.do_import(damaged, _metrics_export(tmp_path / "x", [late]))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     fleet.push(damaged, relay), fleet.pull(peer, relay)
     with storage.open_for_write(damaged.db, "test") as conn:
         conn.execute("UPDATE raw_records SET payload=? WHERE stream='json:training_load'", (b"not zlib",))
@@ -584,7 +584,7 @@ def test_a_damaged_copy_is_repaired_from_the_relay_on_either_core(tmp_path, flee
 @pytest.mark.parametrize("sender_core,keeper_core", [("py", "rs"), ("rs", "py")])
 def test_a_stream_without_a_decoder_is_kept_on_either_core(tmp_path, fleet, sender_core, keeper_core):
     sender, keeper = fleet.device("sender", sender_core), fleet.device("keeper", keeper_core)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     fleet.do_import(sender, _export(tmp_path / "export", "X"))
     with storage.open_for_write(sender.db, "test") as conn:   # a newer build on the sender: one stream relabelled
         conn.execute("UPDATE raw_records SET stream='json:future' WHERE stream='json:uds'")

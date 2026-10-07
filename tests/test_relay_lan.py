@@ -57,7 +57,7 @@ def test_a_python_folder_device_and_a_rust_lan_device_converge(tmp_path, fleet):
     folder = tmp_path / "relay"
     server = RelayServe(rust_seat, folder)
     try:
-        folder_relay = FolderRelay(folder)
+        folder_relay = FolderRelay(folder, create_root=True)
         _rust_lan(rust_seat, "push", server.url)               # Rust -> LAN -> the served folder
         fleet.pull(python_seat, folder_relay)                  # Python reads that folder directly
         fleet.push(python_seat, folder_relay)                  # Python writes the folder directly
@@ -78,7 +78,7 @@ def test_a_ring_of_two_rust_devices_and_one_python_device_mixes_lan_and_folder(t
     folder = tmp_path / "relay"
     server = RelayServe(lan_seat, folder)
     try:
-        relay = FolderRelay(folder)
+        relay = FolderRelay(folder, create_root=True)
         _rust_lan(lan_seat, "push", server.url)                # a: LAN
         fleet.pull(python_seat, relay)                         # b: folder
         fleet.push(python_seat, relay)

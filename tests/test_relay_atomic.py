@@ -41,7 +41,7 @@ def _pair(tmp_path: pathlib.Path):
     a, b = tmp_path / "a.db", tmp_path / "b.db"
     _import(a, _store_with(tmp_path / "x", early))
     _import(b, _store_with(tmp_path / "y", late))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     _push(a, relay), _push(b, relay)
     return a, b, relay
 
@@ -164,7 +164,7 @@ def _pair_with_second_day(tmp_path: pathlib.Path):
     a, b = tmp_path / "a.db", tmp_path / "b.db"
     _import(a, _store_many(tmp_path / "x", [_rec("2025-06-15", EARLY_STEPS, "12"), _rec("2025-06-16", 3000, "21")]))
     _import(b, _store_many(tmp_path / "y", [_rec("2025-06-15", LATE_STEPS, "21")]))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     _push(a, relay), _push(b, relay)
     conn = storage.open_read_only(a)
     loser_id = conn.execute("SELECT id FROM raw_records WHERE source_key LIKE '%2025-06-15%'").fetchone()[0]
@@ -199,7 +199,7 @@ def test_f2_retried_pull_marks_the_already_stored_winner_seen(tmp_path):
 def test_f3_a_plain_record_storage_failure_keeps_the_bundle_applying(tmp_path, abort):
     """A refused write of a non-conflict record used to end ``applied`` with nothing retried: permanent divergence.
     ``RAISE(ROLLBACK)`` ends the transaction itself, so the writer's own ROLLBACK must not mask the error (F5)."""
-    feeder, puller, relay = tmp_path / "f.db", tmp_path / "p.db", FolderRelay(tmp_path / "relay")
+    feeder, puller, relay = tmp_path / "f.db", tmp_path / "p.db", FolderRelay(tmp_path / "relay", create_root=True)
     _import(feeder, _store_with(tmp_path / "y", _rec("2025-06-15", LATE_STEPS, "21")))
     _push(feeder, relay)
     with storage.open_for_write(puller, "test"):
@@ -228,7 +228,7 @@ def _ring_stores(tmp_path: pathlib.Path):
     _import(feeder, _store_many(tmp_path / "f", [_rec("2025-06-14", 1000, "12"), _rec("2025-06-15", LATE_STEPS, "21")]))
     _import(puller, _store_many(tmp_path / "p", [_rec("2025-06-14", 2000, "21"), _rec("2025-06-15", EARLY_STEPS, "12")]))
     _import(third, _store_many(tmp_path / "t", [_rec("2025-06-16", 3000, "21")]))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     for db in (feeder, puller, third):
         _push(db, relay)
     conn = storage.open_read_only(feeder)

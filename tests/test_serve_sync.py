@@ -247,8 +247,8 @@ def test_sync_run_takes_a_relays_param_and_sync_status_relays_follows_the_last_r
     result = encrypted.result("sync.run", relays=relays)
     assert set(result) == {"push", "pull", "sites", "status"} and result["status"] == "ok"
     assert result["push"]["bundles"] == 1
-    assert result["sites"] == [{"id": f"{i + 1:08x}", "kind": "folder", "pushed": 1, "healed": 0, "behind": 0,
-                                "pulled": 0, "rejected": 0, "error": None} for i in range(3)]
+    assert result["sites"] == [{"id": f"{i + 1:08x}", "kind": "folder", "label": "x", "pushed": 1, "healed": 0,
+                                "behind": 0, "pulled": 0, "rejected": 0, "error": None} for i in range(3)]
     assert encrypted.result("sync.status")["relays"] == result["sites"]
     # a missing and an unavailable site: partial, the others still sync, the words are reasons never paths
     relays[1]["path"] = str(tmp_path / "gone")
@@ -283,7 +283,8 @@ def test_a_relays_param_is_checked_after_the_store_and_before_the_slot(encrypted
     assert encrypted.send("sync.run", relays=[{**lan, "url": "http://127.0.0.1:9"}])["error"] == {
         "code": "unsupported_transport", "message": relay_config.LAN_TEXT}
     assert encrypted.result("sync.status")["relays"] == [{
-        "id": "ab", "kind": "lan", "pushed": 0, "healed": 0, "behind": 0, "pulled": 0, "rejected": 0, "error": "unsupported_transport"}]
+        "id": "ab", "kind": "lan", "label": "", "pushed": 0, "healed": 0, "behind": 0, "pulled": 0, "rejected": 0,
+        "error": "unsupported_transport"}]
 
 
 def test_on_a_plaintext_store_not_encrypted_comes_before_the_shape_of_relays(plain, tmp_path):
@@ -308,7 +309,7 @@ def test_a_lan_entry_among_folders_is_a_site_reported_unsupported_transport_and_
                                   ("00000003", "folder", None)]
     assert result["push"]["bundles"] == 1
     assert [s["pushed"] for s in result["sites"]] == [1, 0, 1]
-    assert len(sync.FolderRelay(one).list(sync.account_for(keys.unlock_with_passphrase(keys.read_key_file(keys.key_path_for(db_path)), PASS)))) == 1
+    assert len(sync.FolderRelay(one, create_root=True).list(sync.account_for(keys.unlock_with_passphrase(keys.read_key_file(keys.key_path_for(db_path)), PASS)))) == 1
     status = encrypted.result("sync.status")
     assert status["relay_url"] == "http://127.0.0.1:9" and status["relays"] == result["sites"]
 
@@ -331,3 +332,48 @@ def test_relay_prefix_uses_the_serve_entry_and_a_list_without_one_serves_nothing
     # a lan serve entry is a malformed file: it reads as nothing
     _relay_json(db_path, {"relays": [{"id": "ab", "kind": "lan", "url": "http://h:1", "serve": True}]})
     assert encrypted.error_code("relay.addresses") == "not_found"
+
+
+def test_an_empty_relay_list_answers_not_found_and_a_public_lan_address_is_refused(encrypted, db_path):
+    _relay_json(db_path, {"relays": []})
+    encrypted.result("key.unlock", passphrase=PASS)
+    for method in ("sync.run", "relay.addresses"):
+        assert encrypted.send(method)["error"] == {
+            "code": "not_found", "message": "no relay is configured (relay.json in the data folder)"}, method
+    # a per-call list of one `lan` entry must be an IP literal on a private or local network
+    for url in ("http://8.8.8.8:24816", "http://mac.local:24816"):
+        response = encrypted.send("sync.run", relays=[{"id": "0000000a", "kind": "lan", "url": url}])
+        assert response["error"] == {
+            "code": "bad_params",
+            "message": "relays: a LAN relay address must be an IP address on a private or local network, not a name"}, url
+    # inside a list of two or more it is the site word bad_url
+    folder = db_path.parent / "one"
+    folder.mkdir()
+    result = encrypted.result("sync.run", relays=[
+        {"id": "0000000a", "kind": "folder", "path": str(folder), "label": "disk"},
+        {"id": "0000000b", "kind": "lan", "url": "http://8.8.8.8:24816", "label": "mac"}])
+    assert [(s["id"], s["label"], s["error"]) for s in result["sites"]] == [
+        ("0000000a", "disk", None), ("0000000b", "mac", "bad_url")]
+    assert result["status"] == "partial"
+
+
+def test_a_strict_single_lan_failure_never_replaces_the_sites_of_a_run_in_flight(encrypted, db_path, tmp_path, monkeypatch):
+    encrypted.result("key.unlock", passphrase=PASS)
+    folder = tmp_path / "one"
+    folder.mkdir()
+    ran = encrypted.result("sync.run", relays=[{"id": "0000000a", "kind": "folder", "path": str(folder)}])
+    assert ran["sites"][0]["id"] == "0000000a"
+    lan = [{"id": "0000000b", "kind": "lan", "url": "http://127.0.0.1:9", "label": "mac"}]
+    # the slot is held by another worker: the lan call is refused as before and records nothing
+    assert encrypted.session.import_slot.acquire(blocking=False)
+    refused = encrypted.send("sync.run", relays=lan)
+    assert refused["error"]["code"] == "unsupported_transport"
+    assert encrypted.result("sync.status")["relays"] == ran["sites"], "the last run's sites are untouched"
+    encrypted.session.import_slot.release()
+    # the slot is free: the row is recorded (with the label) and the slot is free again
+    assert encrypted.send("sync.run", relays=lan)["error"]["code"] == "unsupported_transport"
+    assert encrypted.result("sync.status")["relays"] == [{
+        "id": "0000000b", "kind": "lan", "label": "mac", "pushed": 0, "healed": 0, "behind": 0, "pulled": 0,
+        "rejected": 0, "error": "unsupported_transport"}]
+    assert encrypted.session.import_slot.acquire(blocking=False), "the slot was released"
+    encrypted.session.import_slot.release()

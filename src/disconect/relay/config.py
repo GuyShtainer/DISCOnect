@@ -8,9 +8,11 @@ reported ``unsupported_transport`` (a list of one raises :class:`UnsupportedTran
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import ipaddress
 import json
+import os
 import pathlib
 import re
 import secrets
@@ -86,9 +88,10 @@ def _parse_entry(value: object) -> RelayEntry | None:
 
 def read_list(path: pathlib.Path) -> list[RelayEntry] | None:
     """The list in ``relay.json``, or None when the file is missing, unreadable, not an object, or names nothing.
+    ``{"relays": []}`` is an empty list: every caller reads it as "no relay", never as malformed.
 
     ``{"relays": [...]}`` wins when ``relays`` is an array (the legacy keys are then ignored). Any malformed entry,
-    a repeated id, more than one ``serve: true`` or an empty array makes the whole file unreadable. A legacy
+    a repeated id or more than one ``serve: true`` makes the whole file unreadable; an empty array is an empty list. A legacy
     ``{"folder": ...}`` is the one entry ``default`` with ``serve: true``; a legacy ``{"lan": ...}`` is the one entry
     ``default`` (a non-empty ``lan`` string wins over ``folder``, as ever)."""
     try:
@@ -107,7 +110,7 @@ def read_list(path: pathlib.Path) -> list[RelayEntry] | None:
             entries.append(entry)
         ids = {entry.id for entry in entries}
         serving = sum(1 for entry in entries if entry.serve)
-        return entries if entries and len(ids) == len(entries) and serving <= 1 else None
+        return entries if len(ids) == len(entries) and serving <= 1 else None
     lan, folder = _text_of(value, "lan"), _text_of(value, "folder")
     if lan is not None:
         return [RelayEntry("default", "lan", lan, "", False)]
@@ -123,8 +126,8 @@ def read(path: pathlib.Path) -> tuple[str, str] | None:
 
 
 def write_list(path: pathlib.Path, entries: list[RelayEntry]) -> None:
-    """Write ``entries`` as the list form (sorted keys, ``label`` only when set, ``serve`` only when true), creating the
-    parent folder. More than one ``serve`` entry is refused (``ValueError``)."""
+    """Write ``entries`` as the list form (sorted keys, ``label`` only when set, ``serve`` only when true), atomically
+    (temp file beside it, mode 0600, fsync, rename; the parent folder is created and set to 0700). More than one ``serve`` entry is refused (``ValueError``)."""
     if sum(1 for entry in entries if entry.serve) > 1:
         raise ValueError("only one relay can serve")
     items = []
@@ -135,8 +138,33 @@ def write_list(path: pathlib.Path, entries: list[RelayEntry]) -> None:
         if entry.serve:
             item["serve"] = True
         items.append(item)
+    _write_atomic(path, (json.dumps({"relays": items}, sort_keys=True) + "\n").encode())
+
+
+def _write_atomic(path: pathlib.Path, data: bytes) -> None:
+    """The steps of ``keys.write_key_file`` on raw bytes (the twin of the Rust core's ``write_atomic``): the parent is
+    created and set to 0700, an exclusive 0600 temp file is fsynced and renamed over ``path``, then the directory is
+    fsynced; a failed write leaves no temp file and no half ``path``."""
+    path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"relays": items}, sort_keys=True) + "\n")
+    os.chmod(path.parent, 0o700)
+    temp = path.with_name(f".{path.name}.tmp{os.getpid()}")
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp, path)
+    except BaseException:
+        temp.unlink(missing_ok=True)
+        raise
+    with contextlib.suppress(OSError):   # some platforms cannot open a directory for sync
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
 
 def serve_entry(entries: list[RelayEntry]) -> RelayEntry | None:
@@ -181,7 +209,66 @@ def open_relay(kind: str, value: str) -> FolderRelay:
     """The relay a configuration names; a LAN one raises :class:`UnsupportedTransport`."""
     if kind == "lan":
         raise UnsupportedTransport(LAN_TEXT)
-    return FolderRelay(pathlib.Path(value).expanduser())
+    return FolderRelay(pathlib.Path(value).expanduser(), create_root=True)
+
+
+def never_a_pairing_address(host: str) -> bool:
+    """Stage 1 of the address check, shared with the Rust core: unspecified (0.0.0.0/8, ``::``), limited broadcast,
+    multicast (224.0.0.0/4, ff00::/8), reserved (240.0.0.0/4) and link-local (169.254.0.0/16, fe80::/10). An
+    IPv4-mapped IPv6 address is judged as the IPv4 address it carries."""
+    try:
+        ip = ipaddress.ip_address(host[1:-1] if host.startswith("[") else host)
+    except ValueError:
+        return False        # the grammar guarantees a parse; a host that does not is not this check's business
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    if isinstance(ip, ipaddress.IPv4Address):
+        first, second = ip.packed[0], ip.packed[1]
+        return first == 0 or first >= 224 or (first == 169 and second == 254)
+    return ip.is_unspecified or ip.packed[0] == 0xFF or (int(ip) >> 118) == 0x3FA     # fe80::/10
+
+
+def _offer_ip(url: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """The URL's host as an IP address: four dotted decimals or a bracketed IPv6 address; None for a name, or a url
+    with no explicit port (the twin of the Rust core's ``offer_ip``)."""
+    if not url.startswith("http://"):
+        return None
+    host, found, _port = url[len("http://"):].rpartition(":")
+    if not found:
+        return None
+    try:
+        if host.startswith("["):
+            return ipaddress.IPv6Address(host[1:-1]) if host.endswith("]") else None
+        if host and all(c in "0123456789." for c in host):
+            return ipaddress.IPv4Address(host)
+    except ValueError:
+        return None
+    return None
+
+
+def _is_private(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    if isinstance(ip, ipaddress.IPv4Address):
+        first, second = ip.packed[0], ip.packed[1]
+        return (first == 10 or (first == 172 and 16 <= second <= 31) or (first == 192 and second == 168)
+                or (first == 100 and 64 <= second <= 127))      # RFC1918 and CGNAT
+    return (int(ip) >> 121) == 0x7E                              # ULA fc00::/7
+
+
+def lan_address_class_ok(url: str) -> bool:
+    """Whether ``url`` (a LAN relay base address) is an address class the phone may sync with: the pairing joiner's
+    checks on the address alone, as the Rust core's ``lan_address_class_ok`` off iOS: an IP literal with an explicit
+    port (no DNS name), not a class that is never a pairing address, then loopback (this core has no release build to
+    refuse it in) or a private range. The Python joiner has no on-link stage (it has no interfaces to ask)."""
+    ip = _offer_ip(url)
+    if ip is None:
+        return False
+    if never_a_pairing_address(url[len("http://"):].rpartition(":")[0]):
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return ip.is_loopback or _is_private(ip)
 
 
 _LISTEN_SHAPE = "listen must be an IP address and a port, like 192.168.1.20:24816"

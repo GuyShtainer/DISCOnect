@@ -115,7 +115,7 @@ def test_core_diff_is_zero_import_last_vs_pull_last_through_the_relay(tmp_path, 
     monkeypatch.setenv(keys.PASSPHRASE_ENV, PASS)
     fleet = Fleet(tmp_path)
     try:
-        relay = FolderRelay(tmp_path / "relay")
+        relay = FolderRelay(tmp_path / "relay", create_root=True)
         live, fit = _live_source(tmp_path), _fit_source(tmp_path)
         source = fleet.device("source", "py")
         fleet.do_import(source, live)

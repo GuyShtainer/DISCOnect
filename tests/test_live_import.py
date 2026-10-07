@@ -178,7 +178,7 @@ def test_status_lists_the_stream_with_count_and_span(tmp_path, db_path, capsys):
 def test_relay_carries_the_live_record_and_the_peer_stores_the_bytes(tmp_path):
     from disconect.relay import sync
     from disconect.relay.folder import FolderRelay
-    master, relay = bytes(range(32)), FolderRelay(tmp_path / "relay")
+    master, relay = bytes(range(32)), FolderRelay(tmp_path / "relay", create_root=True)
     first, second = tmp_path / "a.db", tmp_path / "b.db"
     _import(_write_lines(tmp_path / "live-p.jsonl", LIVE_LINES), first)
     _import(_monitoring_fit(tmp_path / "A1.fit"), second)
@@ -225,7 +225,7 @@ def test_decode_live_record_takes_well_formed_readings():
 def test_relay_counts_a_malformed_live_record_invalid_instead_of_aborting(tmp_path):
     from disconect.relay import sync
     from disconect.relay.folder import FolderRelay
-    master, relay = bytes(range(32)), FolderRelay(tmp_path / "relay")
+    master, relay = bytes(range(32)), FolderRelay(tmp_path / "relay", create_root=True)
     first, second = tmp_path / "a.db", tmp_path / "b.db"
     _import(_write_lines(tmp_path / "live-p.jsonl", LIVE_LINES), first)
     bad = json.dumps({"readings": [[T0, "heart_rate", 70], [T0]]}, sort_keys=True, separators=(",", ":")).encode()

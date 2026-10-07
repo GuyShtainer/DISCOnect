@@ -105,7 +105,8 @@ class Site:
 
 @dataclasses.dataclass
 class SiteReport:
-    """What one site did in one run: ``sync.run``'s ``sites`` rows. ``error`` is a reason word, never a path or an OS text."""
+    """What one site did in one run: ``sync.run``'s ``sites`` rows. ``error`` is a stable site word (:func:`site_word`, plus
+    the words :func:`open_sites` adds), never a path, an address or an OS text."""
 
     id: str
     kind: str
@@ -115,14 +116,45 @@ class SiteReport:
     pulled: int = 0
     rejected: int = 0
     error: str | None = None
+    label: str = ""     # the entry's label ("" when it has none): user text, never a path
 
     def as_dict(self) -> dict:
-        return {"id": self.id, "kind": self.kind, "pushed": self.pushed, "healed": self.healed, "behind": self.behind,
+        return {"id": self.id, "kind": self.kind, "label": self.label, "pushed": self.pushed, "healed": self.healed, "behind": self.behind,
                 "pulled": self.pulled, "rejected": self.rejected, "error": self.error}
 
     def fail(self, error: Exception) -> None:
         if self.error is None:
-            self.error = reason_of(error)
+            self.error = site_word(error)
+
+
+def site_word(error: Exception) -> str:
+    """The stable word a site report carries for a failure (the twin of the Rust core's ``RelayError::site_word``; it
+    never holds a path, an address or an OS text):
+
+    =======================================================  ===============
+    failure                                                  word
+    =======================================================  ===============
+    ``TooLarge`` (``reason`` ``too_large``)                  ``too_large``
+    a bad object name (``ValueError``)                       ``bad_name``
+    an error marked ``transient`` (the network relay's)      ``unreachable``
+    ``FileNotFoundError``, ``NotADirectoryError``            ``missing``
+    ``PermissionError``                                      ``no_permission``
+    any other ``OSError`` (or a failed re-pack)              ``io_error``
+    =======================================================  ===============
+
+    :func:`open_sites` adds ``unavailable``, ``same_relay``, ``bad_url`` and ``unsupported_transport``. The stored
+    ``rejected`` reason of a bundle keeps :func:`reason_of`."""
+    if getattr(error, "reason", None) == "too_large":
+        return "too_large"
+    if isinstance(error, ValueError):
+        return "bad_name"
+    if getattr(error, "transient", False):
+        return "unreachable"
+    if isinstance(error, (FileNotFoundError, NotADirectoryError)):
+        return "missing"
+    if isinstance(error, PermissionError):
+        return "no_permission"
+    return "io_error"
 
 
 def reason_of(error: Exception) -> str:
@@ -148,10 +180,12 @@ class SiteSpec:
     value: str           # a folder path or a LAN url ("" for an unavailable per-call entry without one)
     unavailable: bool = False   # the shell could not reach the folder: reported, never opened
     create_root: bool = False   # a missing root is opened anyway and the first put creates it (the entry this device serves)
+    label: str = ""             # the entry's label; echoed in the site's report
+    check_address: bool = False   # a ``lan`` address must also pass the pairing joiner's class: set for per-call entries
 
     @classmethod
     def from_entry(cls, entry: relay_config.RelayEntry) -> SiteSpec:
-        return cls(entry.id, entry.kind, entry.value, False, entry.serve)
+        return cls(entry.id, entry.kind, entry.value, False, entry.serve, entry.label, False)
 
 
 def _folder_identity(root: pathlib.Path) -> tuple[int, int] | None:
@@ -172,7 +206,7 @@ def open_sites(specs: list[SiteSpec], master: bytes) -> tuple[list[Site], list[S
     folders: list[tuple[int, int]] = []
     urls: list[str] = []
     for spec in specs:
-        report = SiteReport(spec.id, spec.kind)
+        report = SiteReport(spec.id, spec.kind, label=spec.label)
         word: str | None = None
         relay: Relay | None = None
         if spec.unavailable:
@@ -181,17 +215,17 @@ def open_sites(specs: list[SiteSpec], master: bytes) -> tuple[list[Site], list[S
             root = pathlib.Path(spec.value).expanduser()
             identity = _folder_identity(root)
             if identity is None and spec.create_root and not root.exists():
-                relay = FolderRelay(root)
+                relay = FolderRelay(root, create_root=True)
             elif identity is None:
                 word = "unavailable"
             elif identity in folders:
                 word = "same_relay"
             else:
                 folders.append(identity)
-                relay = FolderRelay(root)
+                relay = FolderRelay(root, create_root=spec.create_root)
         else:
             base = relay_config.lan_base_url(spec.value)
-            if base is None:
+            if base is None or (spec.check_address and not relay_config.lan_address_class_ok(base)):
                 word = "bad_url"
             elif base in urls:
                 word = "same_relay"
@@ -325,19 +359,23 @@ def _heal(conn: sqlite.Connection, master: bytes, relays: list[Target], reports:
     packed again from the stored header and the rows still linked to the name (a record a later conflict retired is
     simply absent) and put under the same name. At most ``HEAL_BUNDLES_PER_SITE`` bundles and ``HEAL_BYTES_PER_SITE``
     packed bytes per site per run; the rest is the report's ``behind``. The re-pack is not byte-identical to the
-    first copy (fresh nonce, possibly fewer rows); every reader keys by name, sequence and record identity."""
+    first copy (fresh nonce, possibly fewer rows); every reader keys by name, sequence and record identity. Only names
+    under the current account are re-packed (after a key rotation whose forget failed, the old account's rows stay);
+    the listing is :meth:`FolderRelay.list_present` (an evicted cloud placeholder counts as present); a name that
+    cannot be packed is the site's ``io_error``."""
     if all(fault is not None for fault in faults):
         return
     account = account_for(master)
     pushed = conn.execute("SELECT name, device_id, device_seq, prev, created_utc FROM relay_bundles "
-                          "WHERE direction='pushed' AND status='applied' ORDER BY device_seq").fetchall()
+                          "WHERE direction='pushed' AND status='applied' AND name LIKE ? ORDER BY device_seq",
+                          (account + "/%",)).fetchall()
     if not pushed:
         return
     for position, (relay, report) in enumerate(relays):
         if faults[position] is not None:
             continue
         try:
-            listing = set(relay.list(account))
+            listing = set(getattr(relay, "list_present", relay.list)(account))
         except (OSError, ValueError) as exc:
             reports[report].fail(exc)
             faults[position] = exc
@@ -353,7 +391,13 @@ def _heal(conn: sqlite.Connection, master: bytes, relays: list[Target], reports:
             header = {"format": bundle_module.FORMAT_VERSION, "core": __version__, "device_id": device_id,
                       "device_seq": seq, "prev": prev, "created_utc": created,
                       "records": len(records), "ranges": len(ranges)}
-            data = _seal(master, name, header, records, ranges)
+            try:
+                data = _seal(master, name, header, records, ranges)
+            except Exception:   # one name that cannot be packed is this site's io_error, never the run's
+                error = OSError("pack")
+                reports[report].fail(error)
+                faults[position] = error
+                break
             if reports[report].healed > 0 and spent + len(data) > HEAL_BYTES_PER_SITE:
                 reports[report].behind = rest
                 break

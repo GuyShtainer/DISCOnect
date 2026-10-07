@@ -564,7 +564,7 @@ def _relays_param(value: Any) -> list[sync_module.SiteSpec]:
             place = ""
         if any(spec.id == ident for spec in specs):
             raise bad
-        specs.append(sync_module.SiteSpec(ident, kind, place, bool(unavailable), False))
+        specs.append(sync_module.SiteSpec(ident, kind, place, bool(unavailable), False, label or "", True))
     return specs
 
 
@@ -584,23 +584,34 @@ def sync_run(session: Session, call: Call) -> Any:
             raise not_found
     else:
         entries = relay_config.read_list(session.db_path.parent / home.RELAY_CONFIG_NAME)
-        if entries is None:
+        if not entries:
             raise not_found
     master = storage.unlocked_master(session.db_path)
     if master is None:
         raise ServeError("not_encrypted", f"the relay needs an encrypted store: run '{identity.COMMAND} key init' first")
     specs = _relays_param(given) if per_call else [sync_module.SiteSpec.from_entry(entry) for entry in entries or []]
-    if len(specs) == 1 and not specs[0].unavailable and specs[0].kind == "lan":
+    strict_lan = len(specs) == 1 and not specs[0].unavailable and specs[0].kind == "lan"
+    if strict_lan:
         # a list of one with a malformed address is refused before anything is opened; a well-formed one is a
         # transport this core does not have (the strict single-relay error, as before)
         try:
-            relay_config.parse_base_url(specs[0].value)
+            base = relay_config.parse_base_url(specs[0].value)
         except ValueError as rule:
             raise ServeError("bad_params", f"{'relays' if per_call else 'relay.json'}: {rule}") from None
-        with session.sites_lock:
-            session.last_sites = [sync_module.SiteReport(specs[0].id, "lan", error="unsupported_transport").as_dict()]
+        if per_call and not relay_config.lan_address_class_ok(base):
+            raise ServeError("bad_params", "relays: a LAN relay address must be an IP address on a private or local "
+                                           "network, not a name")
+    held = session.import_slot.acquire(blocking=False)
+    if strict_lan:
+        # this core's strict single-lan failure. The site row is recorded only while the slot is held, so a call
+        # that finds another run in flight never replaces that run's sites
+        if held:
+            with session.sites_lock:
+                session.last_sites = [sync_module.SiteReport(specs[0].id, "lan", label=specs[0].label,
+                                                             error="unsupported_transport").as_dict()]
+            session.import_slot.release()
         raise relay_config.UnsupportedTransport(relay_config.LAN_TEXT)
-    if not session.import_slot.acquire(blocking=False):
+    if not held:
         raise ServeError("busy", "an import or a sync is already running")
     session.import_thread = threading.Thread(target=_sync_worker, args=(session, call, master, specs), name="sync")
     session.import_thread.start()
@@ -618,7 +629,7 @@ def _relay_prefix(session: Session) -> None:
     (``bad_params``); an encrypted store (``not_encrypted``); no ``<keys>.next`` rotation file (``busy``).
     Parameter shapes follow."""
     entries = relay_config.read_list(session.db_path.parent / home.RELAY_CONFIG_NAME)
-    if entries is None:
+    if not entries:
         raise ServeError("not_found", "no relay is configured (relay.json in the data folder)")
     if relay_config.serve_entry(entries) is None:
         raise ServeError("bad_params", "this device is a joiner; it serves nothing")
@@ -715,21 +726,8 @@ _FORGET_MARKER = "forget.pending"
 
 
 def _never_a_pairing_address(host: str) -> bool:
-    """Stage 1 of the address check, shared with the Rust core: unspecified (0.0.0.0/8, ``::``), limited broadcast,
-    multicast (224.0.0.0/4, ff00::/8), reserved (240.0.0.0/4) and link-local (169.254.0.0/16, fe80::/10). An
-    IPv4-mapped IPv6 address is judged as the IPv4 address it carries."""
-    import ipaddress
-
-    try:
-        ip = ipaddress.ip_address(host[1:-1] if host.startswith("[") else host)
-    except ValueError:
-        return False        # the grammar guarantees a parse; a host that does not is not this check's business
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
-    if isinstance(ip, ipaddress.IPv4Address):
-        first, second = ip.packed[0], ip.packed[1]
-        return first == 0 or first >= 224 or (first == 169 and second == 254)
-    return ip.is_unspecified or ip.packed[0] == 0xFF or (int(ip) >> 118) == 0x3FA     # fe80::/10
+    """Stage 1 of the address check, shared with the Rust core (``relay_config.never_a_pairing_address``)."""
+    return relay_config.never_a_pairing_address(host)
 
 
 def _folder_holds_a_key_file(folder) -> bool:

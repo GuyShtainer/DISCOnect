@@ -56,8 +56,10 @@ def test_the_list_form_wins_and_every_malformed_case_reads_as_nothing(tmp_path):
     assert relay_config.read_list(path) == [RelayEntry("0a1b2c3d", "folder", "/a", "cloud", True),
                                             RelayEntry("default", "lan", "http://h:2", "", False)]
     long_id = "0123456789abcdef0123456789abcdef0"
+    path.write_text('{"relays": []}')
+    assert relay_config.read_list(path) == [], "an empty array is an empty list"
+    assert relay_config.read(path) is None
     for bad in (
-        '{"relays": []}',
         '{"relays": [5]}',
         '{"relays": [{"kind": "folder", "path": "/a"}]}',
         '{"relays": [{"id": "ABCD", "kind": "folder", "path": "/a"}]}',
@@ -171,7 +173,7 @@ def _fresh(count: int) -> list[SiteReport]:
 
 
 def _listing(root: pathlib.Path) -> list[str]:
-    return FolderRelay(root).list(ACCOUNT)
+    return FolderRelay(root, create_root=True).list(ACCOUNT)
 
 
 def _empty_site(root: pathlib.Path) -> None:
@@ -261,7 +263,7 @@ def test_a_repack_after_a_lost_conflict_leaves_the_retired_record_out_and_a_fres
     a_sites, a_reports = _open(roots[0], roots[1])
     pushed = _push_all(a, a_sites, a_reports)
     a_name = pushed.bundles[0]
-    original = FolderRelay(roots[1]).get(a_name)
+    original = FolderRelay(roots[1], create_root=True).get(a_name)
     assert len(unpack(MASTER, a_name, original)[1]) == 1
     b_sites, b_reports = _open(roots[0])
     _push_all(b, b_sites, b_reports)
@@ -275,7 +277,7 @@ def test_a_repack_after_a_lost_conflict_leaves_the_retired_record_out_and_a_fres
     reports = _fresh(2)
     _push_all(a, a_sites, reports)
     assert (reports[1].healed, reports[1].behind) == (1, 0)
-    repacked = FolderRelay(roots[1]).get(a_name)
+    repacked = FolderRelay(roots[1], create_root=True).get(a_name)
     assert repacked != original, "a fresh nonce and fewer rows"
     assert unpack(MASTER, a_name, repacked)[1] == [], "the retired loser is left out"
     # a fresh store pulls the healed site, then the site that holds the winner's own bundle
@@ -366,20 +368,20 @@ def test_a_transient_failure_takes_the_site_out_and_the_name_stays_pending_unles
     _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
     both, reports = _open(roots[0], roots[1])
     name = _push_all(a, both, reports).bundles[0]
-    flaky = sync.Site("00000001", "folder", _Flaky(FolderRelay(roots[0])), 0)
-    good = sync.Site("00000002", "folder", FolderRelay(roots[1]), 1)
+    flaky = sync.Site("00000001", "folder", _Flaky(FolderRelay(roots[0], create_root=True)), 0)
+    good = sync.Site("00000002", "folder", FolderRelay(roots[1], create_root=True), 1)
     # the only site that lists it is out of reach: nothing is booked, the run is partial, the error is a word
     b = _device(tmp_path, "b")
     reports = _fresh(2)
     pulled = _pull_all(b, [flaky], [reports[0]])
     assert (pulled.applied, pulled.rejected, pulled.status) == ([], {}, "partial")
-    assert reports[0].error == "OSError" and "/secret" not in json.dumps(reports[0].as_dict())
+    assert reports[0].error == "unreachable" and "/secret" not in json.dumps(reports[0].as_dict())
     assert _count(b, "SELECT count(*) FROM relay_bundles") == 0
     # another site holds a good copy: the name is applied from it, the failing site is still reported
     reports = _fresh(2)
     pulled = _pull_all(b, [flaky, good], reports)
     assert pulled.applied == [name] and pulled.rejected == {}
-    assert (reports[0].error, reports[0].pulled, reports[0].rejected) == ("OSError", 0, 0)
+    assert (reports[0].error, reports[0].pulled, reports[0].rejected) == ("unreachable", 0, 0)
     assert (reports[1].error, reports[1].pulled) == (None, 1)
 
 
@@ -488,7 +490,11 @@ def test_the_relay_cli_adds_lists_and_removes_with_the_rust_words(tmp_path, monk
     assert [e.id for e in relay_config.read_list(path)] == [entries[0].id, entries[2].id]
     for entry in relay_config.read_list(path):
         assert run("remove", entry.id)[0] == 0
-    assert path.read_text() == '{"relays": []}\n', "removing the last entry leaves a list that reads as no relay"
+    assert not path.exists(), "removing the last entry deletes relay.json"
+    assert run("list")[0:2] == (0, '{\n  "relays": []\n}\n')
+    capsys.readouterr()
+    assert cli.main(["sync", "relay", "list"]) == 0
+    assert capsys.readouterr().out == "", "no relay: nothing is printed, not a blank line"
     path.write_text("junk")
     assert run("list")[0::2] == (2, "usage: relay.json is not a relay list this build reads; fix or remove it\n")
 
@@ -534,3 +540,216 @@ def test_sync_push_and_pull_run_over_the_whole_list_and_print_a_line_per_site(tm
     remembered = relay_config.read_list(path)
     assert [(e.kind, e.value, e.serve) for e in remembered] == [("folder", str(roots[2]), True)]
     assert os.environ["DISCONECT_DB"] == str(db)
+
+
+# ---------------------------------------------------------------- 19d review fixes (twin of the Rust core's)
+def test_heal_ignores_a_stale_account_row(tmp_path):
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
+    sites, reports = _open(roots[0])
+    first = _push_all(a, sites, reports)
+    # a key rotation whose forget failed left the old account's bundle booked and linked
+    foreign = f"{'f' * 64}/{'e' * 32}"
+    with storage.open_for_write(a, "test") as conn:
+        conn.execute("INSERT INTO relay_bundles(name, direction, status, device_id, device_seq, prev, created_utc, "
+                     "noted_at, bytes, records) VALUES(?, 'pushed', 'applied', 'deadbeefdeadbeef', 99, NULL, "
+                     "'2025-06-15T12:00:00Z', '2025-06-15T12:00:00Z', 10, 1)", (foreign,))
+        linked = conn.execute("UPDATE relay_seen SET bundle = ? WHERE bundle = ?", (foreign, first.bundles[0])).rowcount
+    assert linked > 0
+    sites, again = _open(roots[0])
+    _push_all(a, sites, again)     # the run does not raise
+    assert (again[0].error, again[0].healed, again[0].behind) == (None, 0, 0)
+    assert foreign not in _listing(roots[0]), "the foreign name is never healed"
+
+
+def test_put_refuses_a_root_that_vanished(tmp_path):
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
+    sites, reports = _open(roots[0], roots[1])
+    shutil.rmtree(roots[0])    # an unmounted volume
+    pushed = _push_all(a, sites, reports)
+    assert len(pushed.bundles) == 1, "the other site took it"
+    assert (reports[0].error, reports[0].pushed) == ("missing", 0)
+    assert (reports[1].error, reports[1].pushed) == (None, 1)
+    assert not roots[0].exists(), "nothing recreated the root"
+    # the only site: the old FileNotFoundError is raised, nothing created or booked
+    b = _device(tmp_path, "b")
+    _import_day(b, tmp_path, "2025-06-16", 5000, "2025-06-16T12:00:00.0")
+    sites, reports = _open(roots[2])
+    shutil.rmtree(roots[2])
+    with storage.open_for_write(b, "sync") as conn, pytest.raises(FileNotFoundError):
+        sync.push_strict(conn, MASTER, sites, reports)
+    assert reports[0].error == "missing"
+    assert not roots[2].exists()
+    assert _count(b, "SELECT count(*) FROM relay_bundles") == 0
+    # the serve / legacy entry may create its root; a plain root creates only the account level
+    made = tmp_path / "made"
+    FolderRelay(made, create_root=True).put(f"{ACCOUNT}/{'a' * 32}", b"x")
+    assert (made / ACCOUNT / ("a" * 32)).is_file()
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    FolderRelay(plain).put(f"{ACCOUNT}/{'a' * 32}", b"x")
+    assert (plain / ACCOUNT / ("a" * 32)).is_file()
+
+
+def test_the_site_words_are_stable():
+    from disconect.relay.folder import TooLarge
+
+    transient = OSError(errno.EIO, "x")
+    transient.transient = True
+    table = [
+        (TooLarge("x"), "too_large"),
+        (ValueError("bad object name"), "bad_name"),
+        (transient, "unreachable"),
+        (FileNotFoundError(), "missing"),
+        (NotADirectoryError(), "missing"),
+        (PermissionError(), "no_permission"),
+        (OSError(errno.ECONNREFUSED, "x"), "io_error"),
+        (OSError(errno.EIO, "x"), "io_error"),
+    ]
+    for error, word in table:
+        assert sync.site_word(error) == word, error
+    # the stored `rejected` reason keeps the class name
+    assert sync.reason_of(FileNotFoundError()) == "FileNotFoundError"
+    assert sync.reason_of(TooLarge("x")) == "too_large"
+
+
+def test_a_public_lan_url_is_bad_url():
+    def spec(ident, url, check):
+        return SiteSpec(ident, "lan", url, check_address=check)
+
+    specs = [
+        spec("00000001", "http://8.8.8.8:24816", True),
+        spec("00000002", "http://mac.local:24816", True),
+        spec("00000003", "http://192.168.1.20:24816", True),
+        spec("00000004", "http://127.0.0.1:24816", True),
+        spec("00000005", "http://169.254.1.1:24816", True),
+        spec("00000006", "http://8.8.4.4:24816", False),
+        spec("00000007", "http://192.168.1.21", True),
+        spec("00000008", "http://[fd00::1]:24816", True),
+        spec("00000009", "http://[2001:db8::1]:24816", True),
+    ]
+    sites, reports = open_sites(specs, MASTER)
+    assert [r.error for r in reports] == ["bad_url", "bad_url", "unsupported_transport", "unsupported_transport",
+                                          "bad_url", "unsupported_transport", "bad_url", "unsupported_transport",
+                                          "bad_url"]
+    assert sites == []
+
+
+def test_an_evicted_copy_is_not_healed_again(tmp_path):
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
+    sites, reports = _open(roots[0])
+    first = _push_all(a, sites, reports)
+    obj = first.bundles[0].split("/", 1)[1]
+    folder = roots[0] / ACCOUNT
+    (folder / obj).rename(folder / f".{obj}.icloud")     # iCloud evicts the file: a placeholder stays
+    assert _listing(roots[0]) == [], "a get would fail: the listing does not show it"
+    sites, again = _open(roots[0])
+    _push_all(a, sites, again)
+    assert (again[0].healed, again[0].behind, again[0].error) == (0, 0, None)
+    assert not (folder / obj).exists(), "no second copy was written beside the placeholder"
+    (folder / f".{obj}.icloud").unlink()
+    sites, third = _open(roots[0])
+    _push_all(a, sites, third)
+    assert third[0].healed == 1
+    # a pull keeps `list`: an evicted copy is not offered to a reader
+    (folder / obj).rename(folder / f".{obj}.icloud")
+    assert FolderRelay(roots[0]).list(ACCOUNT) == []
+    assert FolderRelay(roots[0]).list_present(ACCOUNT) == [first.bundles[0]]
+
+
+def test_a_pack_failure_is_the_sites_io_error_and_never_the_runs(tmp_path, monkeypatch):
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
+    sites, reports = _open(roots[0], roots[1])
+    _push_all(a, sites, reports)
+    _empty_site(roots[1])
+
+    def boom(*args, **kwargs):
+        raise ValueError("cannot pack")
+
+    monkeypatch.setattr(sync, "_seal", boom)
+    sites, reports = _open(roots[0], roots[1])
+    _push_all(a, sites, reports)
+    assert (reports[0].error, reports[1].error, reports[1].healed) == (None, "io_error", 0)
+
+
+def test_an_empty_list_is_no_relay(tmp_path, monkeypatch, capsys):
+    path = _cli_env(tmp_path, monkeypatch)
+    folder = tmp_path / "s1"
+    folder.mkdir()
+    path.write_text('{"relays": []}')
+
+    def run(*argv):
+        capsys.readouterr()
+        code = cli.main([*argv])
+        out = capsys.readouterr()
+        return code, out.out, out.err
+
+    assert run("sync", "relay", "list")[0:2] == (0, ""), "prints nothing"
+    assert json.loads(run("--json", "sync", "relay", "list")[1]) == {"relays": []}
+    # add appends to it
+    assert run("sync", "relay", "add", str(folder))[0] == 0
+    one = json.loads(run("--json", "sync", "relay", "list")[1])
+    assert len(one["relays"]) == 1
+    # removing the last entry deletes the file, and the next add works
+    assert run("sync", "relay", "remove", one["relays"][0]["id"])[0] == 0
+    assert not path.exists()
+    assert run("sync", "relay", "add", str(folder))[0] == 0 and path.exists()
+
+
+def test_remember_replaces_a_list_of_one_and_refuses_a_longer_one(tmp_path, monkeypatch, capsys):
+    path = _cli_env(tmp_path, monkeypatch)
+    db = path.parent / "x.db"
+    monkeypatch.setenv("DISCONECT_PASSPHRASE", "a-strong-scratch-passphrase")
+    monkeypatch.setattr(cli, "_can_show_words", lambda: True)
+    monkeypatch.setattr(cli, "_show_words_once", lambda master: False)
+    assert cli.main(["--db", str(db), "key", "init"]) == 0
+    s1, s2, s3 = (tmp_path / f"s{i}" for i in (1, 2, 3))
+    for folder in (s1, s2, s3):
+        folder.mkdir()
+
+    def run(*argv):
+        capsys.readouterr()
+        code = cli.main(["--db", str(db), *argv])
+        out = capsys.readouterr()
+        return code, out.err
+
+    # zero entries and one entry: --remember keeps replacing with the one-entry list
+    assert run("sync", "push", "--relay", str(s1), "--remember")[0] == 0
+    assert run("sync", "push", "--relay", str(s2), "--remember")[0] == 0
+    entries = relay_config.read_list(path)
+    assert [(e.kind, e.value) for e in entries] == [("folder", str(s2))]
+    # two entries: refused, the file untouched
+    assert run("sync", "relay", "add", str(s1))[0] == 0
+    before = path.read_bytes()
+    code, err = run("sync", "push", "--relay", str(s3), "--remember")
+    assert (code, err) == (2, "usage: the relay list has more than one entry; use sync relay add\n")
+    assert path.read_bytes() == before
+    # without --remember a one-off relay still runs over a longer list
+    assert run("sync", "push", "--relay", str(s3))[0] == 0
+
+
+def test_the_site_line_and_rows_carry_the_label(tmp_path):
+    line = cli._site_line(SiteReport("0000000a", "folder", label="cloud"))
+    assert line == "  site 0000000a cloud folder: pushed 0, healed 0, behind 0, pulled 0, rejected 0"
+    assert cli._site_line(SiteReport("0000000a", "folder", error="missing")) == (
+        "  site 0000000a folder: pushed 0, healed 0, behind 0, pulled 0, rejected 0, error missing")
+    roots = _three_roots(tmp_path)
+    spec = SiteSpec("0000000a", "folder", str(roots[0]), label="cloud")
+    assert SiteSpec.from_entry(RelayEntry("0000000b", "folder", str(roots[1]), "disk")).label == "disk"
+    _, reports = open_sites([spec, SiteSpec("0000000c", "folder", str(tmp_path / "gone"))], MASTER)
+    assert [(r.label, r.as_dict()["label"]) for r in reports] == [("cloud", "cloud"), ("", "")]
+
+
+def test_relay_json_is_written_atomically_with_a_private_parent(tmp_path):
+    path = tmp_path / "deeper" / "relay.json"
+    relay_config.write_list(path, [RelayEntry("aa", "folder", "/b", "", True)])
+    assert path.read_text() == '{"relays": [{"id": "aa", "kind": "folder", "path": "/b", "serve": true}]}\n'
+    assert path.stat().st_mode & 0o777 == 0o600 and path.parent.stat().st_mode & 0o777 == 0o700
+    assert [p.name for p in path.parent.iterdir()] == ["relay.json"], "no temp file is left behind"

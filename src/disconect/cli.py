@@ -129,6 +129,9 @@ def _adhoc_relay(args: argparse.Namespace) -> tuple[str, str] | None:
     if kind == "lan":
         _usage_lan(given)
     if getattr(args, "remember", False):
+        path = home.relay_config_path()
+        if path.exists() and len(relay_config.read_list(path) or []) > 1:
+            raise _Refusal(EXIT_USAGE, "usage: the relay list has more than one entry; use sync relay add")
         _write_relay_list(home.relay_config_path(),
                           [relay_config.RelayEntry(relay_config.new_id(), kind, given, "", kind == "folder")])
     return kind, given
@@ -144,7 +147,8 @@ def _relay_list() -> list[relay_config.RelayEntry]:
 
 
 def _site_line(report: sync_module.SiteReport) -> str:
-    line = (f"  site {report.id} {report.kind}: pushed {report.pushed}, healed {report.healed}, behind {report.behind}, "
+    label = f" {report.label}" if report.label else ""
+    line = (f"  site {report.id}{label} {report.kind}: pushed {report.pushed}, healed {report.healed}, behind {report.behind}, "
             f"pulled {report.pulled}, rejected {report.rejected}")
     return line + (f", error {report.error}" if report.error else "")
 
@@ -229,6 +233,8 @@ def cmd_sync_relay(args: argparse.Namespace) -> int:
         entries = []
     if action == "list":
         lines = [f"{e.id}  {e.kind}  {e.value}  {e.label or '-'}{'  serves' if e.serve else ''}" for e in entries]
+        if not lines and not args.json:
+            return EXIT_OK      # no relay: nothing to print
         _emit({"relays": [_entry_json(e) for e in entries]}, args.json, "\n".join(lines))
         return EXIT_OK
     if action == "add":
@@ -257,7 +263,10 @@ def cmd_sync_relay(args: argparse.Namespace) -> int:
     kept = [e for e in entries if e.id != ident]
     if len(kept) == len(entries):
         raise _Refusal(EXIT_USAGE, "usage: no relay with that id")
-    _write_relay_list(path, kept)
+    if kept:
+        _write_relay_list(path, kept)
+    else:
+        path.unlink()       # the last entry: no file at all (an empty list reads as no relay either way)
     _emit({"removed": ident}, args.json, f"removed relay {ident}")
     return EXIT_OK
 

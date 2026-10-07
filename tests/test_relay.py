@@ -104,7 +104,7 @@ def test_round_trip_and_every_defect_is_rejected():
 
 
 def test_folder_relay_ignores_strangers_and_temp_files(tmp_path):
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     account = bundle.account_for(MASTER)
     name = bundle.new_name(account)
     relay.put(name, b"abc")
@@ -119,7 +119,7 @@ def test_folder_relay_ignores_strangers_and_temp_files(tmp_path):
 
 # ---------------------------------------------------------------- push / pull
 def test_folder_relay_delete_removes_one_object_and_validates_the_name(tmp_path):
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     account = "ab" * 32
     one, two = f"{account}/{'a' * 32}", f"{account}/{'b' * 32}"
     relay.put(one, b"1")
@@ -143,7 +143,7 @@ def test_two_desktops_with_split_data_converge_and_nothing_echoes(tmp_path):
     a, b = tmp_path / "a.db", tmp_path / "b.db"
     _import(a, export)
     _import(b, extra)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     pa = _push(a, relay)
     pb = _push(b, relay)
     assert len(pa.bundles) == 1 and pa.records > 0 and pa.ranges == 2, "UDS + sleep windows (the readiness file has none)"
@@ -179,7 +179,7 @@ def test_late_and_out_of_order_bundles_are_applied_and_rejected_ones_retried(tmp
     (folder / "1.fit").write_bytes(_monitoring_day(datetime.datetime(2025, 6, 14, 21, 0, tzinfo=UTC), 1000))
     _import(a, folder)
     _store(b)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     first = _push(a, relay).bundles[0]
     account = bundle.account_for(MASTER)
     # a stranger's garbage object and a truncated copy arrive before B pulls
@@ -220,7 +220,7 @@ def test_conflict_rule_is_order_independent_and_keeps_the_loser(tmp_path):
         a, b = base / "a.db", base / "b.db"
         _import(a, x)
         _import(b, y)
-        relay = FolderRelay(base / "relay")
+        relay = FolderRelay(base / "relay", create_root=True)
         _push(a, relay)
         _push(b, relay)
         ra, rb = _pull(a, relay), _pull(b, relay)
@@ -257,7 +257,7 @@ def test_readiness_conflicts_converge_by_hash_alone(tmp_path):
         a, b = base / "a.db", base / "b.db"
         _import(a, base / "x")
         _import(b, base / "y")
-        relay = FolderRelay(base / "relay")
+        relay = FolderRelay(base / "relay", create_root=True)
         _push(a, relay), _push(b, relay)
         ra, rb = _pull(a, relay), _pull(b, relay)
         assert ra.conflicts == rb.conflicts == 1, "both sides record the one decision"
@@ -284,7 +284,7 @@ def test_relay_ignores_an_object_whose_name_ends_in_a_newline(tmp_path):
     _build_export(root)
     a = tmp_path / "a.db"
     _import(a, root)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     _push(a, relay)
     account = next((tmp_path / "relay").iterdir())
     stray = account / (secrets.token_hex(16) + "\n")
@@ -303,7 +303,7 @@ def test_fit_bytes_under_another_stream_label_are_one_record(tmp_path):
     (folder / "1.fit").write_bytes(_monitoring_day(datetime.datetime(2025, 6, 14, 21, 0, tzinfo=UTC), 1000))
     _import(a, folder)
     _import(b, folder)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     # an older core on A labelled the same bytes differently
     with storage.open_for_write(a, "test") as conn:
         conn.execute("UPDATE raw_records SET stream='fit:legacy'")
@@ -337,7 +337,7 @@ def test_a_record_of_a_stream_this_build_cannot_decode_is_kept_for_a_later_decod
     a, b = tmp_path / "a.db", tmp_path / "b.db"
     _import(a, x)
     _relabel(a, "json:uds", "json:future")
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     _push(a, relay)
     _store(b)
     r = _pull(b, relay)
@@ -389,7 +389,7 @@ def test_two_versions_of_an_undecodable_record_converge_by_hash_in_both_orders(t
         _import(b, y)
         _relabel(a, "json:uds", "json:future")
         _relabel(b, "json:uds", "json:future")
-        relay = FolderRelay(base / "relay")
+        relay = FolderRelay(base / "relay", create_root=True)
         _push(a, relay)
         _push(b, relay)
         _store(c)
@@ -411,7 +411,7 @@ def test_rotation_re_pushes_under_the_new_account(tmp_path):
     folder.mkdir()
     (folder / "1.fit").write_bytes(_monitoring_day(datetime.datetime(2025, 6, 14, 21, 0, tzinfo=UTC), 1000))
     _import(a, folder)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     old = _push(a, relay).bundles
     with storage.open_for_write(a, "sync") as conn:
         sync.forget_relay_state(conn)
@@ -447,7 +447,7 @@ def test_operator_sees_nothing_usable(tmp_path, monkeypatch):
         real_put(self, name, data)
 
     monkeypatch.setattr(FolderRelay, "put", checking_put)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     _push(a, relay)
     assert handed, "push went through the single put"
     objects = [p for p in (tmp_path / "relay").rglob("*") if p.is_file()]
@@ -492,7 +492,7 @@ def test_three_devices_in_a_ring_converge_without_echo(tmp_path):
     dbs = [tmp_path / f"{n}.db" for n in "abc"]
     for db, day in zip(dbs, (10, 12, 14)):
         _import(db, _drop(tmp_path, f"d{day}", day))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     for db in dbs:
         _push(db, relay)
     for _round in range(2):
@@ -520,7 +520,7 @@ def test_conflict_against_a_record_with_a_past_decode_failure_does_not_wedge(tmp
     with storage.open_for_write(a, "test") as conn:   # a past reparse failure points at the losing record
         raw_id = conn.execute("SELECT id FROM raw_records").fetchone()[0]
         conn.execute("INSERT INTO import_failures(run_id, stream, raw_record_id, kind, recorded_at) VALUES(1, 'json:uds', ?, 'x', 'now')", (raw_id,))
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     _push(a, relay), _push(b, relay)
     r = _pull(a, relay)
     assert r.conflicts == 1 and r.status == "ok"
@@ -541,7 +541,7 @@ def test_crash_after_the_record_loop_is_repaired_by_the_next_pull(tmp_path, monk
     a, b = tmp_path / "a.db", tmp_path / "b.db"
     _import(a, export)
     _store(b)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     _push(a, relay)
     from disconect.ingest.writer import Writer
     real = Writer.derive_daily_steps
@@ -567,7 +567,7 @@ def test_a_poison_bundle_and_a_renamed_copy_are_rejected_without_blocking_the_re
     a, b = tmp_path / "a.db", tmp_path / "b.db"
     _import(a, _drop(tmp_path, "d", 14))
     _store(b)
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     account = bundle.account_for(MASTER)
     header = json.dumps({"t": "h", "format": 1, "device_id": "zz", "device_seq": 1, "prev": None, "created_utc": "x"})
     poison = bundle.new_name(account)
@@ -590,7 +590,7 @@ def test_a_poison_bundle_and_a_renamed_copy_are_rejected_without_blocking_the_re
 
 def test_oversized_object_is_rejected_before_it_is_read(tmp_path):
     from disconect.relay import folder as folder_module
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     name = bundle.new_name(bundle.account_for(MASTER))
     relay.put(name, b"x")
     (tmp_path / "relay" / name).write_bytes(b"\0" * (folder_module.MAX_OBJECT + 1))
@@ -639,4 +639,4 @@ def test_cli_sync_on_encrypted_stores_bootstraps_an_empty_device(tmp_path, capsy
     # forget, then push again publishes everything under the same account
     assert run(["--db", str(b), "sync", "forget"], "another-strong-passphrase") == cli.EXIT_OK
     assert run(["--db", str(b), "sync", "push", "--relay", str(relay_dir)], "another-strong-passphrase") == cli.EXIT_OK
-    assert len(FolderRelay(relay_dir).list(bundle.account_for(master_a))) == 2
+    assert len(FolderRelay(relay_dir, create_root=True).list(bundle.account_for(master_a))) == 2

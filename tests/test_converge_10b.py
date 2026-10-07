@@ -204,7 +204,7 @@ def test_ring_of_three_devices_with_different_exports_converges_in_both_orders(t
         for db, name in zip(dbs, names):
             _import(db, exports[name])
             _assert_reparse_quiet(db)   # (b) after the import itself
-        _ring(dbs, FolderRelay(base / "relay"))
+        _ring(dbs, FolderRelay(base / "relay", create_root=True))
         outcomes.append(_assert_converged(dbs))
         for db in dbs:
             _assert_reparse_quiet(db)   # (b) after the pulls
@@ -233,7 +233,7 @@ def test_equal_instant_ties_pick_the_same_record_on_both_devices(tmp_path):
         base.mkdir()
         a, b = base / "a.db", base / "b.db"
         _import(a, first), _import(b, second)
-        relay = FolderRelay(base / "relay")
+        relay = FolderRelay(base / "relay", create_root=True)
         _push(a, relay), _push(b, relay), _pull(a, relay), _pull(b, relay)
         rows = _assert_converged([a, b])
         assert {row[2] for row in rows} == {"fitness_age", "weight_kg"}
@@ -262,7 +262,7 @@ def test_supersession_restores_the_runner_up_the_same_on_both_devices(tmp_path, 
     dbs = [tmp_path / f"{letter}.db" for letter in "abc"]
     for db, source in zip(dbs, (x, y, z)):
         _import(db, source)
-    _ring(dbs, FolderRelay(tmp_path / "relay"))
+    _ring(dbs, FolderRelay(tmp_path / "relay", create_root=True))
     rows = _assert_converged(dbs)
     acute = {row[5] for row in rows if row[2] == "training_load_acute"}
     chronic = {row[5] for row in rows if row[2] == "training_load_chronic"}
@@ -285,7 +285,7 @@ def test_a_record_with_a_null_instant_wins_the_same_on_both_devices(tmp_path):
         base.mkdir()
         a, b = base / "a.db", base / "b.db"
         _import(a, first), _import(b, second)
-        relay = FolderRelay(base / "relay")
+        relay = FolderRelay(base / "relay", create_root=True)
         _push(a, relay), _push(b, relay), _pull(a, relay), _pull(b, relay)
         rows = _assert_converged([a, b])
         assert len({row[5] for row in rows if row[2] == "training_load_acute"}) == 1
@@ -307,7 +307,7 @@ def _readiness_rows(db_path: pathlib.Path) -> set[tuple]:
 
 def test_an_importer_and_a_fresh_puller_agree_on_split_readiness_windows(tmp_path):
     desktop, phone = tmp_path / "desktop.db", tmp_path / "phone.db"
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     _import(desktop, _split_readiness_export(tmp_path / "export"))
     _push(desktop, relay)
     _pull(phone, relay)
@@ -321,7 +321,7 @@ def test_an_importer_and_a_fresh_puller_agree_on_split_readiness_windows(tmp_pat
 
 def test_a_pull_that_carries_readiness_only_equals_a_reparse(tmp_path):
     feeder, store, whole = tmp_path / "feeder.db", tmp_path / "store.db", tmp_path / "whole.db"
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     readiness = _split_readiness_export(tmp_path / "readiness_export")
     full = _export(tmp_path / "full_export", "Y")
     _import(feeder, readiness)
@@ -432,7 +432,7 @@ def test_a_damaged_local_record_is_repaired_from_the_relays_copy_before_the_pull
     ``relay_seen`` -- before the conflict rule runs, so the key is decided on intact bytes on both devices.
     """
     a, b = tmp_path / "a.db", tmp_path / "b.db"
-    relay = FolderRelay(tmp_path / "relay")
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
     late, early = _load(_day(4), 5 * 3600_000, 175), _load(_day(4), 0, 190)
     _import(a, _metrics_export(tmp_path / "x", [late]))
     _push(a, relay), _pull(b, relay)

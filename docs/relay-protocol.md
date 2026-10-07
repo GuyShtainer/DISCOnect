@@ -281,9 +281,10 @@ words (the oracle compares them); a site word is never a path, an address or an 
 `list_present`: a folder relay counts an evicted cloud placeholder (`.<name>.icloud`) as present, so a provider
 that evicts a file is not fed the same name again with different bytes; the pull keeps `list` (a get of an evicted
 copy would fail). The heal re-packs only names under the current account; a stale account's rows (a rotation whose
-bookkeeping failed to clear) are ignored. An empty list file (`{"relays": []}`, what `sync relay remove` of the
-last entry leaves is nothing — the file is deleted — but an empty array still reads) is no relay; `--remember` on a
-list of more than one entry is refused (`sync relay add` keeps the list).
+bookkeeping failed to clear) are ignored. An empty list file (`{"relays": []}`) reads as no relay; `sync relay remove` of the last entry
+deletes the file. `--remember` on a list of more than one entry is refused (`sync relay add` keeps the list). The
+address class on the Python core allows loopback in every build (it has no debug/release split and no on-link
+stage); the Rust core allows loopback in debug and simulator builds only.
 **A list of exactly one entry is strict:** that relay's failure is raised as the run's error with the old codes and
 texts (`not_found` unreachable, `relay_auth_failed`, `relay_unverified`, `unsupported_transport` on the Python
 core); with two or more entries every failure is a site `error` and the run is `partial`.
