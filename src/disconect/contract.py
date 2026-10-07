@@ -66,8 +66,8 @@ COVERAGE_CONVENTION = (
 
 COMPLETENESS_CONVENTION = (
     "Completeness marks how much of a day a per-minute metric's mean rests on: the share, 0-100, of "
-    "the day's covered seconds that a reading accounts for (its own minute, and the gap to the next "
-    "reading when that is at most 5 minutes). "
+    "the day's covered seconds the readings account for: a reading counts up to the next reading when "
+    "that comes within 5 minutes, otherwise its own minute. "
     "Covered seconds are the ones a retained file of the metric's streams spans inside the local day "
     "(a claimed export window covers its days whole). It is measured here from the readings' times and "
     "the files' spans, never from a wearing-time figure of the watch's, and it says nothing about a "

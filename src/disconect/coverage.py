@@ -323,12 +323,17 @@ def _day_bounds(window: _Window, offsets: ClockOffsets) -> list[int]:
     """Epoch seconds each window day starts at, plus the end of the last one (``window.days + 1`` entries).
 
     Local midnight is read under the offset nearest to it, so a day across an offset change is as long
-    as the watch's clock made it; UTC is assumed where no offset is known, as ``local_date`` does.
+    as the watch's clock made it; UTC is assumed where no offset is known, as ``local_date`` does. The
+    bounds never step back: an offset that jumps by more than a day between two midnights (a watch clock
+    that was never set) leaves the day between them empty rather than negative, so the clipping stays
+    non-negative and both cores search a sorted list. An offset that puts a midnight outside years
+    1-9999 raises OverflowError, as ``local_date`` does.
     """
-    bounds = []
+    bounds: list[int] = []
     for position in range(window.days + 1):
         midnight = datetime.datetime.combine(window.first + position * _DAY, datetime.time(), tzinfo=UTC)
-        bounds.append(_epoch(midnight) - (offsets.offset_at(midnight) or 0))
+        bound = _epoch(midnight - datetime.timedelta(seconds=offsets.offset_at(midnight) or 0))
+        bounds.append(max(bound, bounds[-1]) if bounds else bound)
     return bounds
 
 
@@ -379,8 +384,8 @@ def _covered_seconds(conn: sqlite.Connection, window: _Window, streams: tuple[st
 
 
 def _worn_seconds(conn: sqlite.Connection, metric: str, scope: str, window: _Window, bounds: list[int]) -> list[int]:
-    """Per window day, the seconds a reading accounts for: its own minute, and the gap to the next
-    reading when that is at most ``WORN_GAP_S``."""
+    """Per window day, the seconds a reading accounts for: the gap to the next reading when that is at
+    most ``WORN_GAP_S``, else its own minute (``READING_S``)."""
     # a run of readings can start the day before the window and the last window day can end 14 h after
     # its UTC namesake: over-fetch as the aggregates do and let the clipping sort it out
     lo = (window.first - _DAY).isoformat()
@@ -401,8 +406,8 @@ def _worn_seconds(conn: sqlite.Connection, metric: str, scope: str, window: _Win
 
 def day_completeness(conn: sqlite.Connection, metric: str, scope: str, first_day: str,
                      last_day: str) -> dict[str, int | None]:
-    """Per local day, the share (0-100) of the covered seconds a reading accounts for (its minute, and
-    the gap to the next reading when at most ``WORN_GAP_S``; ``contract.COMPLETENESS_CONVENTION``);
+    """Per local day, the share (0-100) of the covered seconds a reading accounts for (the gap to the
+    next reading when at most ``WORN_GAP_S``, else its minute; ``contract.COMPLETENESS_CONVENTION``);
     None for a pair that is not per-minute,
     for a session scope, and for a day no file of the pair's streams spans. Raises ValueError for a
     malformed or inverted range.

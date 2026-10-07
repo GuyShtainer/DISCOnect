@@ -355,3 +355,39 @@ def test_completeness_follows_the_watch_clock(db_path):
     assert coverage.day_completeness(conn, "stress", "device", "2025-05-31", "2025-06-02") == {
         "2025-05-31": None, "2025-06-01": 100, "2025-06-02": None}
     conn.close()
+
+
+def test_completeness_pins_the_worn_gap_boundary(db_path):
+    """Readings exactly WORN_GAP_S apart bridge; one second more does not (twin of the Rust vector)."""
+    with storage.open_for_write(db_path, "test") as conn:
+        raw = _raw(conn, "fit:monitoring_b", "2025-06-01T00:00:00Z", "2025-06-01T01:00:00Z")
+        conn.executemany("INSERT INTO metric_samples(metric, ts_utc, value, source_scope, raw_record_id) VALUES(?,?,60,'device',?)",
+                         [("heart_rate", ts, raw) for ts in ("2025-06-01T00:00:00Z", "2025-06-01T00:05:00Z",
+                                                             "2025-06-01T00:10:01Z")])
+    conn = storage.open_read_only(db_path)
+    # 300 bridged + 60 (the 301 s gap is not) + 60 (the last reading) = 420 of 3600 -> 11
+    assert coverage.day_completeness(conn, "heart_rate", "device", "2025-06-01", "2025-06-01") == {"2025-06-01": 11}
+    conn.close()
+
+
+def test_completeness_day_bounds_never_step_back(db_path):
+    """A stated offset that jumps by more than a day (a watch clock never set) empties the day it swallows
+    instead of crediting a fully worn day's seconds elsewhere or going negative; the twins agree (the
+    unordered bounds made bisect_right and partition_point disagree). An absurd offset is OverflowError."""
+    from disconect.ingest.clock import ClockOffsets
+    from disconect.ingest.model import ClockOffset
+    with storage.open_for_write(db_path, "test") as conn:
+        raw = _raw(conn, "fit:monitoring_b", "2025-06-01T00:00:00Z", "2025-06-05T00:00:00Z")
+        stated = {1: 0, 2: 0, 3: 200_000, 4: 0, 5: 0}  # the 06-03 midnight reads 2.3 days back
+        ClockOffsets.persist(conn, [ClockOffset(_utc(day), offset) for day, offset in stated.items()], None, raw)
+        _minutes(conn, raw, "heart_rate", _utc(1), _utc(5))
+    conn = storage.open_read_only(db_path)
+    assert coverage.day_completeness(conn, "heart_rate", "device", "2025-06-01", "2025-06-04") == {
+        "2025-06-01": 100, "2025-06-02": None, "2025-06-03": 100, "2025-06-04": 100}
+    conn.close()
+    with storage.open_for_write(db_path, "test") as conn:
+        conn.execute("UPDATE clock_offsets SET offset_s=? WHERE ts_utc='2025-06-03T00:00:00Z'", (-(2 ** 63),))
+    conn = storage.open_read_only(db_path)
+    with pytest.raises(OverflowError):
+        coverage.day_completeness(conn, "heart_rate", "device", "2025-06-01", "2025-06-04")
+    conn.close()
