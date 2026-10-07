@@ -297,6 +297,41 @@ def test_pair_join_refuses_after_an_unfinished_forget(db_path):
     assert rig.send("pair.join", offer=_offer(url, now + 600))["error"]["message"] == "This phone is already paired"
 
 
+def test_pair_join_reads_a_lan_relay_file_alone_as_a_failed_landings_leftover(db_path):
+    """12-H (d), the rule both cores share: a relay.json that is not a LAN relay is a pairing; a LAN relay of another
+    address is one only beside some store's key file (a desktop folder); alone it is a leftover; one naming the
+    offer's address is this pairing's."""
+    import time
+
+    rig = Rig(db_path)          # no store
+    now = int(time.time())
+    url = "http://192.168.1.20:24816"
+    folder = db_path.parent
+    folder.mkdir(parents=True, exist_ok=True)
+    relay_file = folder / "relay.json"
+    paired = {"code": "pair_failed", "message": "This phone is already paired"}
+    relay_file.write_text(json.dumps({"lan": "http://192.168.1.77:24816"}) + "\n")
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == NOT_A_PHONE       # a leftover: the prefix passes
+    relay_file.write_text(json.dumps({"lan": url}) + "\n")
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == NOT_A_PHONE       # this pairing's own file
+    relay_file.write_text(json.dumps({"folder": "/elsewhere"}))
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == paired            # another transport
+    relay_file.write_text(json.dumps({"folder": 5}))
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == paired            # names nothing: other content
+    relay_file.write_text(json.dumps({"lan": "http://192.168.1.77:24816"}) + "\n")
+    sibling = folder / ("desktop.hbdb" + keys.KEY_FILE_SUFFIX)
+    sibling.write_text("{}")
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == paired            # a desktop store's pairing
+    relay_file.write_text(json.dumps({"lan": url}) + "\n")
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == NOT_A_PHONE       # the url it names
+    relay_file.write_text(json.dumps({"lan": "http://192.168.1.77:24816"}) + "\n")
+    sibling.rename(folder / ("desktop.hbdb" + keys.KEY_FILE_SUFFIX + keys.NEXT_SUFFIX))
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == paired            # a rotation in progress too
+    (folder / ("desktop.hbdb" + keys.KEY_FILE_SUFFIX + keys.NEXT_SUFFIX)).unlink()
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == NOT_A_PHONE       # alone again
+    assert rig.send("pair.join", offer=_offer(url, 1000))["error"]["message"] == CLOCK_EXPIRED   # the clock first
+
+
 def test_pair_join_refuses_an_already_paired_phone_after_the_expiry_check(db_path):
     import time
 

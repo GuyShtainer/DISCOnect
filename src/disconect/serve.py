@@ -615,12 +615,26 @@ def _never_a_pairing_address(host: str) -> bool:
     return ip.is_unspecified or ip.packed[0] == 0xFF or (int(ip) >> 118) == 0x3FA     # fe80::/10
 
 
+def _folder_holds_a_key_file(folder) -> bool:
+    """Any ``*.keys.json`` or ``*.keys.json.next`` in ``folder``: some store's pairing lives there (the Rust core's
+    ``folder_holds_a_key_file``). An unreadable folder counts as none."""
+    try:
+        names = [item.name for item in folder.iterdir()]
+    except OSError:
+        return False
+    rotation = keys.KEY_FILE_SUFFIX + keys.NEXT_SUFFIX
+    return any(name.endswith(keys.KEY_FILE_SUFFIX) or name.endswith(rotation) for name in names)
+
+
 def _join_prefix(text: str, db_path) -> None:
     """The prefix of ``pair.join``, in the Rust core's order and with its words: the shape (a string within the
     bound that parses as an offer), an IP-literal host, an address that is not unspecified, broadcast, multicast,
     reserved or link-local, ``exp`` at most 1200 s ahead, the expiry by this machine's clock (no tolerance past
-    ``exp``), the landing site (a store, key file, rotation file or other relay here means "already paired") and
-    an unfinished forget. Nothing here touches the network and no message echoes the offer."""
+    ``exp``), the landing site (a store, key file or rotation file here means "already paired"; so does a
+    ``relay.json`` that is not a LAN relay, or a LAN relay of another address beside any store's key file in this
+    folder: a LAN relay file alone is a failed landing's leftover, and one naming the offer's address is this
+    pairing's, 12-H (d)) and an unfinished forget. Nothing here touches the network and no message echoes the
+    offer."""
     from disconect import pair as pair_module   # late: the module name is also a method family here
 
     text = text.strip(_RUST_WHITE_SPACE)
@@ -647,8 +661,12 @@ def _join_prefix(text: str, db_path) -> None:
     if db_path.exists() or key_path.exists() or key_path.with_name(key_path.name + keys.NEXT_SUFFIX).exists():
         raise paired
     relay_file = db_path.parent / home.RELAY_CONFIG_NAME
-    if relay_file.exists() and relay_config.read(relay_file) != ("lan", offer.url):
-        raise paired
+    if relay_file.exists():
+        named = relay_config.read(relay_file)
+        if named is None or named[0] != "lan":
+            raise paired
+        if named[1] != offer.url and _folder_holds_a_key_file(db_path.parent):
+            raise paired
     if (db_path.parent / _FORGET_MARKER).exists():
         raise ServeError("pair_failed", "This phone has not finished forgetting its last pairing. "
                                         "Close and reopen the app, then try again.")
