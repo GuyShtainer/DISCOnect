@@ -17,3 +17,10 @@ class HomeMoved(NotConfigured):
     Creating it again would start a second, empty store next to the moved one (split data), so the
     writer stops; restarting the program resolves the new folder.
     """
+
+
+class NoHome(StorageError):
+    """There is no default store: ``$HOME`` is unset or empty and ``$DISCONECT_DB`` is not set.
+
+    The password database is never consulted (the Rust core never does); the CLI prints it as ``error: <text>``, exit 1.
+    """

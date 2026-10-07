@@ -283,7 +283,11 @@ def get_contract() -> dict[str, Any]:
 def main() -> None:
     """Entry point for ``disconect-mcp``: unlock once (never prompting), then serve over stdio."""
     import sys
-    db_path = storage.default_db_path()
+    try:
+        db_path = storage.default_db_path()
+    except storage.NoHome as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
     storage.home.announce_default_resolution(db_path)
     try:
         storage.prime(db_path, allow_prompt=False)

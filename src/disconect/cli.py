@@ -129,7 +129,10 @@ def _adhoc_relay(args: argparse.Namespace) -> tuple[str, str] | None:
     if kind == "lan":
         _usage_lan(given)
     if getattr(args, "remember", False):
-        path = home.relay_config_path()
+        try:
+            path = home.relay_config_path()
+        except storage.NoHome:
+            raise _Refusal(EXIT_FAILED, f"error: cannot remember the relay: {home.HOME_NOT_SET}") from None
         if path.exists() and len(relay_config.read_list(path) or []) > 1:
             raise _Refusal(EXIT_USAGE, "usage: the relay list has more than one entry; use sync relay add")
         _write_relay_list(home.relay_config_path(),
@@ -139,10 +142,14 @@ def _adhoc_relay(args: argparse.Namespace) -> tuple[str, str] | None:
 
 def _relay_list() -> list[relay_config.RelayEntry]:
     """The list in ``relay.json`` (a usage error when there is none)."""
-    config = home.relay_config_path()
-    entries = relay_config.read_list(config) if config.exists() else None
+    try:
+        config = home.relay_config_path()
+    except storage.NoHome:
+        config = None       # the Rust core words it the same way: the usual place, spelled with a ~
+    entries = relay_config.read_list(config) if config is not None and config.exists() else None
     if not entries:
-        raise _Refusal(EXIT_USAGE, f"usage: no relay folder: pass --relay <folder> or write {{\"folder\": ...}} to {config}")
+        shown = config if config is not None else f"~/{identity.DATA_DIR}/{home.RELAY_CONFIG_NAME}"
+        raise _Refusal(EXIT_USAGE, f"usage: no relay folder: pass --relay <folder> or write {{\"folder\": ...}} to {shown}")
     return entries
 
 
@@ -224,7 +231,10 @@ def cmd_sync_relay(args: argparse.Namespace) -> int:
     action = args.relay_action
     if action not in ("add", "remove", "list"):
         raise _Refusal(EXIT_USAGE, "usage: sync relay needs an action: add <folder|url> | remove <id> | list")
-    path = home.relay_config_path()
+    try:
+        path = home.relay_config_path()
+    except storage.NoHome:
+        raise _Refusal(EXIT_FAILED, f"error: {home.HOME_NOT_SET}") from None
     if path.exists():
         entries = relay_config.read_list(path)
         if entries is None:
@@ -274,10 +284,15 @@ def cmd_sync_relay(args: argparse.Namespace) -> int:
 def cmd_sync(args: argparse.Namespace) -> int:
     """push | pull | status | forget | relay against the blind relay (docs/relay-protocol.md). Needs an encrypted store
     for push and pull: the relay key and account derive from the master key, so a plaintext store has nothing to sync with."""
+    if args.action == "relay":      # no store, so no --db to resolve (see main)
+        try:
+            return cmd_sync_relay(args)
+        except _Refusal as refusal:
+            if refusal.text:
+                print(refusal.text, file=sys.stderr)
+            return refusal.code
     db_path = pathlib.Path(args.db)
     try:
-        if args.action == "relay":
-            return cmd_sync_relay(args)
         if args.action == "forget":
             # after a rotation on another device, or a re-pair with new words: start the relay bookkeeping over
             with storage.open_for_write(db_path, purpose="sync") as conn:
@@ -764,6 +779,9 @@ def cmd_key_status(args: argparse.Namespace) -> int:
 def cmd_migrate_home(args: argparse.Namespace) -> int:
     try:
         report = migrate_home.migrate_home()
+    except storage.NoHome as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
     except migrate_home.MigrateRefused as exc:
         print(f"migrate-home: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -789,7 +807,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=("exit codes: 0 ok, 1 failed, 2 usage, 3 not configured, 4 busy, 6 database, "
                 "7 schema newer than this build, 8 backup/restore refused, 9 locked/key refused. " + contract.PRIVACY_NOTE))
     parser.add_argument("--version", action="version", version=f"{identity.COMMAND} {__version__}")
-    parser.add_argument("--db", default=str(storage.default_db_path()),
+    parser.add_argument("--db", default=None,   # None: resolved after parsing, so --help and --version need no HOME
                         help=f"SQLite file (default ${storage.DEFAULT_DB_ENV} or ~/{identity.DATA_DIR}/{identity.DB_FILENAME}; "
                              f"the legacy ~/{identity.LEGACY_HOMES[0]} is read until {identity.COMMAND} migrate-home)")
     parser.add_argument("--json", action="store_true", help="machine-readable output on stdout")
@@ -902,7 +920,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.command != "migrate-home":
+    if args.db is None and args.command != "migrate-home":
+        try:
+            args.db = str(storage.default_db_path())
+        except storage.NoHome as exc:
+            if not (args.command == "sync" and args.action == "relay"):    # the relay list needs no store
+                print(f"error: {exc}", file=sys.stderr)
+                return EXIT_FAILED
+    if args.command != "migrate-home" and args.db is not None:
         home.announce_default_resolution(args.db)
         encrypt_module.cleanup_stray(pathlib.Path(args.db))
     try:

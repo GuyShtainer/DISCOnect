@@ -24,12 +24,12 @@ from sqlcipher3 import dbapi2 as sqlite
 
 from disconect import identity
 from disconect.storage import home, keys, migrations
-from disconect.storage.errors import HomeMoved, NotConfigured, StorageError
+from disconect.storage.errors import HomeMoved, NoHome, NotConfigured, StorageError
 from disconect.storage._time import iso_utc, parse_iso_utc, utc_now_iso
 from disconect.storage.write_lock import WriteLockBusy, write_lock
 
 __all__ = [
-    "DEFAULT_DB_ENV", "DatabaseError", "Encrypted", "HomeMoved", "NotConfigured", "NotEncrypted", "Row",
+    "DEFAULT_DB_ENV", "DatabaseError", "Encrypted", "HomeMoved", "NoHome", "NotConfigured", "NotEncrypted", "Row",
     "SchemaTooNew", "StorageError", "WriteLockBusy", "connect", "default_db_path", "is_encrypted_file",
     "is_unlocked", "iso_utc", "open_for_write", "open_read_only", "parse_iso_utc", "prime", "remember", "forget", "sqlite", "unlocked_master", "utc_now_iso",
 ]

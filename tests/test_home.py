@@ -1,6 +1,9 @@
 """Where the data folder is (Bet 02a): pure resolution, the legacy read-through, one stderr hint."""
 
+import os
 import pathlib
+import subprocess
+import sys
 
 import pytest
 
@@ -215,3 +218,60 @@ def test_a_bare_tilde_expands_and_a_named_user_is_left_alone_like_the_rust_core(
     # every relay and override site reads through it: a named user's folder is the relative folder as written
     assert relay_config.open_relay("folder", "~root/x").root == pathlib.Path("~root/x")
 
+
+
+NO_STORE = "no store: pass --db <path> or set DISCONECT_DB (HOME is not set)"
+
+
+@pytest.mark.parametrize("empty", [False, True], ids=["unset", "empty"])
+def test_no_home_means_no_default_store_and_the_password_database_is_never_asked(monkeypatch, empty):
+    """The Rust twin is `no_home_test.rs`. ``Path.home()`` would answer from the password database here."""
+    if empty:
+        monkeypatch.setenv("HOME", "")
+    else:
+        monkeypatch.delenv("HOME")
+    monkeypatch.delenv("DISCONECT_DB", raising=False)
+    with pytest.raises(storage.NoHome) as caught:
+        home.resolve_default_db()
+    assert str(caught.value) == NO_STORE
+    with pytest.raises(storage.NoHome):
+        storage.default_db_path()
+    with pytest.raises(storage.NoHome):
+        home.relay_config_path()
+    # an override needs no home, and with no home its ~ stays as written
+    monkeypatch.setenv("DISCONECT_DB", "/x/y.db")
+    assert home.resolve_default_db() == (pathlib.Path("/x/y.db"), None)
+    assert home.relay_config_path() == pathlib.Path("/x/relay.json")
+    monkeypatch.setenv("DISCONECT_DB", "~/y.db")
+    assert home.resolve_default_db() == (pathlib.Path("~/y.db"), None)
+
+
+def _no_home_cli(args, tmp_path):
+    env = {k: v for k, v in os.environ.items() if k not in ("HOME", "DISCONECT_DB")}
+    return subprocess.run([sys.executable, "-m", "disconect.cli", *args], env=env, cwd=tmp_path,
+                          capture_output=True, text=True, timeout=60, check=False)
+
+
+def test_the_cli_without_a_home_prints_no_store_and_exits_1_but_help_and_version_work(tmp_path):
+    done = _no_home_cli(["status"], tmp_path)
+    assert (done.returncode, done.stderr.strip()) == (1, f"error: {NO_STORE}")
+    assert _no_home_cli(["--help"], tmp_path).returncode == 0
+    assert _no_home_cli(["--version"], tmp_path).returncode == 0
+    done = _no_home_cli(["migrate-home"], tmp_path)
+    assert (done.returncode, done.stderr.strip()) == (1, "error: HOME is not set")
+    done = _no_home_cli(["sync", "relay", "list"], tmp_path)
+    assert (done.returncode, done.stderr.strip()) == (1, "error: HOME is not set")
+
+
+def test_remembering_a_relay_without_a_home_is_the_rust_cores_refusal(monkeypatch, tmp_path):
+    """`--remember` writes `relay.json` beside the default store, so it has nowhere to go (the Rust text, exit 1)."""
+    import argparse
+    monkeypatch.delenv("HOME")
+    monkeypatch.delenv("DISCONECT_DB", raising=False)
+    args = argparse.Namespace(relay=str(tmp_path), remember=True)
+    with pytest.raises(cli._Refusal) as caught:
+        cli._adhoc_relay(args)
+    assert (caught.value.code, caught.value.text) == (1, "error: cannot remember the relay: HOME is not set")
+    with pytest.raises(cli._Refusal) as caught:
+        cli._relay_list()
+    assert caught.value.code == 2 and caught.value.text.endswith("to ~/.disconect/relay.json"), caught.value.text

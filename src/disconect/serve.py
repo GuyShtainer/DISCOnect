@@ -981,10 +981,16 @@ def _ignore_env_secrets(channel: Channel) -> None:
 def main(argv: list[str] | None = None) -> int:
     """Entry point for ``disconect-serve``: serve the protocol on stdio until stdin closes."""
     parser = argparse.ArgumentParser(prog="disconect-serve", description="JSON Lines sidecar on stdio.")
-    parser.add_argument("--db", default=str(storage.default_db_path()),
+    parser.add_argument("--db", default=None,   # None: resolved after parsing, so --help needs no HOME
                         help=f"SQLite file (default ${storage.DEFAULT_DB_ENV} or ~/{identity.DATA_DIR}/{identity.DB_FILENAME}; "
                              f"the legacy ~/{identity.LEGACY_HOMES[0]} is read until {identity.COMMAND} migrate-home)")
     args = parser.parse_args(argv)
+    if args.db is None:
+        try:
+            args.db = str(storage.default_db_path())
+        except storage.NoHome as exc:
+            sys.stderr.write(f"error: {exc}\n")   # stdout is the protocol
+            return 1
     storage.home.announce_default_resolution(args.db)
     channel = Channel(isolate_stdout())
     sys.stdin.reconfigure(encoding="utf-8", errors="replace")

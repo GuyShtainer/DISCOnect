@@ -16,7 +16,7 @@ import sys
 from collections.abc import Mapping
 
 from disconect import identity
-from disconect.storage.errors import HomeMoved
+from disconect.storage.errors import HomeMoved, NoHome
 
 
 def expand_user(text: str) -> pathlib.Path:
@@ -24,19 +24,31 @@ def expand_user(text: str) -> pathlib.Path:
     ``~name/…`` is left alone (``Path.expanduser`` would look ``name`` up in the password database and the two cores
     would open different folders), and with no ``$HOME`` (or an empty one) the ``~`` stays as written (no
     password-database fallback). The text is tested, not its parts: ``./~/a`` is a folder named ``~``."""
-    home = os.environ.get("HOME")
+    home = home_dir()
     if (text == "~" or text.startswith("~/")) and home:
         return pathlib.Path(home).joinpath(*pathlib.Path(text).parts[1:])
     return pathlib.Path(text)
+
+
+def home_dir() -> str | None:
+    """``$HOME``, or None when it is unset or empty. Never ``Path.home()``: that falls back to the password database
+    when ``$HOME`` is unset, which the Rust core does not, so the two cores would open different stores."""
+    return os.environ.get("HOME") or None
+
 
 DB_ENV = identity.ENV_PREFIX + "DB"
 #: Env names of the old builds. They are not aliases: nothing reads them, we only warn.
 LEGACY_ENV_SUFFIXES = ("DB", "KEYS", "PASSPHRASE", "RECOVERY_WORDS")
 RELAY_CONFIG_NAME = "relay.json"
+HOME_NOT_SET = "HOME is not set"
+#: The Rust binary's text for "no default store" (``disconect-core.rs``); the CLI prefixes ``error: ``.
+NO_STORE_TEXT = f"no store: pass --db <path> or set {identity.ENV_PREFIX}DB (HOME is not set)"
 
 
 def resolve_default_db() -> tuple[pathlib.Path, str | None]:
     """``(db path, legacy folder name or None)``.
+
+    Raises :class:`~disconect.storage.errors.NoHome` when ``$DISCONECT_DB`` is not set and ``$HOME`` is unset or empty.
 
     ``$DISCONECT_DB`` if set; else ``~/.disconect/disconect.db`` if that *file* exists; else the same
     file name of an old build's folder (``~/.hearthbeat/hearthbeat.db``, or ``disconect.db`` there when a
@@ -45,7 +57,10 @@ def resolve_default_db() -> tuple[pathlib.Path, str | None]:
     override = os.environ.get(DB_ENV)
     if override:
         return expand_user(override), None
-    home = pathlib.Path.home()
+    home_text = home_dir()
+    if home_text is None:
+        raise NoHome(NO_STORE_TEXT)
+    home = pathlib.Path(home_text)
     current = home / identity.DATA_DIR / identity.DB_FILENAME
     if not current.is_file():
         for legacy in identity.LEGACY_HOMES:
@@ -101,6 +116,9 @@ def announce_default_resolution(db_path: str | os.PathLike) -> None:
     warning = legacy_env_warning()
     if warning:
         print(warning, file=sys.stderr)
-    resolved, legacy = resolve_default_db()
+    try:
+        resolved, legacy = resolve_default_db()
+    except NoHome:
+        return      # an explicit --db needs no home; nothing to hint about
     if legacy and pathlib.Path(db_path) == resolved:
         print(legacy_home_hint(legacy), file=sys.stderr)

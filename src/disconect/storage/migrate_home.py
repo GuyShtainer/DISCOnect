@@ -29,6 +29,8 @@ import subprocess
 from collections.abc import Callable
 
 from disconect import identity
+from disconect.storage.errors import NoHome
+from disconect.storage.home import HOME_NOT_SET, home_dir
 from disconect.storage.write_lock import WriteLockBusy, write_lock
 
 HOLDER_SUFFIX = ".write-lock.holder"
@@ -192,7 +194,12 @@ def migrate_home(home: pathlib.Path | None = None, environ: dict | os._Environ |
     ``moved`` is False (and nothing is touched) when the old folder is already gone and the new
     database is in place: a second run is a no-op. ``find_running`` is the process check (tests inject it).
     """
-    home = pathlib.Path.home() if home is None else pathlib.Path(home)
+    if home is None:
+        home_text = home_dir()
+        if home_text is None:
+            raise NoHome(HOME_NOT_SET)
+        home = home_text
+    home = pathlib.Path(home)
     environ = os.environ if environ is None else environ
     find_running = running_programs if find_running is None else find_running
     legacy_name = identity.LEGACY_HOMES[0]
