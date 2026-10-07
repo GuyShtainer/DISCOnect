@@ -264,6 +264,7 @@ rewrites it (`sync relay add|remove`, `--remember`), always in the list form wit
 path|url, serve`; `label` only when non-empty, `serve` only when true); a folder is stored as typed. At most one entry serves:
 `relay.serve`, `pair.offer` and the offerer's push use that folder; no `serve` entry = a joiner.
 `relay_url` is the first `lan` entry's base address.
+`sync.status` also carries the list itself as `relay_list` (BL-7: each folder's `path` exactly as configured, each lan entry's `url` as `relay_url` gives it, see serve-protocol.md).
 
 **Push.** A new bundle is packed once and the same bytes are `put` to every site in list order under one
 name; it is booked when at least one site took it; when none did the push stops there (the `prev` chain
