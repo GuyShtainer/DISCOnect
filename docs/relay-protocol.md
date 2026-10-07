@@ -19,7 +19,7 @@ k       = HKDF-SHA256(ikm = master, salt, info = "hearthbeat/relay/v1/bundle")
 AAD     = "hearthbeat/relay/v1/" ‖ account ‖ "/" ‖ object name
 padded  = u64be(len(z)) ‖ z ‖ 0x00… to the Padmé size (64 KiB floor)
 z       = zlib(lines), lines = header line, then one line per record ({"t":"r",…}) and range ({"t":"x",…})
-header  = {"t":"h","format":1,"core":…,"device_id":16 hex,"device_seq":n,"prev":name|null,"created_utc":…,"records":n,"ranges":n}
+header  = {"t":"h","format":1,"core":…,"device_id":an opaque string (16 hex from these cores),"device_seq":n,"prev":name|null,"created_utc":…,"records":n,"ranges":n}
 account = hex(HKDF-SHA256(master, no salt, info = "hearthbeat/relay-account"))   (64 hex chars)
 name    = account ‖ "/" ‖ 32 random hex
 ```
@@ -85,9 +85,11 @@ their origin transport, so the marks alone stop echoes). After a rotation every 
 what it holds, received records included: that is intended (the new account must hold everything).
 Per-device chains (`device_seq`, `prev`) travel inside the ciphertext; `sync status` reports a
 missing link as a gap, and lists the chains it holds (19b: per writer id among the applied bundles, the
-bundle and record counts, the highest `device_seq` and whether the id is this store's own). Cost: `sync forget`
-(and a re-pair) wipes `relay_device`, so the next push mints a new id and the other devices see a second chain
-from the same device; the old chain's row stays in their lists until their own `sync forget`.
+bundle and record counts, the highest `device_seq` and whether the id is this store's own; the row key is `chain`).
+Cost: `sync forget` (and a re-pair) wipes `relay_device` and `relay_bundles`, so the next push mints a new id, and
+nothing deletes relay objects: the old id's row stays on every device while its bundles stay on the relay, including
+on the device that forgot (where it reads as another writer). `records` counts what a writer's bundles carried, not
+what it produced, so after a forget or a rotation a new chain also counts the records its device had received.
 
 ## Claims and non-claims
 The relay cannot read or forge bundles. It can delay or drop them: a dropped middle bundle of a

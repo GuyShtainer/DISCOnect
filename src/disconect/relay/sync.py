@@ -897,7 +897,7 @@ def status(conn: sqlite.Connection) -> dict:
     last = {row[0]: row[1] for row in conn.execute(
         "SELECT direction, max(noted_at) FROM relay_bundles WHERE status='applied' GROUP BY 1").fetchall()}
     own = conn.execute("SELECT device_id FROM relay_device WHERE id=1").fetchone()
-    chains = [{"device_id": row[0], "bundles": row[1], "records": row[2] or 0, "last_seq": row[3] or 0,
+    chains = [{"chain": row[0], "bundles": row[1], "records": row[2] or 0, "last_seq": row[3] or 0,
                "self": own is not None and row[0] == own[0]} for row in conn.execute(
         "SELECT device_id, count(*), sum(records), max(device_seq) FROM relay_bundles WHERE status='applied' "
         "AND device_id IS NOT NULL GROUP BY device_id ORDER BY device_id").fetchall()]

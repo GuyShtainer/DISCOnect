@@ -492,7 +492,7 @@ def test_sync_status_chains_name_each_writer_with_counts_and_a_self_flag(encrypt
     b.result("sync.run")
     (row,) = _chains(encrypted)
     assert (row["bundles"], row["last_seq"], row["self"]) == (1, 1, True) and row["records"] > 0
-    assert len(row["device_id"]) == 16 and list(row) == ["device_id", "bundles", "records", "last_seq", "self"]
+    assert len(row["chain"]) == 16 and set(row) == {"chain", "bundles", "records", "last_seq", "self"}
     (theirs,) = _chains(b)
     assert theirs == {**row, "self": False}
     # B publishes something of its own (a different day), A pulls: two rows sorted by id, each self on its own
@@ -506,7 +506,7 @@ def test_sync_status_chains_name_each_writer_with_counts_and_a_self_flag(encrypt
     encrypted.result("sync.run")
     ca, cb = _chains(encrypted), _chains(b)
     for chains in (ca, cb):
-        assert len(chains) == 2 and chains[0]["device_id"] < chains[1]["device_id"]
+        assert len(chains) == 2 and chains[0]["chain"] < chains[1]["chain"]
         assert sum(c["self"] for c in chains) == 1
     assert [{k: v for k, v in c.items() if k != "self"} for c in ca] == [{k: v for k, v in c.items() if k != "self"} for c in cb]
-    assert [c["device_id"] for c in ca if c["self"]] != [c["device_id"] for c in cb if c["self"]]
+    assert [c["chain"] for c in ca if c["self"]] != [c["chain"] for c in cb if c["self"]]

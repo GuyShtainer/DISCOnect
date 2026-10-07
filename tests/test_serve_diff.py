@@ -107,16 +107,16 @@ def _gunzipped(path: pathlib.Path) -> str:
 
 
 def test_the_chains_allowance_masks_only_the_self_writer_id_and_orders_the_rows():
-    row = lambda device, own: {"device_id": device, "bundles": 1, "records": 2, "last_seq": 1, "self": own}  # noqa: E731
+    row = lambda device, own: {"chain": device, "bundles": 1, "records": 2, "last_seq": 1, "self": own}  # noqa: E731
     one = {"id": 1, "result": {"chains": [row("0000000000000001", True), row("aaaaaaaaaaaaaaaa", False)]}}
     two = {"id": 1, "result": {"chains": [row("aaaaaaaaaaaaaaaa", False), row("ffffffffffffffff", True)]}}
     assert serve_diff.apply_allowances(one) == serve_diff.apply_allowances(two)
     other = {"id": 1, "result": {"chains": [row("aaaaaaaaaaaaaaab", False), row("ffffffffffffffff", True)]}}
     assert serve_diff.apply_allowances(one) != serve_diff.apply_allowances(other), "another writer's id still compares"
     short = {"id": 1, "result": {"chains": [row("ff", True)]}}
-    assert serve_diff.apply_allowances(short)["result"]["chains"][0]["device_id"] == "ff", "a malformed id is not masked"
+    assert serve_diff.apply_allowances(short)["result"]["chains"][0]["chain"] == "ff", "a malformed id is not masked"
     walk = lambda line: serve_diff.privacy_walk([json.dumps(line)], ())  # noqa: E731
-    assert walk(one) == []
+    assert walk(one) == [], "the chain key is not a forbidden key, so the privacy walk needs no exception"
     assert walk({"id": 1, "result": {"device_id": "x"}}) == ["forbidden key at .result"]
 
 

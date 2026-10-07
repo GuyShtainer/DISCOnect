@@ -634,10 +634,14 @@ def test_cli_sync_on_encrypted_stores_bootstraps_an_empty_device(tmp_path, capsy
     assert run(["--db", str(b), "--json", "sync", "status"], "another-strong-passphrase") == cli.EXIT_OK
     report = json.loads(capsys.readouterr().out)
     assert report["bundles"] == {"pulled_applied": 1} and report["records_unsent"] == 0
-    # 19b: the chains list is the one place a writer id appears, with counts only, and B is not its writer
-    assert "device_id" not in json.dumps({k: v for k, v in report.items() if k != "chains"})
+    # 19b: the chains list is the one place a writer id appears (as `chain`), with counts only, and B is not its writer
+    assert "device_id" not in json.dumps(report)
     (chain,) = report["chains"]
     assert (chain["bundles"], chain["last_seq"], chain["self"]) == (1, 1, False) and chain["records"] > 0
+    # the text form of `sync status` closes the gap count with the chain count
+    capsys.readouterr()
+    assert run(["--db", str(b), "sync", "status"], "another-strong-passphrase") == cli.EXIT_OK
+    assert "; gaps 0; chains 1; last push never," in capsys.readouterr().out
     # a plaintext store cannot sync
     c = tmp_path / "c.db"
     _store(c)
@@ -679,3 +683,47 @@ def test_a_live_record_born_on_the_phone_lands_on_the_mac_byte_for_byte(tmp_path
         assert conn.execute("SELECT count(*) FROM raw_records WHERE transport='ble'").fetchone()[0] == 1
     finally:
         conn.close()
+
+
+def _chain_rows(db_path) -> list[dict]:
+    with storage.open_for_write(db_path, "sync") as conn:
+        return sync.status(conn)["chains"]
+
+
+def test_status_never_mints_a_writer_id(tmp_path):
+    a = tmp_path / "a.db"
+    _store(a)
+    assert _chain_rows(a) == []
+    conn = storage.open_read_only(a)
+    try:
+        assert conn.execute("SELECT count(*) FROM relay_device").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+def test_a_forget_leaves_the_old_writer_id_listed_and_the_new_chain_counts_what_it_received(tmp_path):
+    a, b = tmp_path / "a.db", tmp_path / "b.db"
+    for db, day, n in ((a, 12, 500), (b, 13, 700)):
+        _store(db)
+        drop = tmp_path / f"drop{day}"
+        drop.mkdir()
+        (drop / "x.fit").write_bytes(_monitoring_day(datetime.datetime(2025, 6, day, 21, 0, tzinfo=UTC), n))
+        _import(db, drop)
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
+    _push(a, relay), _push(b, relay), _pull(a, relay), _pull(b, relay)
+    (old_a,) = [c for c in _chain_rows(a) if c["self"]]
+    assert (old_a["bundles"], old_a["records"]) == (1, 1)
+    # A forgets (its relay tables go, the relay objects stay), pushes again and pulls
+    with storage.open_for_write(a, "sync") as conn:
+        sync.forget_relay_state(conn)
+    _push(a, relay), _pull(a, relay), _pull(b, relay)
+    for db in (a, b):
+        rows = {c["chain"]: c for c in _chain_rows(db)}
+        assert len(rows) == 3, "B's chain and both of A's"
+        assert rows[old_a["chain"]]["self"] is False, "A's old id is another writer, on A as well as on B"
+        assert (rows[old_a["chain"]]["bundles"], rows[old_a["chain"]]["records"]) == (1, 1)
+    (new_a,) = [c for c in _chain_rows(a) if c["self"]]
+    assert new_a["chain"] != old_a["chain"]
+    # the new chain carries what A had received as well as what it made: `records` is what a writer's bundles carried
+    assert (new_a["bundles"], new_a["records"]) == (1, 2)
+    assert {c["chain"]: c for c in _chain_rows(b)}[new_a["chain"]] == {**new_a, "self": False}
