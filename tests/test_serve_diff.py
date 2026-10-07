@@ -71,12 +71,30 @@ def test_exactly_two_key_paths_are_allowed_to_differ():
 def test_the_privacy_walk_names_kinds_and_paths_not_text():
     bad = json.dumps({"id": 1, "result": {"serial": "x", "note": "see /Users/someone", "m": "Garmin Connect",
                                           "db": "/Users/ok/in/db"}})
-    problems = serve_diff.privacy_walk([bad], ("hunter2 is long",))
+    problems = serve_diff.privacy_walk([bad], ("hunter2 is long",), "app.info")
     assert sorted(problems) == ["forbidden key at .result", "forbidden text at .result.note",
                                 "manufacturer name at .result.m"]
     assert serve_diff.privacy_walk([json.dumps({"id": 1, "result": {"x": "hunter2 is long"}})], ("hunter2 is long",)) \
         == ["a passphrase appears in a line"]
-    assert serve_diff.privacy_walk([json.dumps({"id": 1, "result": {"db": "/Users/x/y"}})], ()) == []
+    assert serve_diff.privacy_walk([json.dumps({"id": 1, "result": {"db": "/Users/x/y"}})], (), "app.info") == []
+    assert serve_diff.privacy_walk([json.dumps({"id": 1, "result": {"db": "/Users/x/y"}})], (), "sync.status") \
+        == ["forbidden text at .result.db"], "the db allowance is keyed by the method too"
+
+
+def test_the_relay_list_path_is_allowed_only_at_sync_status_relay_list_and_masked_only_when_a_cores_own():
+    line = {"id": 7, "result": {"relay_list": [{"id": "a", "kind": "folder", "label": "", "serve": False,
+                                                "path": "/Users/x/Garmin@example.com/relay"}]}}
+    walk = serve_diff.privacy_walk
+    assert walk([json.dumps(line)], (), "sync.status") == []
+    assert walk([json.dumps(line)], (), methods={7: "sync.status"}) == []
+    assert walk([json.dumps(line)], (), "sync.run") == ["forbidden key at .result.relay_list[0]"]
+    assert walk([json.dumps({"id": 7, "result": {"other": [{"path": "p"}]}})], (), "sync.status") \
+        == ["forbidden key at .result.other[0]"]
+    # masked only when the path IS the core's own scratch relay; a fixed literal compares unmasked
+    status = lambda path: {"id": 1, "result": {"chains": [], "relay_list": [{"id": "a", "path": path}]}}  # noqa: E731
+    assert serve_diff.apply_allowances(status("/s/py"), "/s/py") == serve_diff.apply_allowances(status("/s/rs"), "/s/rs")
+    assert serve_diff.apply_allowances(status("~/relay x"), "/s/py") != serve_diff.apply_allowances(status("relay"), "/s/rs")
+    assert serve_diff.apply_allowances(status("/s/py/sub"), "/s/py")["result"]["relay_list"][0]["path"] == "/s/py/sub"
 
 
 def test_wire_shape_checks_ascii_and_protocol_form():
@@ -236,7 +254,7 @@ def test_the_sync_leg_catches_a_core_that_differs_in_an_event_or_the_response(tm
     assert serve_diff.main(["--db", str(STORE_EMPTY), "--rust-bin", str(fake), "--anchors-from", str(STORE),
                             "--no-import-leg"]) == 1, what
     report = capsys.readouterr().out
-    assert "RESULT: FAILED" in report and "sync leg: " in report and "identical 118, differing 0" not in report, what
+    assert "RESULT: FAILED" in report and "sync leg: " in report and "identical 123, differing 0" not in report, what
 
 
 @pytest.mark.skipif(not RUST_DEBUG.exists(), reason="build projects/disconect-core first (cargo build)")
@@ -259,7 +277,7 @@ def test_the_gate_passes_on_the_committed_synthetic_stores(capsys, store, label,
     assert "not yet ported (Rust unknown_method): 0 " in report, "every method of the oracle is ported"
     assert "import leg: " in report and ", differing 0" in report and "import leg events: python " in report
     assert "post-import core_diff: 0 differing rows" in report and "import leg run_id equal: 8/8" in report
-    assert "sync leg: 118 steps" in report and "identical 118, differing 0" in report
+    assert "sync leg: 123 steps" in report and "identical 123, differing 0" in report
     assert "sync.run results: python 7, rust 7" in report and "post-sync core_diff: 0 differing rows" in report
     assert "site leg: 8 pair.join steps beside no store, identical 8, differing 0" in report      # 12-H (d)
     assert "prefix passed (unsupported_transport) python 4, rust 4, expected 4" in report
@@ -291,4 +309,4 @@ def test_the_gate_passes_through_the_apps_in_process_core(capsys, store, label):
     assert "binary: in-process" in report and "differing: 0" in report and "RESULT: 0 differences" in report
     assert "import leg: " in report and ", differing 0" in report
     assert "post-import core_diff: 0 differing rows" in report
-    assert "sync leg: 118 steps" in report and "identical 118, differing 0" in report
+    assert "sync leg: 123 steps" in report and "identical 123, differing 0" in report
