@@ -241,7 +241,8 @@ does after a crash). The CLI exits 5 for an unreachable, unverified or clock-ref
 `serve: true`**; the legacy `{"lan": url}` as one entry `default` (a non-empty `lan` still wins over
 `folder` in that form). `id` is `default` or 1–32 hex chars; a malformed entry, a duplicate id, an empty
 list or two `serve` entries make the file read as nothing (as `{"folder": 5}` does). Only the CLI
-rewrites it (`sync relay add|remove`, `--remember`), always in the list form. At most one entry serves:
+rewrites it (`sync relay add|remove`, `--remember`), always in the list form with sorted keys (`id, kind, label,
+path|url, serve`; `label` only when non-empty, `serve` only when true); a folder is stored as typed. At most one entry serves:
 `relay.serve`, `pair.offer` and the offerer's push use that folder; no `serve` entry = a joiner.
 `relay_url` is the first `lan` entry's base address.
 
@@ -265,7 +266,11 @@ fetches the same way.
 caller passed `"unavailable": true`), `same_relay` (a folder root already opened, by (device, inode); a
 LAN base address already opened), `bad_url` (a LAN address `parse_base_url` refuses),
 `unsupported_transport` (a `lan` entry on the Python core) — each **reported** on that site and skipped,
-never a refusal of the run. The core creates `<root>/<account>` under an existing root, never the root.
+never a refusal of the run. The core creates `<root>/<account>` under an existing root, never the root — except
+for the `serve` entry (and so the legacy `{"folder"}`), this Mac's own folder, which the first put creates as before.
+**A list of exactly one entry is strict:** that relay's failure is raised as the run's error with the old codes and
+texts (`not_found` unreachable, `relay_auth_failed`, `relay_unverified`, `unsupported_transport` on the Python
+core); with two or more entries every failure is a site `error` and the run is `partial`.
 The result carries `sites: [{id, kind, pushed, healed, behind, pulled, rejected, error}]` (`error` a
 reason word, never a path, an address or an OS message); the run is `partial` when any site has an error
 or the push stopped. The phone's shell owns its list (security-scoped bookmarks are per container) and
