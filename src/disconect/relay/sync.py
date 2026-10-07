@@ -26,6 +26,8 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import os
+import pathlib
 import secrets
 import zlib
 
@@ -36,8 +38,9 @@ from disconect.ingest.model import Decoded
 from disconect.ingest.sources import rederive_json
 from disconect.ingest.writer import DUPLICATE, FAILED, IMPORTED, KEPT, Writer
 from disconect.relay import bundle as bundle_module
+from disconect.relay import config as relay_config
 from disconect.relay.bundle import BundleRejected, account_for, new_name, pack, unpack
-from disconect.relay.folder import Relay
+from disconect.relay.folder import FolderRelay, Relay
 from disconect.storage import parse_iso_utc, sqlite, utc_now_iso
 
 TRANSPORT_RELAY = "relay"
@@ -49,9 +52,10 @@ class PushResult:
     bundles: list[str] = dataclasses.field(default_factory=list)
     records: int = 0
     ranges: int = 0
+    partial: bool = False   # no site could take a bundle (or there is no site): the push stopped there, the rest stays unsent
 
     def as_dict(self) -> dict:
-        return dataclasses.asdict(self)
+        return {"bundles": self.bundles, "records": self.records, "ranges": self.ranges}
 
 
 @dataclasses.dataclass
@@ -82,10 +86,172 @@ def _device(conn: sqlite.Connection) -> tuple[str, int, str | None]:
 
 
 # ---------------------------------------------------------------- push
+#: Never more than this many bundles are re-put on one site in one run (the rest is ``behind``).
+HEAL_BUNDLES_PER_SITE = 16
+#: Nor more than this many packed bytes (a first bundle over it still goes).
+HEAL_BYTES_PER_SITE = 64 * 1024 * 1024
+
+
+@dataclasses.dataclass
+class Site:
+    """One open relay of a run; ``report`` is the index of its :class:`SiteReport` (an entry that did not open has a
+    report and no site)."""
+
+    id: str
+    kind: str
+    relay: Relay
+    report: int
+
+
+@dataclasses.dataclass
+class SiteReport:
+    """What one site did in one run: ``sync.run``'s ``sites`` rows. ``error`` is a reason word, never a path or an OS text."""
+
+    id: str
+    kind: str
+    pushed: int = 0
+    healed: int = 0
+    behind: int = 0
+    pulled: int = 0
+    rejected: int = 0
+    error: str | None = None
+
+    def as_dict(self) -> dict:
+        return {"id": self.id, "kind": self.kind, "pushed": self.pushed, "healed": self.healed, "behind": self.behind,
+                "pulled": self.pulled, "rejected": self.rejected, "error": self.error}
+
+    def fail(self, error: Exception) -> None:
+        if self.error is None:
+            self.error = reason_of(error)
+
+
+def reason_of(error: Exception) -> str:
+    """The reason word of a failed relay call: the exception's ``reason`` attribute, else its class name."""
+    return getattr(error, "reason", type(error).__name__)
+
+
+def is_transient(error: Exception) -> bool:
+    """The relay, not the object, is the problem: a pull takes that site out of the run and leaves the name pending
+    instead of recording it ``rejected``. The twin of the Rust core's ``RelayError::is_transient``, which is true for
+    the network relay's unreachable / unauthorized / unverified / status failures only — a folder relay's I/O error
+    is never transient on either core. This core has no network relay, so only an error that marks itself
+    (``error.transient = True``; the network twin's reason word is ``OSError``) takes the transient path."""
+    return bool(getattr(error, "transient", False))
+
+
+@dataclasses.dataclass
+class SiteSpec:
+    """A relay to open: from a ``RelayEntry`` or from a per-call ``relays`` element."""
+
+    id: str
+    kind: str            # "folder" | "lan"
+    value: str           # a folder path or a LAN url ("" for an unavailable per-call entry without one)
+    unavailable: bool = False   # the shell could not reach the folder: reported, never opened
+    create_root: bool = False   # a missing root is opened anyway and the first put creates it (the entry this device serves)
+
+    @classmethod
+    def from_entry(cls, entry: relay_config.RelayEntry) -> SiteSpec:
+        return cls(entry.id, entry.kind, entry.value, False, entry.serve)
+
+
+def _folder_identity(root: pathlib.Path) -> tuple[int, int] | None:
+    """Who a folder is: the root's (device, inode), so two paths to one folder (a symlink, ``/private/var``) are one relay."""
+    try:
+        info = os.stat(root)
+    except OSError:
+        return None
+    return (info.st_dev, info.st_ino) if os.path.isdir(root) else None
+
+
+def open_sites(specs: list[SiteSpec], master: bytes) -> tuple[list[Site], list[SiteReport]]:
+    """Open every relay of a run. One report per spec, in the specs' order; a spec that cannot be used carries its
+    reason word (``unavailable``, ``same_relay``, ``bad_url``, ``unsupported_transport`` for a ``lan`` entry, which
+    this core cannot open) and has no site. Never an error, and nothing is created."""
+    sites: list[Site] = []
+    reports: list[SiteReport] = []
+    folders: list[tuple[int, int]] = []
+    urls: list[str] = []
+    for spec in specs:
+        report = SiteReport(spec.id, spec.kind)
+        word: str | None = None
+        relay: Relay | None = None
+        if spec.unavailable:
+            word = "unavailable"
+        elif spec.kind == "folder":
+            root = pathlib.Path(spec.value).expanduser()
+            identity = _folder_identity(root)
+            if identity is None and spec.create_root and not root.exists():
+                relay = FolderRelay(root)
+            elif identity is None:
+                word = "unavailable"
+            elif identity in folders:
+                word = "same_relay"
+            else:
+                folders.append(identity)
+                relay = FolderRelay(root)
+        else:
+            base = relay_config.lan_base_url(spec.value)
+            if base is None:
+                word = "bad_url"
+            elif base in urls:
+                word = "same_relay"
+            else:
+                urls.append(base)
+                word = "unsupported_transport"
+        if relay is not None:
+            sites.append(Site(spec.id, spec.kind, relay, len(reports)))
+        else:
+            report.error = word
+        reports.append(report)
+    return sites, reports
+
+
+#: A relay of one call and the index of its report.
+Target = tuple[Relay, int]
+
+
+def _targets(sites: list[Site]) -> list[Target]:
+    return [(site.relay, site.report) for site in sites]
+
+
 def push(conn: sqlite.Connection, master: bytes, relay: Relay) -> PushResult:
-    """Bundle every unseen local-origin record and range and put them on the relay."""
-    account = account_for(master)
+    """Bundle every unseen local-origin record and range and put them on the relay (one site, errors raised)."""
+    reports = [SiteReport("default", "folder")]
+    faults: list[Exception | None] = [None]
+    result = _push_core(conn, master, [(relay, 0)], reports, faults)
+    if faults[0] is not None:
+        raise faults[0]
+    return result
+
+
+def push_all(conn: sqlite.Connection, master: bytes, sites: list[Site], reports: list[SiteReport]) -> PushResult:
+    """:func:`push` over every site: a new bundle is packed once and put on each, booked when one took it; then each
+    site that is still sound is healed (the names this device pushed that its listing lacks are re-packed and put
+    again, within the per-site budget). A site's failure is its report's ``error``, never the run's."""
+    return _push_core(conn, master, _targets(sites), reports, [None] * len(sites))
+
+
+def push_strict(conn: sqlite.Connection, master: bytes, sites: list[Site], reports: list[SiteReport]) -> PushResult:
+    """:func:`push_all` for a list of one: the site's first failure is raised as the error, its report is filled all the same."""
+    faults: list[Exception | None] = [None] * len(sites)
+    result = _push_core(conn, master, _targets(sites), reports, faults)
+    first = next((fault for fault in faults if fault is not None), None)
+    if first is not None:
+        raise first
+    return result
+
+
+def _push_core(conn: sqlite.Connection, master: bytes, relays: list[Target], reports: list[SiteReport],
+               faults: list[Exception | None]) -> PushResult:
     result = PushResult()
+    _push_new(conn, master, relays, reports, faults, result)
+    _heal(conn, master, relays, reports, faults)
+    return result
+
+
+def _push_new(conn: sqlite.Connection, master: bytes, relays: list[Target], reports: list[SiteReport],
+              faults: list[Exception | None], result: PushResult) -> None:
+    account = account_for(master)
     rows = conn.execute(
         "SELECT r.id, " + ", ".join("r." + c for c in bundle_module.RECORD_COLUMNS) + " FROM raw_records r "
         "LEFT JOIN relay_seen s ON s.raw_record_id = r.id WHERE s.raw_record_id IS NULL ORDER BY r.id").fetchall()
@@ -93,7 +259,11 @@ def push(conn: sqlite.Connection, master: bytes, relay: Relay) -> PushResult:
         "SELECT x.id, x.stream, x.from_day, x.to_day FROM export_ranges x "
         "LEFT JOIN relay_seen_ranges s ON s.export_range_id = x.id WHERE s.export_range_id IS NULL ORDER BY x.id").fetchall()
     if not rows and not ranges:
-        return result
+        return
+    if all(fault is not None for fault in faults):
+        # no site can take a bundle (this also holds for no site at all): nothing is packed, nothing is booked
+        result.partial = True
+        return
     batches: list[list] = [[]]
     size = 0
     for row in rows:
@@ -113,7 +283,22 @@ def push(conn: sqlite.Connection, master: bytes, relay: Relay) -> PushResult:
                   "device_seq": seq, "prev": prev, "created_utc": utc_now_iso(),
                   "records": len(records), "ranges": len(bundle_ranges)}
         data = _seal(master, name, header, records, bundle_ranges)
-        relay.put(name, data)   # the ONLY put in the codebase: its argument is AEAD output
+        took = 0
+        for position, (relay, report) in enumerate(relays):
+            if faults[position] is not None:
+                continue
+            try:
+                relay.put(name, data)   # one of two puts in the codebase (the heal's is the other): the argument is AEAD output
+            except (OSError, ValueError) as exc:
+                reports[report].fail(exc)
+                faults[position] = exc
+            else:
+                took += 1
+                reports[report].pushed += 1
+        if took == 0:
+            # nothing after an unbooked bundle may be booked: prev and seq stay a chain
+            result.partial = True
+            return
         conn.execute("BEGIN")
         try:
             conn.execute(
@@ -132,7 +317,66 @@ def push(conn: sqlite.Connection, master: bytes, relay: Relay) -> PushResult:
         result.bundles.append(name)
         result.records += len(records)
         result.ranges += len(bundle_ranges)
-    return result
+
+
+def _heal(conn: sqlite.Connection, master: bytes, relays: list[Target], reports: list[SiteReport],
+          faults: list[Exception | None]) -> None:
+    """What a site is missing: the names this device pushed (in sequence order) that its listing does not show are
+    packed again from the stored header and the rows still linked to the name (a record a later conflict retired is
+    simply absent) and put under the same name. At most ``HEAL_BUNDLES_PER_SITE`` bundles and ``HEAL_BYTES_PER_SITE``
+    packed bytes per site per run; the rest is the report's ``behind``. The re-pack is not byte-identical to the
+    first copy (fresh nonce, possibly fewer rows); every reader keys by name, sequence and record identity."""
+    if all(fault is not None for fault in faults):
+        return
+    account = account_for(master)
+    pushed = conn.execute("SELECT name, device_id, device_seq, prev, created_utc FROM relay_bundles "
+                          "WHERE direction='pushed' AND status='applied' ORDER BY device_seq").fetchall()
+    if not pushed:
+        return
+    for position, (relay, report) in enumerate(relays):
+        if faults[position] is not None:
+            continue
+        try:
+            listing = set(relay.list(account))
+        except (OSError, ValueError) as exc:
+            reports[report].fail(exc)
+            faults[position] = exc
+            continue
+        missing = [row for row in pushed if row[0] not in listing]
+        spent = 0
+        for at, (name, device_id, seq, prev, created) in enumerate(missing):
+            rest = len(missing) - at
+            if reports[report].healed >= HEAL_BUNDLES_PER_SITE:
+                reports[report].behind = rest
+                break
+            records, ranges = _linked_rows(conn, name)
+            header = {"format": bundle_module.FORMAT_VERSION, "core": __version__, "device_id": device_id,
+                      "device_seq": seq, "prev": prev, "created_utc": created,
+                      "records": len(records), "ranges": len(ranges)}
+            data = _seal(master, name, header, records, ranges)
+            if reports[report].healed > 0 and spent + len(data) > HEAL_BYTES_PER_SITE:
+                reports[report].behind = rest
+                break
+            try:
+                relay.put(name, data)
+            except (OSError, ValueError) as exc:
+                reports[report].fail(exc)
+                faults[position] = exc
+                break
+            spent += len(data)
+            reports[report].healed += 1
+
+
+def _linked_rows(conn: sqlite.Connection, name: str) -> tuple[list[dict], list[dict]]:
+    """The records and ranges still linked to the pushed bundle ``name`` (``relay_seen``, ``relay_seen_ranges``), in the
+    order a push packs them."""
+    records = [dict(zip(bundle_module.RECORD_COLUMNS, row)) for row in conn.execute(
+        "SELECT " + ", ".join("r." + c for c in bundle_module.RECORD_COLUMNS) + " FROM raw_records r "
+        "JOIN relay_seen s ON s.raw_record_id = r.id WHERE s.bundle = ? ORDER BY r.id", (name,)).fetchall()]
+    ranges = [{"stream": r[0], "from_day": r[1], "to_day": r[2]} for r in conn.execute(
+        "SELECT x.stream, x.from_day, x.to_day FROM export_ranges x "
+        "JOIN relay_seen_ranges s ON s.export_range_id = x.id WHERE s.bundle = ? ORDER BY x.id", (name,)).fetchall()]
+    return records, ranges
 
 
 def _seal(master: bytes, name: str, header: dict, records: list[dict], ranges: list[dict]) -> bytes:
@@ -283,12 +527,13 @@ def _loser_writes(conn: sqlite.Connection, writer: Writer, record: dict, conflic
     return hook
 
 
-def _repair_damaged(conn: sqlite.Connection, master: bytes, relay: Relay, result: PullResult) -> None:
+def _repair_damaged(conn: sqlite.Connection, master: bytes, relays: list[Target], result: PullResult) -> None:
     """Every stored record the relay has carried (``relay_seen``) is checked against its hash; a copy whose
     bytes no longer inflate to it is refetched from the bundle that carried it and the streams it feeds are
     re-derived. Without this a damaged copy stays damaged forever: a peer never pushes a pulled record back,
     and the conflict rule, meeting bytes that do not decode, would hand the key to whatever arrives next.
-    A bundle the relay no longer has leaves the record as it is (nothing fails)."""
+    The first site whose copy gets and unpacks is the one used. A bundle no site has leaves the record as it
+    is (nothing fails)."""
     damaged: dict[str, list[tuple[int, str, str]]] = {}
     for raw_id, payload, digest, stream, bundle_name in conn.execute(
             "SELECT r.id, r.payload, r.payload_hash, r.stream, s.bundle FROM raw_records r "
@@ -301,10 +546,16 @@ def _repair_damaged(conn: sqlite.Connection, master: bytes, relay: Relay, result
             damaged.setdefault(bundle_name, []).append((raw_id, digest, stream))
     streams: set[str] = set()
     for bundle_name, wanted in damaged.items():
-        try:
-            _header, records, _ranges = unpack(master, bundle_name, relay.get(bundle_name))
-        except (BundleRejected, OSError, ValueError):
+        found = None
+        for relay, _report in relays:
+            try:
+                found = unpack(master, bundle_name, relay.get(bundle_name))
+                break
+            except (BundleRejected, OSError, ValueError):
+                continue
+        if found is None:
             continue
+        _header, records, _ranges = found
         by_hash = {r["payload_hash"]: r for r in records if _verify(r) is not None}
         for raw_id, digest, stream in wanted:
             record = by_hash.get(digest)
@@ -321,14 +572,55 @@ def _repair_damaged(conn: sqlite.Connection, master: bytes, relay: Relay, result
 
 
 def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
-    """Fetch and apply every bundle on the relay this store has not applied yet. Stored copies the relay
-    carried are verified first and repaired from it when damaged (``records_repaired``)."""
+    """:func:`pull_all` over one site, its failure raised as an error (the CLI's ``--relay``, pairing, tests)."""
+    reports = [SiteReport("default", "folder")]
+    faults: list[Exception | None] = [None]
+    result = _pull_core(conn, master, [(relay, 0)], reports, faults)
+    if faults[0] is not None:
+        raise faults[0]
+    return result
+
+
+def pull_all(conn: sqlite.Connection, master: bytes, sites: list[Site], reports: list[SiteReport]) -> PullResult:
+    """Fetch and apply every bundle any site lists that this store has not applied: the union of the listings, each
+    name tried on every site that lists it, in site order, until one unpacks (``rejected`` only when all fail). A
+    site that cannot be listed contributes nothing; a transient failure skips that site for the rest of the run and
+    leaves its names pending (the run is ``partial``). Failures are the reports' ``error``, never the run's."""
+    return _pull_core(conn, master, _targets(sites), reports, [None] * len(sites))
+
+
+def pull_strict(conn: sqlite.Connection, master: bytes, sites: list[Site], reports: list[SiteReport]) -> PullResult:
+    """:func:`pull_all` for a list of one: the site's first failure is raised as the error, its report is filled all the same."""
+    faults: list[Exception | None] = [None] * len(sites)
+    result = _pull_core(conn, master, _targets(sites), reports, faults)
+    first = next((fault for fault in faults if fault is not None), None)
+    if first is not None:
+        raise first
+    return result
+
+
+def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], reports: list[SiteReport],
+               faults: list[Exception | None]) -> PullResult:
+    """Stored copies the relays carried are verified first and repaired from them when damaged (``records_repaired``)."""
     account = account_for(master)
     result = PullResult()
-    _repair_damaged(conn, master, relay, result)
+    _repair_damaged(conn, master, relays, result)
     known = {row[0] for row in conn.execute("SELECT name FROM relay_bundles WHERE status='applied'").fetchall()}
     half_applied = {row[0] for row in conn.execute("SELECT name FROM relay_bundles WHERE status='applying'").fetchall()}
-    pending = [name for name in relay.list(account) if name not in known]
+    # the union of the listings in first-seen order (site order, then listing order), each name with its sites
+    pending: dict[str, list[int]] = {}
+    for position, (relay, report) in enumerate(relays):
+        try:
+            listing = relay.list(account)
+        except (OSError, ValueError) as exc:
+            reports[report].fail(exc)
+            faults[position] = exc
+            continue
+        for name in listing:
+            if name not in known:
+                pending.setdefault(name, []).append(position)
+    if any(fault is not None for fault in faults):
+        result.status = "partial"
     if not pending:
         _report_gaps(conn, result)
         return result
@@ -337,17 +629,54 @@ def pull(conn: sqlite.Connection, master: bytes, relay: Relay) -> PullResult:
     applied: list[tuple] = []
     reparse_streams: set[str] = set()
     try:
-        for name in pending:
-            try:
-                blob = relay.get(name)
-                header, records, ranges = unpack(master, name, blob)
-            except (BundleRejected, OSError, ValueError) as exc:
-                reason = getattr(exc, "reason", type(exc).__name__)
-                result.rejected[name] = reason
-                writer.stats.files_failed += 1
-                conn.execute("INSERT OR REPLACE INTO relay_bundles(name, direction, status, noted_at, reason) "
-                             "VALUES(?, 'pulled', 'rejected', ?, ?)", (name, utc_now_iso(), reason))
+        skipped = [False] * len(relays)   # sites a transient failure took out of this run
+        for name, holders in pending.items():
+            fetched = None
+            failed = 0
+            first_reason: str | None = None
+            for position in holders:
+                if skipped[position]:
+                    continue
+                relay, report = relays[position]
+                try:
+                    blob = relay.get(name)
+                except (OSError, ValueError) as exc:
+                    if is_transient(exc):
+                        # the relay, not the object, is the problem: this site is out for the run, the name stays
+                        # pending if no other site has it
+                        skipped[position] = True
+                        reports[report].fail(exc)
+                        if faults[position] is None:
+                            faults[position] = exc
+                        continue
+                    reports[report].rejected += 1
+                    failed += 1
+                    if first_reason is None:
+                        first_reason = reason_of(exc)
+                    continue
+                try:
+                    unpacked = unpack(master, name, blob)
+                except BundleRejected as exc:
+                    reports[report].rejected += 1
+                    failed += 1
+                    if first_reason is None:
+                        first_reason = reason_of(exc)
+                    continue
+                reports[report].pulled += 1
+                fetched = (blob, unpacked)
+                break
+            if fetched is None:
+                if failed == len(holders):
+                    reason = first_reason or ""
+                    result.rejected[name] = reason
+                    writer.stats.files_failed += 1
+                    conn.execute("INSERT OR REPLACE INTO relay_bundles(name, direction, status, noted_at, reason) "
+                                 "VALUES(?, 'pulled', 'rejected', ?, ?)", (name, utc_now_iso(), reason))
+                else:
+                    # a site that may hold a good copy was out of reach: nothing is booked, the next pull retries
+                    result.status = "partial"
                 continue
+            blob, (header, records, ranges) = fetched
             if name in half_applied:
                 # a crash cut the previous pull before its derive step: its records are in, the derived
                 # rows may not be — re-derive those streams in full (the pitch's breaker path)

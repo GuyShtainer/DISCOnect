@@ -81,8 +81,8 @@ def test_a_plaintext_store_reports_empty_counts_and_cannot_run(plain, db_path, t
     assert plain.result("sync.status")["bundles"] == {}
     status = plain.result("sync.status")
     assert set(status) == {"bundles", "records_unsent", "records_seen", "conflicts", "superseded", "gaps",
-                           "last_pushed_at", "last_pulled_at", "serving", "relay_url"}
-    assert status["serving"] is None and status["relay_url"] is None
+                           "last_pushed_at", "last_pulled_at", "serving", "relay_url", "relays"}
+    assert status["serving"] is None and status["relay_url"] is None and status["relays"] is None
     assert status["records_unsent"] > 0 and status["gaps"] == []
     assert status["last_pushed_at"] is None and status["last_pulled_at"] is None
     response = plain.send("sync.run")
@@ -112,7 +112,7 @@ def test_a_store_older_than_the_relay_tables_answers_like_a_fresh_one(db_path):
     conn.close()
     status = Rig(db_path).result("sync.status")
     assert status == {"bundles": {}, "records_unsent": 0, "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [],
-                      "last_pushed_at": None, "last_pulled_at": None, "serving": None, "relay_url": None}
+                      "last_pushed_at": None, "last_pulled_at": None, "serving": None, "relay_url": None, "relays": None}
 
 
 def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted, db_path, tmp_path):
@@ -127,7 +127,7 @@ def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted,
     result = encrypted.result("sync.run")
     events = _sync_events(encrypted)
     assert [(e["phase"], e["state"]) for e in events] == EVENTS
-    assert set(result) == {"push", "pull"}
+    assert set(result) == {"push", "pull", "sites", "status"}
     assert result["push"]["bundles"] == 1 and result["push"]["records"] > 0
     assert result["pull"] == {"applied": 0, "rejected": 0, "records_new": 0, "records_duplicate": 0,
                               "records_invalid": 0, "conflicts": 0, "ranges_new": 0, "records_repaired": 0, "records_kept": 0, "gaps": 0, "status": "ok"}
@@ -204,14 +204,14 @@ def test_import_cancel_during_a_sync_is_not_found(encrypted, db_path, tmp_path, 
     _relay_json(db_path, {"folder": str(tmp_path / "relay")})
     encrypted.result("key.unlock", passphrase=PASS)
     started, release = threading.Event(), threading.Event()
-    real = sync.push
+    real = sync.push_strict
 
     def slow(*args, **kwargs):
         started.set()
         release.wait(5)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(sync, "push", slow)
+    monkeypatch.setattr(sync, "push_strict", slow)
     encrypted.next_id += 1
     serve.handle_line(encrypted.session, json.dumps({"id": encrypted.next_id, "method": "sync.run", "params": {}}))
     assert started.wait(5)
@@ -229,3 +229,105 @@ def test_sync_status_is_read_only_and_ignores_params(plain, db_path):
 def test_sync_methods_are_registered():
     assert {"sync.status", "sync.run"} <= set(serve.METHODS)
     assert sync is not None
+
+
+# ---------------------------------------------------------------- Bet 19d: the relay list
+def _sites_ids(result) -> list[tuple]:
+    return [(site["id"], site["kind"], site["error"]) for site in result["sites"]]
+
+
+def test_sync_run_takes_a_relays_param_and_sync_status_relays_follows_the_last_run(encrypted, db_path, tmp_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    assert encrypted.result("sync.status")["relays"] is None
+    roots = [tmp_path / f"site{i}" for i in (1, 2, 3)]
+    for root in roots:
+        root.mkdir()
+    relays = [{"id": f"{i + 1:08x}", "kind": "folder", "path": str(root), "label": "x"} for i, root in enumerate(roots)]
+    # no relay.json at all: the call's list is enough
+    result = encrypted.result("sync.run", relays=relays)
+    assert set(result) == {"push", "pull", "sites", "status"} and result["status"] == "ok"
+    assert result["push"]["bundles"] == 1
+    assert result["sites"] == [{"id": f"{i + 1:08x}", "kind": "folder", "pushed": 1, "healed": 0, "behind": 0,
+                                "pulled": 0, "rejected": 0, "error": None} for i in range(3)]
+    assert encrypted.result("sync.status")["relays"] == result["sites"]
+    # a missing and an unavailable site: partial, the others still sync, the words are reasons never paths
+    relays[1]["path"] = str(tmp_path / "gone")
+    relays[2]["unavailable"] = True
+    del relays[2]["path"]
+    again = encrypted.result("sync.run", relays=relays)
+    assert again["status"] == "partial"
+    assert _sites_ids(again) == [("00000001", "folder", None), ("00000002", "folder", "unavailable"),
+                                 ("00000003", "folder", "unavailable")]
+    assert encrypted.result("sync.status")["relays"] == again["sites"]
+    assert str(tmp_path) not in json.dumps(again)
+
+
+def test_a_relays_param_is_checked_after_the_store_and_before_the_slot(encrypted, db_path, tmp_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    good = {"id": "ab", "kind": "folder", "path": str(tmp_path / "r")}
+    bad_text = "relays: each entry needs an id, a kind and a path or url"
+    for value in ("x", {}, [5], [{"kind": "folder", "path": "/a"}], [{**good, "id": "ABC"}], [{**good, "id": ""}],
+                  [{**good, "kind": "ftp"}], [{"id": "ab", "kind": "folder"}], [{"id": "ab", "kind": "lan"}],
+                  [{**good, "label": 5}], [{**good, "unavailable": "yes"}], [good, {**good, "path": "/b"}], None):
+        response = encrypted.send("sync.run", relays=value)
+        assert response["error"] == {"code": "bad_params", "message": bad_text}, value
+    # an empty list is no relay at all, before the store is looked at
+    assert encrypted.send("sync.run", relays=[])["error"]["code"] == "not_found"
+    # a list of one with a malformed address is bad_params before anything opens; a good one is this core's own refusal
+    lan = {"id": "ab", "kind": "lan", "url": "nonsense"}
+    assert encrypted.send("sync.run", relays=[lan])["error"] == {
+        "code": "bad_params", "message": "relays: a LAN relay URL looks like http://host:port"}
+    _relay_json(db_path, {"lan": "https://h:1"})
+    assert encrypted.send("sync.run")["error"] == {
+        "code": "bad_params", "message": "relay.json: a LAN relay is plain http:// (the bodies are encrypted; https is not supported)"}
+    assert encrypted.send("sync.run", relays=[{**lan, "url": "http://127.0.0.1:9"}])["error"] == {
+        "code": "unsupported_transport", "message": relay_config.LAN_TEXT}
+    assert encrypted.result("sync.status")["relays"] == [{
+        "id": "ab", "kind": "lan", "pushed": 0, "healed": 0, "behind": 0, "pulled": 0, "rejected": 0, "error": "unsupported_transport"}]
+
+
+def test_on_a_plaintext_store_not_encrypted_comes_before_the_shape_of_relays(plain, tmp_path):
+    good = {"id": "ab", "kind": "folder", "path": str(tmp_path / "r")}
+    assert plain.send("sync.run", relays=[])["error"]["code"] == "not_found"
+    assert plain.send("sync.run", relays=[good])["error"]["code"] == "not_encrypted"
+    assert plain.send("sync.run", relays="x")["error"]["code"] == "not_encrypted", "shape errors come after not_encrypted"
+
+
+def test_a_lan_entry_among_folders_is_a_site_reported_unsupported_transport_and_the_folders_still_sync(encrypted, db_path, tmp_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    one, two = tmp_path / "one", tmp_path / "two"
+    for root in (one, two):
+        root.mkdir()
+    _relay_json(db_path, {"relays": [
+        {"id": "00000001", "kind": "folder", "path": str(one), "serve": True},
+        {"id": "00000002", "kind": "lan", "url": "http://127.0.0.1:9"},
+        {"id": "00000003", "kind": "folder", "path": str(two)}]})
+    result = encrypted.result("sync.run")
+    assert result["status"] == "partial"
+    assert _sites_ids(result) == [("00000001", "folder", None), ("00000002", "lan", "unsupported_transport"),
+                                  ("00000003", "folder", None)]
+    assert result["push"]["bundles"] == 1
+    assert [s["pushed"] for s in result["sites"]] == [1, 0, 1]
+    assert len(sync.FolderRelay(one).list(sync.account_for(keys.unlock_with_passphrase(keys.read_key_file(keys.key_path_for(db_path)), PASS)))) == 1
+    status = encrypted.result("sync.status")
+    assert status["relay_url"] == "http://127.0.0.1:9" and status["relays"] == result["sites"]
+
+
+def test_relay_prefix_uses_the_serve_entry_and_a_list_without_one_serves_nothing(encrypted, db_path, tmp_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    folder = str(tmp_path / "r")
+    joiner = "this device is a joiner; it serves nothing"
+    for body in ({"lan": "http://127.0.0.1:9"},
+                 {"relays": [{"id": "ab", "kind": "folder", "path": folder}]},
+                 {"relays": [{"id": "ab", "kind": "lan", "url": "http://h:1"}, {"id": "cd", "kind": "folder", "path": folder}]}):
+        _relay_json(db_path, body)
+        response = encrypted.send("relay.addresses")
+        assert response["error"] == {"code": "bad_params", "message": joiner}, body
+    # a serve entry passes the prefix (this core then has no server to run)
+    for body in ({"folder": folder},
+                 {"relays": [{"id": "ab", "kind": "lan", "url": "http://h:1"}, {"id": "cd", "kind": "folder", "path": folder, "serve": True}]}):
+        _relay_json(db_path, body)
+        assert encrypted.error_code("relay.addresses") == "unsupported_transport", body
+    # a lan serve entry is a malformed file: it reads as nothing
+    _relay_json(db_path, {"relays": [{"id": "ab", "kind": "lan", "url": "http://h:1", "serve": True}]})
+    assert encrypted.error_code("relay.addresses") == "not_found"

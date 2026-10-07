@@ -91,6 +91,8 @@ class Session:
         self.import_thread: threading.Thread | None = None
         self.importing = False                   # the slot's holder is an import (not a sync): what import.cancel reaches
         self.import_cancel = threading.Event()   # set by import.cancel; the worker asks it after each file
+        self.last_sites: list[dict] | None = None   # the ``sites`` of the last ``sync.run`` (null in ``sync.status.relays`` before the first)
+        self.sites_lock = threading.Lock()          # the worker thread writes ``last_sites``, ``sync.status`` reads it
 
     def require_unlocked(self) -> None:
         """Raise ``locked`` while an encrypted store has not been unlocked in this process."""
@@ -456,16 +458,20 @@ def import_last(session: Session, call: Call) -> dict:
 @_unlocked_only
 def sync_status(session: Session, call: Call) -> dict:
     """The relay counts of the store (``sync status``): read-only, so a store older than the relay
-    tables answers what a fresh one would. ``relay_url`` is the LAN relay's ``http://host:port`` from
-    ``relay.json``, null when it names none (a folder relay has no address)."""
-    chosen = relay_config.read(session.db_path.parent / home.RELAY_CONFIG_NAME)
-    relay_url = relay_config.lan_base_url(chosen[1]) if chosen is not None and chosen[0] == "lan" else None
+    tables answers what a fresh one would. ``relay_url`` is the first LAN entry's ``http://host:port`` from
+    ``relay.json``, null when it names none (a folder relay has no address); ``relays`` is the ``sites`` of the
+    last ``sync.run`` of this session, null before the first."""
+    entries = relay_config.read_list(session.db_path.parent / home.RELAY_CONFIG_NAME)
+    lan = relay_config.first_lan_url(entries) if entries else None
+    relay_url = relay_config.lan_base_url(lan) if lan is not None else None
+    with session.sites_lock:
+        relays = session.last_sites
     with session.reader() as conn:
         if migrations.has_table(conn, "relay_bundles"):
-            return {**sync_module.status(conn), "serving": None, "relay_url": relay_url}
+            return {**sync_module.status(conn), "serving": None, "relay_url": relay_url, "relays": relays}
         return {"bundles": {}, "records_unsent": conn.execute("SELECT count(*) FROM raw_records").fetchone()[0],
                 "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [], "last_pushed_at": None,
-                "last_pulled_at": None, "serving": None, "relay_url": relay_url}
+                "last_pulled_at": None, "serving": None, "relay_url": relay_url, "relays": relays}
 
 
 def _sync_event(session: Session, phase: str, state: str, counts: dict | None = None) -> None:
@@ -473,49 +479,130 @@ def _sync_event(session: Session, phase: str, state: str, counts: dict | None = 
         session.channel.event({"event": "progress", "op": "sync", "phase": phase, "state": state, **(counts or {})})
 
 
-def _run_sync(session: Session, master: bytes, relay: Any) -> dict:
-    """Push, then pull, over one connection and one hold of the write lock (never waiting for it).
-    Counts only: bundle names are random per push and nothing in a UI needs them."""
+def _run_sync(session: Session, master: bytes, specs: list[sync_module.SiteSpec]) -> dict:
+    """Push, then pull, over one connection and one hold of the write lock (never waiting for it), over every relay
+    of the list. Counts only: bundle names are random per push and nothing in a UI needs them. A list of one raises
+    its relay's failure as the error (the single-relay behaviour); a longer list reports each site's failure in
+    ``sites`` and the run is ``partial``."""
     with storage.open_for_write(session.db_path, purpose="sync", timeout_s=0.0) as conn:
+        sites, reports = sync_module.open_sites(specs, master)
+        strict = len(specs) == 1
+
+        def keep() -> None:
+            with session.sites_lock:
+                session.last_sites = [report.as_dict() for report in reports]
+
         _sync_event(session, "push", "start")
-        pushed = sync_module.push(conn, master, relay)
+        try:
+            pushed = (sync_module.push_strict if strict else sync_module.push_all)(conn, master, sites, reports)
+        except Exception:
+            keep()
+            raise
         push = {"bundles": len(pushed.bundles), "records": pushed.records, "ranges": pushed.ranges}
         _sync_event(session, "push", "done", push)
         _sync_event(session, "pull", "start")
-        pulled = sync_module.pull(conn, master, relay)
+        try:
+            pulled = (sync_module.pull_strict if strict else sync_module.pull_all)(conn, master, sites, reports)
+        except Exception:
+            keep()
+            raise
         pull = {"applied": len(pulled.applied), "rejected": len(pulled.rejected),
                 "records_new": pulled.records_new, "records_duplicate": pulled.records_duplicate,
                 "records_invalid": pulled.records_invalid, "conflicts": pulled.conflicts,
                 "ranges_new": pulled.ranges_new, "records_repaired": pulled.records_repaired,
                 "records_kept": pulled.records_kept, "gaps": len(pulled.gaps), "status": pulled.status}
         _sync_event(session, "pull", "done", pull)
-    return {"push": push, "pull": pull}
+        keep()
+    partial = pushed.partial or pulled.status != "ok" or any(report.error is not None for report in reports)
+    return {"push": push, "pull": pull, "sites": [report.as_dict() for report in reports],
+            "status": "partial" if partial else "ok"}
 
 
-def _sync_worker(session: Session, call: Call, master: bytes, relay: Any) -> None:
+def _sync_worker(session: Session, call: Call, master: bytes, specs: list[sync_module.SiteSpec]) -> None:
     """The worker thread body: sync, free the slot, then answer the request."""
-    line = _line_for(call.id, lambda: _run_sync(session, master, relay))
+    line = _line_for(call.id, lambda: _run_sync(session, master, specs))
     session.import_slot.release()
     with contextlib.suppress(OSError):
         session.channel.write(line)
 
 
+_RELAYS_BAD = "relays: each entry needs an id, a kind and a path or url"
+
+
+def _relays_param(value: Any) -> list[sync_module.SiteSpec]:
+    """``relays`` of ``sync.run``: the list this call uses instead of ``relay.json``'s. Each element is an object
+    ``{"id", "kind": "folder" | "lan", "path" | "url", "label"?, "unavailable"?}``; ``path`` may be left out of an
+    ``unavailable`` entry (the shell could not reach it). Ids pass ``valid_id`` and are distinct."""
+    bad = ServeError("bad_params", _RELAYS_BAD)
+    if not isinstance(value, list):
+        raise bad
+    specs: list[sync_module.SiteSpec] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise bad
+
+        def text(key: str, item: dict = item) -> str | None:
+            found = item.get(key)
+            return found if isinstance(found, str) and found else None
+
+        ident = text("id")
+        if ident is None or not relay_config.valid_id(ident):
+            raise bad
+        unavailable = item.get("unavailable")
+        if unavailable is not None and not isinstance(unavailable, bool):
+            raise bad
+        label = item.get("label")
+        if label is not None and not isinstance(label, str):
+            raise bad
+        kind = text("kind")
+        if kind not in ("folder", "lan"):
+            raise bad
+        place = text("path" if kind == "folder" else "url")
+        if place is None:
+            if not unavailable:
+                raise bad
+            place = ""
+        if any(spec.id == ident for spec in specs):
+            raise bad
+        specs.append(sync_module.SiteSpec(ident, kind, place, bool(unavailable), False))
+    return specs
+
+
 @_unlocked_only
 def sync_run(session: Session, call: Call) -> Any:
-    """Start a push-then-pull over the relay ``relay.json`` names; the answer is sent when it finishes.
-    Checked in this order: unlocked (``locked``), a relay configured (``not_found``), an encrypted store
-    (``not_encrypted``), a transport this core has (``unsupported_transport``), the slot shared with
-    ``import.run`` (``busy``)."""
-    chosen = relay_config.read(session.db_path.parent / home.RELAY_CONFIG_NAME)
-    if chosen is None:
-        raise ServeError("not_found", "no relay is configured (relay.json in the data folder)")
+    """Start a push-then-pull over the relays of the call's ``relays`` param, else of ``relay.json``; the answer is
+    sent when it finishes. Checked in this order: unlocked (``locked``), a relay configured (``not_found``; an empty
+    ``relays`` counts as none), an encrypted store (``not_encrypted``), the shape of ``relays`` (``bad_params``), a
+    list of one that is a malformed or a ``lan`` address (``bad_params``, ``unsupported_transport``: this core has no
+    LAN transport), the slot shared with ``import.run`` (``busy``)."""
+    not_found = ServeError("not_found", "no relay is configured (relay.json in the data folder)")
+    per_call = "relays" in call.params
+    given = call.params.get("relays")
+    entries = None
+    if per_call:
+        if isinstance(given, list) and not given:
+            raise not_found
+    else:
+        entries = relay_config.read_list(session.db_path.parent / home.RELAY_CONFIG_NAME)
+        if entries is None:
+            raise not_found
     master = storage.unlocked_master(session.db_path)
     if master is None:
         raise ServeError("not_encrypted", f"the relay needs an encrypted store: run '{identity.COMMAND} key init' first")
-    relay = relay_config.open_relay(*chosen)
+    specs = _relays_param(given) if per_call else [sync_module.SiteSpec.from_entry(entry) for entry in entries or []]
+    if len(specs) == 1 and not specs[0].unavailable and specs[0].kind == "lan":
+        # a list of one with a malformed address is refused before anything is opened; a well-formed one is a
+        # transport this core does not have (the strict single-relay error, as before)
+        try:
+            relay_config.parse_base_url(specs[0].value)
+        except ValueError as rule:
+            raise ServeError("bad_params", f"{'relays' if per_call else 'relay.json'}: {rule}") from None
+        with session.sites_lock:
+            session.last_sites = [sync_module.SiteReport(specs[0].id, "lan", error="unsupported_transport").as_dict()]
+        raise relay_config.UnsupportedTransport(relay_config.LAN_TEXT)
     if not session.import_slot.acquire(blocking=False):
         raise ServeError("busy", "an import or a sync is already running")
-    session.import_thread = threading.Thread(target=_sync_worker, args=(session, call, master, relay), name="sync")
+    session.import_thread = threading.Thread(target=_sync_worker, args=(session, call, master, specs), name="sync")
     session.import_thread.start()
     return _DEFERRED
 
@@ -527,12 +614,13 @@ NO_SERVER = "this core runs no LAN server"
 
 def _relay_prefix(session: Session) -> None:
     """The checks the five relay/pair methods share, in the Rust core's order: unlocked (``locked``, the
-    decorator); a relay configured (``not_found``); a ``lan`` relay serves nothing (``bad_params``); an
-    encrypted store (``not_encrypted``); no ``<keys>.next`` rotation file (``busy``). Parameter shapes follow."""
-    chosen = relay_config.read(session.db_path.parent / home.RELAY_CONFIG_NAME)
-    if chosen is None:
+    decorator); a relay configured (``not_found``); a list with no ``serve`` folder entry serves nothing
+    (``bad_params``); an encrypted store (``not_encrypted``); no ``<keys>.next`` rotation file (``busy``).
+    Parameter shapes follow."""
+    entries = relay_config.read_list(session.db_path.parent / home.RELAY_CONFIG_NAME)
+    if entries is None:
         raise ServeError("not_found", "no relay is configured (relay.json in the data folder)")
-    if chosen[0] == "lan":
+    if relay_config.serve_entry(entries) is None:
         raise ServeError("bad_params", "this device is a joiner; it serves nothing")
     if storage.unlocked_master(session.db_path) is None:
         raise ServeError("not_encrypted", f"the relay needs an encrypted store: run '{identity.COMMAND} key init' first")

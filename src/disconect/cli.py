@@ -94,29 +94,181 @@ def cmd_import(args: argparse.Namespace) -> int:
     return EXIT_OK if stats.status() == "ok" else EXIT_FAILED
 
 
-def _relay_for(args: argparse.Namespace) -> FolderRelay:
-    """The relay folder from --relay or ``relay.json`` in the data folder ({"folder": path}); no secrets live there.
-    A LAN relay (``http://host:port``, ``{"lan": url}``) is the Rust core's: this core refuses it."""
-    config = home.relay_config_path()
+class _Refusal(Exception):
+    """A command that stops with its own exit code and stderr text (the Rust CLI's ``(code, message)`` errors)."""
+
+    def __init__(self, code: int, text: str):
+        super().__init__(text)
+        self.code = code
+        self.text = text
+
+
+NO_RELAY_LIST = "usage: relay.json is not a relay list this build reads; fix or remove it"
+
+
+def _usage_lan(url: str) -> None:
+    """A malformed LAN address is a usage error that states the rule, never the address."""
+    try:
+        relay_config.parse_base_url(url)
+    except ValueError as rule:
+        raise _Refusal(EXIT_USAGE, f"usage: {rule}") from None
+
+
+def _write_relay_list(path: pathlib.Path, entries: list[relay_config.RelayEntry]) -> None:
+    home.ensure_parent_dir(path)   # HomeMoved when the old data folder has moved: exit 3, never re-created
+    relay_config.write_list(path, entries)
+
+
+def _adhoc_relay(args: argparse.Namespace) -> tuple[str, str] | None:
+    """The one relay ``--relay`` names, for this run only (``(kind, place)``); with ``--remember`` it becomes the whole
+    list (one entry: a new id, ``serve`` for a folder). A LAN relay is the Rust core's: this core refuses it."""
     given = getattr(args, "relay", None)
-    if given:
-        kind, value = ("lan" if relay_config.is_lan_address(given) else "folder"), given
+    if not given:
+        return None
+    kind = "lan" if relay_config.is_lan_address(given) else "folder"
+    if kind == "lan":
+        _usage_lan(given)
+    if getattr(args, "remember", False):
+        _write_relay_list(home.relay_config_path(),
+                          [relay_config.RelayEntry(relay_config.new_id(), kind, given, "", kind == "folder")])
+    return kind, given
+
+
+def _relay_list() -> list[relay_config.RelayEntry]:
+    """The list in ``relay.json`` (a usage error when there is none)."""
+    config = home.relay_config_path()
+    entries = relay_config.read_list(config) if config.exists() else None
+    if not entries:
+        raise _Refusal(EXIT_USAGE, f"usage: no relay folder: pass --relay <folder> or write {{\"folder\": ...}} to {config}")
+    return entries
+
+
+def _site_line(report: sync_module.SiteReport) -> str:
+    line = (f"  site {report.id} {report.kind}: pushed {report.pushed}, healed {report.healed}, behind {report.behind}, "
+            f"pulled {report.pulled}, rejected {report.rejected}")
+    return line + (f", error {report.error}" if report.error else "")
+
+
+def _emit_with_sites(payload: dict, as_json: bool, text: str, sites: list[sync_module.SiteReport] | None) -> None:
+    """Print a payload and its text, plus the sites (a line each; ``"sites"`` in the JSON) when there are some to show."""
+    if sites is not None:
+        text += "".join("\n" + _site_line(report) for report in sites)
+        payload = {**payload, "sites": [report.as_dict() for report in sites]}
+    _emit(payload, as_json, text)
+
+
+def _print_push(args: argparse.Namespace, result: sync_module.PushResult, sites: list[sync_module.SiteReport] | None) -> None:
+    _emit_with_sites(result.as_dict(), args.json,
+                     f"pushed {len(result.bundles)} bundle(s): {result.records} record(s), {result.ranges} range(s)", sites)
+
+
+def _print_pull(args: argparse.Namespace, result: sync_module.PullResult, sites: list[sync_module.SiteReport] | None) -> None:
+    _emit_with_sites(result.as_dict(), args.json,
+                     f"pulled {len(result.applied)} bundle(s): {result.records_new} new, {result.records_duplicate} duplicate, "
+                     f"{result.records_invalid} invalid, {result.conflicts} conflict(s), {result.ranges_new} new range(s); "
+                     f"rejected {len(result.rejected)}; gaps {len(result.gaps)}; repaired {result.records_repaired}; "
+                     f"kept for a later decoder {result.records_kept}", sites)
+
+
+def _run_sync_list(args: argparse.Namespace, db_path: pathlib.Path, master: bytes) -> int:
+    """``sync push|pull`` over every relay of ``relay.json``. A list of one raises its relay's failure as the error (the
+    single-relay behaviour); a longer list names each site's failure and ends partial."""
+    specs = [sync_module.SiteSpec.from_entry(entry) for entry in _relay_list()]
+    strict = len(specs) == 1
+    if strict and specs[0].kind == "lan":
+        _usage_lan(specs[0].value)
+        raise relay_config.UnsupportedTransport(relay_config.LAN_TEXT)
+    sites, reports = sync_module.open_sites(specs, master)
+    failed = lambda: any(report.error for report in reports)  # noqa: E731
+    shown = lambda: reports if (not strict or failed()) else None  # noqa: E731
+    with storage.open_for_write(db_path, purpose="sync") as conn:
+        if args.action == "push":
+            pushed = (sync_module.push_strict if strict else sync_module.push_all)(conn, master, sites, reports)
+            _print_push(args, pushed, shown())
+            return EXIT_FAILED if pushed.partial or failed() else EXIT_OK
+        pulled = (sync_module.pull_strict if strict else sync_module.pull_all)(conn, master, sites, reports)
+        _print_pull(args, pulled, shown())
+        return EXIT_OK if pulled.status == "ok" else EXIT_FAILED
+
+
+def _folder_key(folder: str) -> str:
+    """Who a folder is for the duplicate check: its (device, inode) when it exists, else the expanded path."""
+    path = pathlib.Path(folder).expanduser()
+    try:
+        info = path.stat()
+    except OSError:
+        return str(path)
+    return f"{info.st_dev}:{info.st_ino}" if path.is_dir() else str(path)
+
+
+def _same_relay(a: tuple[str, str], b: tuple[str, str]) -> bool:
+    if a[0] != b[0]:
+        return False
+    if a[0] == "folder":
+        return _folder_key(a[1]) == _folder_key(b[1])
+    return relay_config.lan_base_url(a[1]) == relay_config.lan_base_url(b[1])
+
+
+def _entry_json(entry: relay_config.RelayEntry) -> dict:
+    return {"id": entry.id, "kind": entry.kind, "label": entry.label, "serve": entry.serve,
+            ("path" if entry.kind == "folder" else "url"): entry.value}
+
+
+def cmd_sync_relay(args: argparse.Namespace) -> int:
+    """``sync relay add <folder|url> [--label <text>] [--serve]``, ``sync relay remove <id>``, ``sync relay list``: the
+    only commands (with ``--remember``) that rewrite ``relay.json``. They need no key and no store."""
+    action = args.relay_action
+    if action not in ("add", "remove", "list"):
+        raise _Refusal(EXIT_USAGE, "usage: sync relay needs an action: add <folder|url> | remove <id> | list")
+    path = home.relay_config_path()
+    if path.exists():
+        entries = relay_config.read_list(path)
+        if entries is None:
+            raise _Refusal(EXIT_USAGE, NO_RELAY_LIST)
     else:
-        found = relay_config.read(config) if config.exists() else None
-        kind, value = found if found else ("folder", None)
-    if not value:
-        raise FileNotFoundError(f"no relay folder: pass --relay <folder> or write {{\"folder\": ...}} to {config}")
-    if given and getattr(args, "remember", False):
-        home.ensure_parent_dir(config)
-        config.write_text(json.dumps({kind: str(value)}) + "\n")
-    return relay_config.open_relay(kind, value)
+        entries = []
+    if action == "list":
+        lines = [f"{e.id}  {e.kind}  {e.value}  {e.label or '-'}{'  serves' if e.serve else ''}" for e in entries]
+        _emit({"relays": [_entry_json(e) for e in entries]}, args.json, "\n".join(lines))
+        return EXIT_OK
+    if action == "add":
+        text = args.target
+        if not text:
+            raise _Refusal(EXIT_USAGE, "usage: sync relay add needs a folder or an http:// address")
+        kind = "lan" if relay_config.is_lan_address(text) else "folder"
+        if kind == "lan":
+            _usage_lan(text)
+            if args.serve:
+                raise _Refusal(EXIT_USAGE, "usage: only a folder can serve")
+        if args.serve and any(e.serve for e in entries):
+            raise _Refusal(EXIT_USAGE, "usage: only one relay can serve")
+        if any(_same_relay((e.kind, e.value), (kind, text)) for e in entries):
+            raise _Refusal(EXIT_USAGE, "usage: that relay is already in the list")
+        ident = relay_config.new_id()
+        while any(e.id == ident for e in entries):
+            ident = relay_config.new_id()
+        entries.append(relay_config.RelayEntry(ident, kind, text, args.label or "", bool(args.serve)))
+        _write_relay_list(path, entries)
+        _emit({"added": ident}, args.json, f"added relay {ident}")
+        return EXIT_OK
+    ident = args.target
+    if not ident:
+        raise _Refusal(EXIT_USAGE, "usage: sync relay remove needs an id")
+    kept = [e for e in entries if e.id != ident]
+    if len(kept) == len(entries):
+        raise _Refusal(EXIT_USAGE, "usage: no relay with that id")
+    _write_relay_list(path, kept)
+    _emit({"removed": ident}, args.json, f"removed relay {ident}")
+    return EXIT_OK
 
 
 def cmd_sync(args: argparse.Namespace) -> int:
-    """push | pull | status against the blind relay (docs/relay-protocol.md). Needs an encrypted store:
-    the relay key and account derive from the master key, so a plaintext store has nothing to sync with."""
+    """push | pull | status | forget | relay against the blind relay (docs/relay-protocol.md). Needs an encrypted store
+    for push and pull: the relay key and account derive from the master key, so a plaintext store has nothing to sync with."""
     db_path = pathlib.Path(args.db)
     try:
+        if args.action == "relay":
+            return cmd_sync_relay(args)
         if args.action == "forget":
             # after a rotation on another device, or a re-pair with new words: start the relay bookkeeping over
             with storage.open_for_write(db_path, purpose="sync") as conn:
@@ -137,20 +289,22 @@ def cmd_sync(args: argparse.Namespace) -> int:
         if master is None:
             print(f"the relay needs an encrypted store: run '{identity.COMMAND} key init' first", file=sys.stderr)
             return EXIT_LOCKED
-        relay = _relay_for(args)
+        adhoc = _adhoc_relay(args)
+        if adhoc is None:
+            return _run_sync_list(args, db_path, master)
+        # ``--relay``: this one relay for this run, as ever
+        relay = relay_config.open_relay(*adhoc)
         with storage.open_for_write(db_path, purpose="sync") as conn:
             if args.action == "push":
-                result = sync_module.push(conn, master, relay)
-                _emit(result.as_dict(), args.json,
-                      f"pushed {len(result.bundles)} bundle(s): {result.records} record(s), {result.ranges} range(s)")
+                _print_push(args, sync_module.push(conn, master, relay), None)
                 return EXIT_OK
             result = sync_module.pull(conn, master, relay)
-            _emit(result.as_dict(), args.json,
-                  f"pulled {len(result.applied)} bundle(s): {result.records_new} new, {result.records_duplicate} duplicate, "
-                  f"{result.records_invalid} invalid, {result.conflicts} conflict(s), {result.ranges_new} new range(s); "
-                  f"rejected {len(result.rejected)}; gaps {len(result.gaps)}; repaired {result.records_repaired}; "
-                  f"kept for a later decoder {result.records_kept}")
+            _print_pull(args, result, None)
             return EXIT_OK if result.status == "ok" else EXIT_FAILED
+    except _Refusal as refusal:
+        if refusal.text:
+            print(refusal.text, file=sys.stderr)
+        return refusal.code
     except storage.WriteLockBusy as exc:
         print(f"busy: {exc}", file=sys.stderr)
         return EXIT_BUSY
@@ -703,9 +857,13 @@ def build_parser() -> argparse.ArgumentParser:
     enc.set_defaults(func=cmd_encrypt)
 
     syn = commands.add_parser("sync", help="push/pull encrypted record bundles through a blind relay folder (docs/relay-protocol.md)")
-    syn.add_argument("action", choices=["push", "pull", "status", "forget"])
-    syn.add_argument("--relay", help="relay folder (a WebDAV/rsync/Syncthing-carried path); default from relay.json in the data folder")
-    syn.add_argument("--remember", action="store_true", help="save --relay to relay.json in the data folder")
+    syn.add_argument("action", choices=["push", "pull", "status", "forget", "relay"])
+    syn.add_argument("relay_action", nargs="?", help="with 'relay': add <folder|url> | remove <id> | list")
+    syn.add_argument("target", nargs="?", help="with 'relay add': the folder or http:// address; with 'relay remove': the id")
+    syn.add_argument("--relay", help="one relay for this run (a WebDAV/rsync/Syncthing-carried folder); default: every relay of relay.json in the data folder")
+    syn.add_argument("--remember", action="store_true", help="make --relay the whole relay list in relay.json")
+    syn.add_argument("--label", help="with 'relay add': a name for the entry")
+    syn.add_argument("--serve", action="store_true", help="with 'relay add': this device serves that folder to others (at most one)")
     syn.set_defaults(func=cmd_sync)
 
     mig = commands.add_parser(
