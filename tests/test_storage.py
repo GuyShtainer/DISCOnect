@@ -87,3 +87,25 @@ def test_a_write_open_marks_a_dead_writers_running_run_interrupted(db_path):
         conn.execute("INSERT INTO import_runs(started_at, transport, status) VALUES('2026-01-02T00:00:00Z','export','running')")
         conn.commit()
         assert [r[0] for r in conn.execute("SELECT status FROM import_runs ORDER BY id")] == ["interrupted", "running"]
+
+
+def test_a_symlinked_store_name_shares_the_write_lock(tmp_path):
+    """7b-10 review N6: a second name for the store (a symlink) meets the same lock, not a lock of its own."""
+    import importlib
+
+    wl = importlib.import_module("disconect.storage.write_lock")   # the module, not the re-exported context manager
+
+    db = tmp_path / "real.hbdb"
+    db.write_bytes(b"")
+    link = tmp_path / "link.hbdb"
+    link.symlink_to(db)
+    assert wl.lock_path_for(link) == wl.lock_path_for(db)
+    with storage.write_lock(db, "first", timeout_s=1):
+        with pytest.raises(wl.WriteLockBusy) as caught:
+            with storage.write_lock(link, "second", timeout_s=0.1):
+                pass
+        assert caught.value.holder["purpose"] == "first"
+    with storage.write_lock(link, "after", timeout_s=0.1):
+        pass
+    missing = tmp_path / "not-yet.hbdb"
+    assert wl.lock_path_for(missing) == missing.with_name("not-yet.hbdb.write-lock")   # as spelled until it exists
