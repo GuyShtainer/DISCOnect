@@ -881,3 +881,35 @@ def test_relay_json_is_written_atomically_with_a_private_parent(tmp_path):
     assert path.read_text() == '{"relays": [{"id": "aa", "kind": "folder", "path": "/b", "serve": true}]}\n'
     assert path.stat().st_mode & 0o777 == 0o600 and path.parent.stat().st_mode & 0o777 == 0o700
     assert [p.name for p in path.parent.iterdir()] == ["relay.json"], "no temp file is left behind"
+
+
+def test_a_half_applied_name_rejected_on_refetch_is_held_like_a_rejected_one(tmp_path):
+    """BL-5 review: the marker kept by BL-5b carries the reason, so the automatic run does not fetch a damaged
+    half-applied copy on every tick; a click still does, and a good copy's booking clears the reason."""
+    roots = _three_roots(tmp_path)
+    a = _device(tmp_path, "a")
+    _import_day(a, tmp_path, "2025-06-15", 4000, "2025-06-15T12:00:00.0")
+    sites, reports = _open(roots[0])
+    name = _push_all(a, sites, reports).bundles[0]
+    b = _device(tmp_path, "b")
+    sites, reports = _open(roots[0])
+    assert _pull_all(b, sites, reports).applied == [name]
+    with storage.open_for_write(b, "test") as conn:
+        conn.execute("UPDATE relay_bundles SET status='applying' WHERE name=?", (name,))   # a crash before the derive step
+    path = roots[0] / name
+    good = path.read_bytes()
+    bad = bytearray(good)
+    bad[len(bad) // 2] ^= 0xFF
+    path.write_bytes(bytes(bad))
+    sites, reports = _open(roots[0])
+    run1 = _pull_all(b, sites, reports, hold_rejected=True)            # a crash-only marker is never held: fetched, rejected
+    assert (list(run1.rejected), run1.status, reports[0].rejected) == ([name], "partial", 1)
+    assert _count(b, "SELECT count(*) FROM relay_bundles WHERE status='applying' AND reason IS NOT NULL") == 1
+    sites, reports = _open(roots[0])
+    run2 = _pull_all(b, sites, reports, hold_rejected=True)            # the automatic run holds it: nothing fetched, run clean
+    assert (run2.applied, dict(run2.rejected), run2.status, reports[0].rejected, reports[0].pulled) == ([], {}, "ok", 0, 0)
+    path.write_bytes(good)
+    sites, reports = _open(roots[0])
+    run3 = _pull_all(b, sites, reports, hold_rejected=False)           # a click fetches the good copy
+    assert (run3.applied, run3.status) == ([name], "ok")
+    assert _count(b, "SELECT count(*) FROM relay_bundles WHERE status='applied' AND reason IS NULL") == 1

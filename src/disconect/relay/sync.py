@@ -663,10 +663,13 @@ HOLD_EXEMPT_REASONS = frozenset({"OSError", "TimeoutError", "BlockingIOError", "
 
 def _held_back(conn: sqlite.Connection) -> set[str]:
     """Names booked ``rejected`` less than a day ago (the core's clock), not for an I/O reason and not booked in the
-    future (a clock set back): left out of an automatic run, retried once a day."""
+    future (a clock set back): left out of an automatic run, retried once a day. A half-applied name (``applying``)
+    whose refetch was rejected keeps its marker and carries the reason: held the same way; a good copy's booking
+    clears the reason, so a crash-only marker is never held."""
     now = now_utc()
     held = set()
-    for name, noted_at, reason in conn.execute("SELECT name, noted_at, reason FROM relay_bundles WHERE status='rejected'").fetchall():
+    for name, noted_at, reason in conn.execute("SELECT name, noted_at, reason FROM relay_bundles "
+                                               "WHERE status='rejected' OR (status='applying' AND reason IS NOT NULL)").fetchall():
         if reason in HOLD_EXEMPT_REASONS:
             continue
         try:

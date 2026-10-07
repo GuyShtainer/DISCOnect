@@ -87,6 +87,8 @@ a day. A click, the CLI, the phone's pull and the single-relay `pull` always ret
 failure of the folder (`OSError`, `TimeoutError`, `BlockingIOError`, `InterruptedError`, `BrokenPipeError`,
 `PermissionError`, `IsADirectoryError`, `NotADirectoryError`, `FileExistsError`) is never held, and a booking in the
 future (a clock set back) counts as expired, so an automatic run never parks a good bundle behind a hiccup. A
+half-applied name (`applying`) whose refetch was rejected keeps its marker and carries the reason, and is held the
+same way (a crash-only marker carries no reason and is never held). A
 held-back name is not a failure of the run, and the per-site `rejected` counter marks a site only when the name
 ends rejected on every site that holds it (a copy another site satisfied marks nothing).
 
