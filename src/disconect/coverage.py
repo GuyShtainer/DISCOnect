@@ -216,6 +216,7 @@ class _Analysis:
     undatable: int
     unattributed: int
     refinements: bool
+    offsets: ClockOffsets
 
 
 def _declared_and_drift(conn: sqlite.Connection) -> tuple[dict[tuple[str, str], set[str]], list[dict]]:
@@ -250,7 +251,7 @@ def _analyse(conn: sqlite.Connection, first_day: str, last_day: str) -> _Analysi
     present = _present_days(conn, window, offsets)
     statuses = {key: _statuses(window, present.get(key), tuple(sorted(streams)), covered, failed)
                 for key, streams in streams_for.items()}
-    return _Analysis(window, streams_for, drift, statuses, undatable, unattributed, refinements)
+    return _Analysis(window, streams_for, drift, statuses, undatable, unattributed, refinements, offsets)
 
 
 def day_statuses(conn: sqlite.Connection, metric: str, scope: str, first_day: str,
@@ -404,25 +405,41 @@ def _worn_seconds(conn: sqlite.Connection, metric: str, scope: str, window: _Win
     return seconds
 
 
+def _completeness_from(conn: sqlite.Connection, metric: str, scope: str, window: _Window, offsets: ClockOffsets,
+                       streams_for: dict[tuple[str, str], set[str]]) -> list[int | None]:
+    """Per window position, the completeness share of one (metric, scope) from an analysis's offsets and
+    stream map (``contract.COMPLETENESS_CONVENTION``): None for a pair that is not per-minute, for a
+    session scope, and for a day no file of the pair's streams spans."""
+    if metric not in contract.PER_MINUTE_METRICS or scope in contract.SESSION_SCOPES:
+        return [None] * window.days
+    streams = tuple(sorted(streams_for.get((metric, scope), ())))
+    bounds = _day_bounds(window, offsets)
+    covered = _covered_seconds(conn, window, streams, bounds, migrations.has_table(conn, "export_ranges"))
+    worn = _worn_seconds(conn, metric, scope, window, bounds)
+    return [(min(100, 100 * worn[position] // covered[position]) if covered[position] > 0 else None)
+            for position in range(window.days)]
+
+
+def calendar(conn: sqlite.Connection, metric: str, scope: str, first_day: str,
+             last_day: str) -> list[tuple[str, str, int | None]]:
+    """``(day, status, completeness)`` for every local day from ``first_day`` to ``last_day``, oldest
+    first, in one coverage pass: the status as ``day_statuses`` gives it, the completeness as
+    ``day_completeness`` gives it (7b-13: ``metric_calendar`` used to pay for the store-wide stream map
+    twice). Raises ValueError for a malformed or inverted range.
+    """
+    analysis = _analyse(conn, first_day, last_day)
+    statuses = analysis.statuses.get((metric, scope)) or [NOT_COVERED] * analysis.window.days
+    shares = _completeness_from(conn, metric, scope, analysis.window, analysis.offsets, analysis.streams_for)
+    return [(analysis.window.day(position), statuses[position], shares[position])
+            for position in range(analysis.window.days)]
+
+
 def day_completeness(conn: sqlite.Connection, metric: str, scope: str, first_day: str,
                      last_day: str) -> dict[str, int | None]:
     """Per local day, the share (0-100) of the covered seconds a reading accounts for (the gap to the
     next reading when at most ``WORN_GAP_S``, else its minute; ``contract.COMPLETENESS_CONVENTION``);
     None for a pair that is not per-minute,
     for a session scope, and for a day no file of the pair's streams spans. Raises ValueError for a
-    malformed or inverted range.
+    malformed or inverted range. A projection of ``calendar``.
     """
-    window = _Window(first_day, last_day)
-    if window.days < 1:
-        raise ValueError("last_day must not be before first_day")
-    days = [window.day(position) for position in range(window.days)]
-    if metric not in contract.PER_MINUTE_METRICS or scope in contract.SESSION_SCOPES:
-        return dict.fromkeys(days)
-    offsets = ClockOffsets.load(conn)
-    streams_for, _drift = _declared_and_drift(conn)
-    streams = tuple(sorted(streams_for.get((metric, scope), ())))
-    bounds = _day_bounds(window, offsets)
-    covered = _covered_seconds(conn, window, streams, bounds, migrations.has_table(conn, "export_ranges"))
-    worn = _worn_seconds(conn, metric, scope, window, bounds)
-    return {day: (min(100, 100 * worn[position] // covered[position]) if covered[position] > 0 else None)
-            for position, day in enumerate(days)}
+    return {day: share for day, _status, share in calendar(conn, metric, scope, first_day, last_day)}

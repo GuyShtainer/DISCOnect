@@ -391,3 +391,18 @@ def test_completeness_day_bounds_never_step_back(db_path):
     with pytest.raises(OverflowError):
         coverage.day_completeness(conn, "heart_rate", "device", "2025-06-01", "2025-06-04")
     conn.close()
+
+
+def test_calendar_is_one_pass_of_statuses_and_completeness(db_path):
+    """7b-13: `calendar` is what `metric_calendar` reads; it must equal the two projections it replaced."""
+    with storage.open_for_write(db_path, "test") as conn:
+        first = _raw(conn, "fit:monitoring_b", "2025-06-01T00:00:00Z", "2025-06-03T00:00:00Z")
+        _minutes(conn, first, "heart_rate", _utc(1), _utc(1, 12))
+    conn = storage.open_read_only(db_path)
+    rows = coverage.calendar(conn, "heart_rate", "device", "2025-05-31", "2025-06-04")
+    statuses = coverage.day_statuses(conn, "heart_rate", "device", "2025-05-31", "2025-06-04")
+    shares = coverage.day_completeness(conn, "heart_rate", "device", "2025-05-31", "2025-06-04")
+    assert rows == [(day, statuses[day], shares[day]) for day in statuses]
+    assert rows[1][1] == "present"
+    assert [share for _day, _status, share in rows] == [None, 50, 0, None, None]
+    conn.close()

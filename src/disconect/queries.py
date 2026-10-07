@@ -325,7 +325,7 @@ def metric_calendar(conn: sqlite.Connection, metric: str, scope: str, first_day:
     Each entry is ``{"day", "value", "status", "completeness"}``: ``value`` is None where the store
     has none (never zero) and ``status`` says why, from the coverage ledger. Sample metrics carry the
     day's mean; ``completeness`` (0-100) says how much of the day it rests on for a per-minute metric,
-    None otherwise (``coverage.day_completeness``).
+    None otherwise; both from one coverage pass (``coverage.calendar``).
     Raises ValueError for an unknown metric or scope, a malformed date, or a span beyond the
     series caps.
     """
@@ -336,11 +336,8 @@ def metric_calendar(conn: sqlite.Connection, metric: str, scope: str, first_day:
     if not 1 <= span <= cap:
         raise ValueError(f"the day range must cover 1 to {cap} days for {metric}")
     values = _calendar_values(conn, metric, scope, cadence, first_day, last_day)
-    statuses = coverage.day_statuses(conn, metric, scope, first_day, last_day)
-    completeness = coverage.day_completeness(conn, metric, scope, first_day, last_day)
-    days = [(first + datetime.timedelta(days=offset)).isoformat() for offset in range(span)]
-    return [{"day": day, "value": values.get(day), "status": statuses[day], "completeness": completeness[day]}
-            for day in days]
+    return [{"day": day, "value": values.get(day), "status": status, "completeness": share}
+            for day, status, share in coverage.calendar(conn, metric, scope, first_day, last_day)]
 
 
 #: The live link's source scope and its retained stream (``contract.SESSION_STREAMS_FOR``).
