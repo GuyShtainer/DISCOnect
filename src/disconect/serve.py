@@ -29,6 +29,7 @@ import os
 import pathlib
 import sys
 import threading
+import time
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any, TextIO
 
@@ -585,6 +586,91 @@ def pair_forget(session: Session, call: Call) -> Any:
     raise ServeError("unsupported_transport", "this core is not a phone; there is nothing to forget")
 
 
+# ---- the phone as the pairing joiner (12-F row 3) ----
+
+MAX_OFFER_TEXT = 1024
+_EXP_AHEAD_MAX = 900 + 300     # an offerer sets exp = now + 900; the relay's own clock window is the slack
+NOT_A_PHONE = "this core is not a phone; it does not join a pairing"
+#: Rust's ``str::trim`` strips exactly the Unicode White_Space characters; ``str.strip()`` also strips U+001C..U+001F.
+_RUST_WHITE_SPACE = "\t\n\x0b\x0c\r \x85\xa0\u1680" + "".join(chr(c) for c in range(0x2000, 0x200B)) + "\u2028\u2029\u202f\u205f\u3000"
+#: The phone's ``forget.pending`` marker (``pair_forget.rs`` ``MARKER_NAME``), beside the store.
+_FORGET_MARKER = "forget.pending"
+
+
+def _never_a_pairing_address(host: str) -> bool:
+    """Stage 1 of the address check, shared with the Rust core: unspecified (0.0.0.0/8, ``::``), limited broadcast,
+    multicast (224.0.0.0/4, ff00::/8), reserved (240.0.0.0/4) and link-local (169.254.0.0/16, fe80::/10). An
+    IPv4-mapped IPv6 address is judged as the IPv4 address it carries."""
+    import ipaddress
+
+    try:
+        ip = ipaddress.ip_address(host[1:-1] if host.startswith("[") else host)
+    except ValueError:
+        return False        # the grammar guarantees a parse; a host that does not is not this check's business
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    if isinstance(ip, ipaddress.IPv4Address):
+        first, second = ip.packed[0], ip.packed[1]
+        return first == 0 or first >= 224 or (first == 169 and second == 254)
+    return ip.is_unspecified or ip.packed[0] == 0xFF or (int(ip) >> 118) == 0x3FA     # fe80::/10
+
+
+def _join_prefix(text: str, db_path) -> None:
+    """The prefix of ``pair.join``, in the Rust core's order and with its words: the shape (a string within the
+    bound that parses as an offer), an IP-literal host, an address that is not unspecified, broadcast, multicast,
+    reserved or link-local, ``exp`` at most 1200 s ahead, the expiry by this machine's clock (no tolerance past
+    ``exp``), the landing site (a store, key file, rotation file or other relay here means "already paired") and
+    an unfinished forget. Nothing here touches the network and no message echoes the offer."""
+    from disconect import pair as pair_module   # late: the module name is also a method family here
+
+    text = text.strip(_RUST_WHITE_SPACE)
+    if len(text.encode("utf-8", "surrogatepass")) > MAX_OFFER_TEXT:      # bytes, as in Rust
+        raise ServeError("bad_params", "that is not a pairing offer")
+    try:
+        offer = pair_module.parse_offer(text)
+    except pair_module.PairError:
+        raise ServeError("bad_params", "that is not a pairing offer") from None
+    host = offer.url[len("http://"):].rpartition(":")[0]
+    if not (host.startswith("[") or (host and all(c in "0123456789." for c in host))):
+        raise ServeError("bad_params", "the offer's address must be an IP address, not a name")
+    if _never_a_pairing_address(host):
+        raise ServeError("bad_params", "the offer's address cannot be a pairing address")
+    now = int(time.time())
+    if offer.exp > now + _EXP_AHEAD_MAX:
+        raise ServeError("pair_failed", "This offer is too far ahead of this phone's clock. Check the date and time.")
+    if now > offer.exp:
+        raise ServeError("pair_failed", "This offer expired by this phone's clock. Check the date and time.")
+    paired = ServeError("pair_failed", "This phone is already paired")
+    if os.environ.get(keys.KEYS_ENV):
+        raise paired
+    key_path = keys.key_path_for(db_path)
+    if db_path.exists() or key_path.exists() or key_path.with_name(key_path.name + keys.NEXT_SUFFIX).exists():
+        raise paired
+    relay_file = db_path.parent / home.RELAY_CONFIG_NAME
+    if relay_file.exists() and relay_config.read(relay_file) != ("lan", offer.url):
+        raise paired
+    if (db_path.parent / _FORGET_MARKER).exists():
+        raise ServeError("pair_failed", "This phone has not finished forgetting its last pairing. "
+                                        "Close and reopen the app, then try again.")
+
+
+def pair_join(session: Session, call: Call) -> Any:
+    """``pair.join`` is the phone app's method (Rust only): the offer's shape and the phone's stricter rules are
+    checked as on the phone (no lock check first), then this core, which is never a phone, refuses."""
+    offer = call.params.get("offer")
+    if not isinstance(offer, str) or not offer:
+        raise ServeError("bad_params", "offer must be a non-empty string")
+    _join_prefix(offer, session.db_path)
+    raise ServeError("unsupported_transport", NOT_A_PHONE)
+
+
+def pair_land(session: Session, call: Call) -> Any:
+    """``pair.land`` is the phone's answer to the join's check (Rust only): the shape of ``confirm``, then refuse."""
+    if not isinstance(call.params.get("confirm"), bool):
+        raise ServeError("bad_params", "confirm must be true or false")
+    raise ServeError("unsupported_transport", NOT_A_PHONE)
+
+
 # ---- tools ----
 
 @_unlocked_only
@@ -643,6 +729,8 @@ METHODS: dict[str, Handler] = {
     "pair.cancel": pair_cancel,
     "tools.call": tools_call,
     "pair.forget": pair_forget,
+    "pair.join": pair_join,
+    "pair.land": pair_land,
 }
 
 

@@ -572,7 +572,8 @@ def _calls(export_root):
                       ("sync.status", {}), ("sync.run", {}),
                       ("relay.addresses", {}), ("relay.serve", {"on": False}),
                       ("pair.offer", {"listen": "192.168.1.20:24816"}), ("pair.confirm", {"digits": "123456"}),
-                      ("pair.cancel", {}), ("pair.forget", {})]
+                      ("pair.cancel", {}), ("pair.forget", {}),
+                      ("pair.join", {"offer": "hello"}), ("pair.land", {"confirm": True})]
     unlocked_reads += [("tools.call", {"name": name, "arguments": arguments}) for name, arguments in
                        (("get_data_health", {}), ("get_metric_series", {"metrics": ["steps", "heart_rate"]}),
                         ("get_sleep_detail", {}), ("list_activities", {"limit": 5}), ("get_period_facts", {}),
