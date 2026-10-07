@@ -227,7 +227,8 @@ def sleep_detail(conn: sqlite.Connection, date: str | None = None, local: bool =
     state is absent, never 0. Sessions from different scopes sit side by side.
     ``local`` (``data.sleep``) adds per session ``utc_offset_s`` (the stored offset nearest the
     session's end, its start when it has no end) and per stage ``start_local``/``end_local`` as
-    ``HH:MM`` on that offset; all of it is absent while no offset is stored.
+    ``HH:MM``, each instant under the offset nearest to it (a stage across a clock change shows the
+    wall-clock times the watch showed); all of it is absent while no offset is stored.
     """
     if date is not None:
         parse_day(date, "date")
@@ -262,8 +263,9 @@ def sleep_detail(conn: sqlite.Connection, date: str | None = None, local: bool =
         if offset is not None:
             entry["utc_offset_s"] = offset
             for stage in stages:
-                stage["start_local"] = _hhmm(stage["start_utc"], offset)
-                stage["end_local"] = _hhmm(stage["end_utc"], offset)
+                for key in ("start", "end"):
+                    moment = stage[f"{key}_utc"]
+                    stage[f"{key}_local"] = _hhmm(moment, offsets.offset_at(parse_iso_utc(moment)))
         if stages:
             entry["stages"] = stages
         sessions.append(entry)

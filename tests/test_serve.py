@@ -319,6 +319,20 @@ def test_sleep_night_bad_date_and_params(tmp_path):
         assert rig.error_code("data.sleep", date=bad) == "bad_params", bad
 
 
+def test_sleep_night_stages_across_a_clock_change_show_the_watchs_wall_clock(tmp_path):
+    """7b-4 review N6 (BACKLOG): each stage instant is read under the offset nearest to it. A +1 h change at
+    22:30Z inside the 06-15 night: the stage over the change runs 00:00-03:00 on the wall clock (two hours),
+    the one after it is labelled under the new offset, and the session's own offset is the end's."""
+    db = _store_copy(tmp_path)
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("INSERT INTO clock_offsets(ts_utc, offset_s, raw_record_id) VALUES('2025-06-14T22:30:00Z', 14400, "
+                     "(SELECT raw_record_id FROM clock_offsets LIMIT 1))")
+    night = Rig(db).result("data.sleep", date="2025-06-15")["sessions"][0]
+    assert night["utc_offset_s"] == 14400
+    assert [(g["start_local"], g["end_local"]) for g in night["stages"]] == [
+        ("23:00", "00:00"), ("00:00", "03:00"), ("03:00", "07:00")]
+
+
 def test_sleep_night_without_a_stored_offset_has_no_local_keys_and_a_stage_can_cross_midnight(tmp_path):
     db = _store_copy(tmp_path)
     with storage.open_for_write(db, purpose="test") as conn:
