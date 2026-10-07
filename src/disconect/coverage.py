@@ -138,6 +138,19 @@ def _failed_by_stream(conn: sqlite.Connection, window: _Window, offsets: ClockOf
     return failed, unattributed
 
 
+#: The samples of one (metric, scope) in one UTC hour bucket (``YYYY-MM-DDTHH``). The ``ts_utc`` range lets
+#: SQLite search the sample index for the hour; with ``substr`` alone it walked every row of the metric
+#: once per hour that holds a local midnight (7b-13 review: ~11 s on both cores for a year of minutes on a
+#: half-hour-zone watch). The ``substr`` keeps the row set exactly the bucket's.
+_HOUR_SAMPLES = ("SELECT ts_utc FROM metric_samples WHERE metric=? AND source_scope=? "
+                 "AND ts_utc >= ? AND ts_utc < ? AND substr(ts_utc, 1, 13)=?")
+
+
+def _hour_end(hour: str) -> str:
+    """The first text after every text that starts with ``hour``: its last character, one higher."""
+    return hour[:-1] + chr(ord(hour[-1]) + 1)
+
+
 def _present_days(conn: sqlite.Connection, window: _Window, offsets: ClockOffsets
                   ) -> dict[tuple[str, str], bytearray]:
     """Per (metric, scope), the local days that hold at least one row."""
@@ -163,8 +176,7 @@ def _present_days(conn: sqlite.Connection, window: _Window, offsets: ClockOffset
             days = [first_day]
         else:  # a local midnight falls inside this hour (half-hour zones): resolve each sample
             days = {offsets.local_date(parse_iso_utc(ts)) for (ts,) in conn.execute(
-                "SELECT ts_utc FROM metric_samples WHERE metric=? AND source_scope=? "
-                "AND substr(ts_utc, 1, 13)=?", (metric, scope, hour))}
+                _HOUR_SAMPLES, (metric, scope, hour, _hour_end(hour), hour))}
         for day in days:
             position = window.index(day)
             if position is not None:

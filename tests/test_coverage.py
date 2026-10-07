@@ -406,3 +406,27 @@ def test_calendar_is_one_pass_of_statuses_and_completeness(db_path):
     assert rows[1][1] == "present"
     assert [share for _day, _status, share in rows] == [None, 50, 0, None, None]
     conn.close()
+
+
+def test_a_midnight_hour_reads_its_samples_through_the_index(db_path):
+    """7b-13 review: on a half-hour-zone watch the UTC hour that holds local midnight is resolved per sample;
+    that read searches the sample index on the hour's range (``substr`` alone walked every row of the metric,
+    ~11 s for a year of minutes) and still puts each sample of one pair on its own local day (twin of the
+    Rust vector)."""
+    from disconect.ingest.clock import ClockOffsets
+    from disconect.ingest.model import ClockOffset
+    with storage.open_for_write(db_path, "test") as conn:
+        raw = _raw(conn, "fit:monitoring_b", "2025-06-01T00:00:00Z", "2025-06-03T00:00:00Z")
+        ClockOffsets.persist(conn, [ClockOffset(_utc(1, 12), 19800)], None, raw)  # +5:30: local midnight at 18:30Z
+        conn.executemany("INSERT INTO metric_samples(metric, ts_utc, value, source_scope, raw_record_id) "
+                         "VALUES('heart_rate',?,60,'device',?)", [("2025-06-01T18:10:00Z", raw), ("2025-06-01T18:40:00Z", raw)])
+    conn = storage.open_read_only(db_path)
+    assert coverage.day_statuses(conn, "heart_rate", "device", "2025-05-31", "2025-06-03") == {
+        "2025-05-31": "not_covered", "2025-06-01": "present", "2025-06-02": "present", "2025-06-03": "source_empty"}
+    assert coverage._hour_end("2025-06-01T18") == "2025-06-01T19"
+    assert coverage._hour_end("2025-06-01T09") == "2025-06-01T0:"
+    plan = " ".join(row[3] for row in conn.execute(
+        "EXPLAIN QUERY PLAN " + coverage._HOUR_SAMPLES,
+        ("heart_rate", "device", "2025-06-01T18", "2025-06-01T19", "2025-06-01T18")))
+    assert "ts_utc>? AND ts_utc<?" in plan, plan
+    conn.close()
