@@ -84,7 +84,10 @@ re-derives every JSON stream in the store, so an interrupted import is healed by
 their origin transport, so the marks alone stop echoes). After a rotation every device re-pushes
 what it holds, received records included: that is intended (the new account must hold everything).
 Per-device chains (`device_seq`, `prev`) travel inside the ciphertext; `sync status` reports a
-missing link as a gap.
+missing link as a gap, and lists the chains it holds (19b: per writer id among the applied bundles, the
+bundle and record counts, the highest `device_seq` and whether the id is this store's own). Cost: `sync forget`
+(and a re-pair) wipes `relay_device`, so the next push mints a new id and the other devices see a second chain
+from the same device; the old chain's row stays in their lists until their own `sync forget`.
 
 ## Claims and non-claims
 The relay cannot read or forge bundles. It can delay or drop them: a dropped middle bundle of a

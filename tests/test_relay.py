@@ -197,6 +197,9 @@ def test_late_and_out_of_order_bundles_are_applied_and_rejected_ones_retried(tmp
     with storage.open_for_write(b, "test") as conn:
         report = sync.status(conn)
     assert report["bundles"] == {"pulled_applied": 2, "pulled_rejected": 1} and report["gaps"] == []
+    # 19b: the rejected object adds no chain row; A's chain is the one row, and it is not B's own
+    (chain,) = report["chains"]
+    assert (chain["bundles"], chain["last_seq"], chain["self"]) == (2, 2, False)
 
 
 def test_conflict_rule_is_order_independent_and_keeps_the_loser(tmp_path):
@@ -630,7 +633,11 @@ def test_cli_sync_on_encrypted_stores_bootstraps_an_empty_device(tmp_path, capsy
     capsys.readouterr()
     assert run(["--db", str(b), "--json", "sync", "status"], "another-strong-passphrase") == cli.EXIT_OK
     report = json.loads(capsys.readouterr().out)
-    assert report["bundles"] == {"pulled_applied": 1} and report["records_unsent"] == 0 and "device_id" not in json.dumps(report)
+    assert report["bundles"] == {"pulled_applied": 1} and report["records_unsent"] == 0
+    # 19b: the chains list is the one place a writer id appears, with counts only, and B is not its writer
+    assert "device_id" not in json.dumps({k: v for k, v in report.items() if k != "chains"})
+    (chain,) = report["chains"]
+    assert (chain["bundles"], chain["last_seq"], chain["self"]) == (1, 1, False) and chain["records"] > 0
     # a plaintext store cannot sync
     c = tmp_path / "c.db"
     _store(c)
@@ -640,3 +647,35 @@ def test_cli_sync_on_encrypted_stores_bootstraps_an_empty_device(tmp_path, capsy
     assert run(["--db", str(b), "sync", "forget"], "another-strong-passphrase") == cli.EXIT_OK
     assert run(["--db", str(b), "sync", "push", "--relay", str(relay_dir)], "another-strong-passphrase") == cli.EXIT_OK
     assert len(FolderRelay(relay_dir, create_root=True).list(bundle.account_for(master_a))) == 2
+
+
+def test_a_live_record_born_on_the_phone_lands_on_the_mac_byte_for_byte(tmp_path):
+    phone, mac = tmp_path / "phone.db", tmp_path / "mac.db"
+    live_file = tmp_path / "live-20250615T150640Z.jsonl"
+    live_file.write_text("".join(json.dumps(line) + "\n" for line in [
+        {"status": "scanning"}, {"t": 1750000002.0, "metric": "steps", "value": 40},
+        {"t": 1750000001.0, "metric": "heart_rate", "value": 71}, {"status": "stopped", "stop": "LinkClosed"}]))
+    with storage.open_for_write(phone, "test") as conn:
+        sources.import_path(live_file, conn, transport="ble")
+    _store(mac)
+    columns = ("stream, source_key, source_scope, transport, device_id, start_utc, end_utc, payload_kind, "
+               "payload, payload_hash")
+
+    def rows(db):
+        conn = storage.open_read_only(db)
+        try:
+            return conn.execute(f"SELECT {columns} FROM raw_records ORDER BY stream, source_key").fetchall()
+        finally:
+            conn.close()
+    born = rows(phone)
+    assert len(born) == 1 and born[0][0] == "json:live" and born[0][3] == "ble"
+    relay = FolderRelay(tmp_path / "relay", create_root=True)
+    assert _push(phone, relay).records == 1
+    assert _pull(mac, relay).records_new == 1
+    assert rows(mac) == born
+    conn = storage.open_read_only(mac)
+    try:
+        assert conn.execute("SELECT count(*) FROM import_runs WHERE transport='relay'").fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM raw_records WHERE transport='ble'").fetchone()[0] == 1
+    finally:
+        conn.close()

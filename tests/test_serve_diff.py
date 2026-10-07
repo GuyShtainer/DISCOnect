@@ -106,6 +106,20 @@ def _gunzipped(path: pathlib.Path) -> str:
     return gzip.decompress(path.read_bytes()).decode("ascii")
 
 
+def test_the_chains_allowance_masks_only_the_self_writer_id_and_orders_the_rows():
+    row = lambda device, own: {"device_id": device, "bundles": 1, "records": 2, "last_seq": 1, "self": own}  # noqa: E731
+    one = {"id": 1, "result": {"chains": [row("0000000000000001", True), row("aaaaaaaaaaaaaaaa", False)]}}
+    two = {"id": 1, "result": {"chains": [row("aaaaaaaaaaaaaaaa", False), row("ffffffffffffffff", True)]}}
+    assert serve_diff.apply_allowances(one) == serve_diff.apply_allowances(two)
+    other = {"id": 1, "result": {"chains": [row("aaaaaaaaaaaaaaab", False), row("ffffffffffffffff", True)]}}
+    assert serve_diff.apply_allowances(one) != serve_diff.apply_allowances(other), "another writer's id still compares"
+    short = {"id": 1, "result": {"chains": [row("ff", True)]}}
+    assert serve_diff.apply_allowances(short)["result"]["chains"][0]["device_id"] == "ff", "a malformed id is not masked"
+    walk = lambda line: serve_diff.privacy_walk([json.dumps(line)], ())  # noqa: E731
+    assert walk(one) == []
+    assert walk({"id": 1, "result": {"device_id": "x"}}) == ["forbidden key at .result"]
+
+
 @pytest.mark.parametrize("store, oracle", [(STORE, "oracle-synthetic.jsonl.gz"),
                                            (STORE_V1, "oracle-synthetic-v1.jsonl.gz"),
                                            (STORE_EMPTY, "oracle-empty.jsonl.gz"),

@@ -896,11 +896,17 @@ def status(conn: sqlite.Connection) -> dict:
     # moved nothing books no bundle, so these are "last data sent / received", not "last attempt"
     last = {row[0]: row[1] for row in conn.execute(
         "SELECT direction, max(noted_at) FROM relay_bundles WHERE status='applied' GROUP BY 1").fetchall()}
+    own = conn.execute("SELECT device_id FROM relay_device WHERE id=1").fetchone()
+    chains = [{"device_id": row[0], "bundles": row[1], "records": row[2] or 0, "last_seq": row[3] or 0,
+               "self": own is not None and row[0] == own[0]} for row in conn.execute(
+        "SELECT device_id, count(*), sum(records), max(device_seq) FROM relay_bundles WHERE status='applied' "
+        "AND device_id IS NOT NULL GROUP BY device_id ORDER BY device_id").fetchall()]
     return {"bundles": counts, "records_unsent": unsent,
             "records_seen": conn.execute("SELECT count(*) FROM relay_seen").fetchone()[0],
             "conflicts": conn.execute(CONFLICTS_BY_CONTENT).fetchone()[0],
             "superseded": conn.execute(SUPERSEDED_BY_CONTENT).fetchone()[0],
-            "gaps": result.gaps, "last_pushed_at": last.get("pushed"), "last_pulled_at": last.get("pulled")}
+            "gaps": result.gaps, "last_pushed_at": last.get("pushed"), "last_pulled_at": last.get("pulled"),
+            "chains": chains}
 
 
 def forget_relay_state(conn: sqlite.Connection) -> None:

@@ -475,7 +475,7 @@ def sync_status(session: Session, call: Call) -> dict:
                     "relays": relays}
         return {"bundles": {}, "records_unsent": conn.execute("SELECT count(*) FROM raw_records").fetchone()[0],
                 "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [], "last_pushed_at": None,
-                "last_pulled_at": None, "serving": None, "relay_url": relay_url, "relay_kind": relay_kind,
+                "last_pulled_at": None, "chains": [], "serving": None, "relay_url": relay_url, "relay_kind": relay_kind,
                 "relays": relays}
 
 

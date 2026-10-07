@@ -291,7 +291,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
             text = (f"relay: pushed {bundles.get('pushed_applied', 0)}, pulled {bundles.get('pulled_applied', 0)}, "
                     f"rejected {bundles.get('pulled_rejected', 0)}; records unsent {report['records_unsent']}, "
                     f"seen {report['records_seen']}; conflicts {report['conflicts']}; gaps {len(report['gaps'])}; "
-                    f"last push {report['last_pushed_at'] or 'never'}, last pull {report['last_pulled_at'] or 'never'}")
+                    f"chains {len(report['chains'])}; last push {report['last_pushed_at'] or 'never'}, last pull {report['last_pulled_at'] or 'never'}")
             _emit(report, args.json, text)
             return EXIT_OK
         master = storage.master_key_for(db_path, allow_prompt=True)

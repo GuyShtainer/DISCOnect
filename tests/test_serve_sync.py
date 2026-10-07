@@ -82,7 +82,7 @@ def test_a_plaintext_store_reports_empty_counts_and_cannot_run(plain, db_path, t
     assert plain.result("sync.status")["bundles"] == {}
     status = plain.result("sync.status")
     assert set(status) == {"bundles", "records_unsent", "records_seen", "conflicts", "superseded", "gaps",
-                           "last_pushed_at", "last_pulled_at", "serving", "relay_url", "relay_kind", "relays"}
+                           "last_pushed_at", "last_pulled_at", "chains", "serving", "relay_url", "relay_kind", "relays"}
     assert status["serving"] is None and status["relay_url"] is None and status["relays"] is None
     assert status["records_unsent"] > 0 and status["gaps"] == []
     assert status["last_pushed_at"] is None and status["last_pulled_at"] is None
@@ -113,7 +113,7 @@ def test_a_store_older_than_the_relay_tables_answers_like_a_fresh_one(db_path):
     conn.close()
     status = Rig(db_path).result("sync.status")
     assert status == {"bundles": {}, "records_unsent": 0, "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [],
-                      "last_pushed_at": None, "last_pulled_at": None, "serving": None, "relay_url": None, "relay_kind": None, "relays": None}
+                      "last_pushed_at": None, "last_pulled_at": None, "chains": [], "serving": None, "relay_url": None, "relay_kind": None, "relays": None}
 
 
 def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted, db_path, tmp_path):
@@ -471,3 +471,42 @@ def test_relay_kind_in_sync_status(encrypted, db_path):
                                     {"id": "0000000b", "kind": "lan", "url": "http://127.0.0.1:9"}]}, "mixed")):
         _relay_json(db_path, body)
         assert encrypted.result("sync.status")["relay_kind"] == kind, body
+
+
+def _chains(rig: Rig) -> list[dict]:
+    return rig.result("sync.status")["chains"]
+
+
+def test_sync_status_chains_name_each_writer_with_counts_and_a_self_flag(encrypted, db_path, tmp_path):
+    relay = tmp_path / "relay"
+    _relay_json(db_path, {"folder": str(relay)})
+    assert encrypted.result("key.unlock", passphrase=PASS) == {"unlocked": True}
+    b = _second_device(db_path, tmp_path)
+    # a fresh store: no chains
+    assert _chains(b) == []
+    root = tmp_path / "export"
+    root.mkdir()
+    _build_export(root)
+    encrypted.result("import.run", path=str(root), transport="export")
+    encrypted.result("sync.run")
+    b.result("sync.run")
+    (row,) = _chains(encrypted)
+    assert (row["bundles"], row["last_seq"], row["self"]) == (1, 1, True) and row["records"] > 0
+    assert len(row["device_id"]) == 16 and list(row) == ["device_id", "bundles", "records", "last_seq", "self"]
+    (theirs,) = _chains(b)
+    assert theirs == {**row, "self": False}
+    # B publishes something of its own (a different day), A pulls: two rows sorted by id, each self on its own
+    drop = tmp_path / "b-drop"
+    drop.mkdir()
+    import datetime
+    from test_import import UTC, _monitoring_day
+    (drop / "x.fit").write_bytes(_monitoring_day(datetime.datetime(2025, 6, 12, 21, 0, tzinfo=UTC), 500))
+    b.result("import.run", path=str(drop), transport="export")
+    b.result("sync.run")
+    encrypted.result("sync.run")
+    ca, cb = _chains(encrypted), _chains(b)
+    for chains in (ca, cb):
+        assert len(chains) == 2 and chains[0]["device_id"] < chains[1]["device_id"]
+        assert sum(c["self"] for c in chains) == 1
+    assert [{k: v for k, v in c.items() if k != "self"} for c in ca] == [{k: v for k, v in c.items() if k != "self"} for c in cb]
+    assert [c["device_id"] for c in ca if c["self"]] != [c["device_id"] for c in cb if c["self"]]
