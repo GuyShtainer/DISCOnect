@@ -88,6 +88,7 @@ def cmd_import(args: argparse.Namespace) -> int:
         print(f"database: {exc}", file=sys.stderr)
         return EXIT_DATABASE
     payload = dataclasses.asdict(stats)
+    payload.pop("cancelled", None)   # the CLI never cancels; the Rust CLI's key set (relay_cli_test) stays the twin
     payload["status"] = stats.status()
     _emit(payload, args.json, _import_summary(stats))
     return EXIT_OK if stats.status() == "ok" else EXIT_FAILED
@@ -176,6 +177,7 @@ def cmd_reparse(args: argparse.Namespace) -> int:
         print(f"database: {exc}", file=sys.stderr)
         return EXIT_DATABASE
     payload = dataclasses.asdict(stats)
+    payload.pop("cancelled", None)   # the CLI never cancels; the Rust CLI's key set (relay_cli_test) stays the twin
     payload["status"] = stats.status()
     _emit(payload, args.json, _import_summary(stats))
     return EXIT_OK if stats.status() == "ok" else EXIT_FAILED

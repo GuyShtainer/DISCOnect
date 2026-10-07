@@ -544,9 +544,10 @@ def test_eof_with_an_import_in_flight_waits_for_it_and_its_answer_is_the_last_li
     assert new_run["finished_at"], "the run row was written and finished before the process exited"
 
 
-def test_import_cancel_stops_after_the_file_being_read_and_books_the_run_cancelled(plain, tmp_path, monkeypatch):
+def test_import_cancel_before_the_first_file_reads_nothing_and_books_the_run_cancelled(plain, tmp_path, monkeypatch):
     """Twin of the Rust 'a held import cancelled before release reads one file': the flag is set while the worker is
-    held, so exactly the first file is read (the check sits right after each file's progress event)."""
+    held before it starts, so nothing is read (the check sits before each file, the first included; the per-phase cuts
+    are test_import_cancel.py)."""
     started, release = threading.Event(), threading.Event()
     real = sources.import_path
 
@@ -570,12 +571,12 @@ def test_import_cancel_stops_after_the_file_being_read_and_books_the_run_cancell
     by_id = {line["id"]: line for line in written if "id" in line}
     assert by_id[2]["result"] == {"state": "cancelling"} and by_id[3]["result"] == {"state": "cancelling"}
     assert by_id[1]["error"] == {"code": "cancelled", "message": "the import was cancelled; the files read so far are kept"}
-    assert [e["done"] for e in written if e.get("event") == "progress"] == [1], "the file being read finished; nothing later"
+    assert not [e for e in written if e.get("event") == "progress"], "nothing was read: the cancel landed before the first file"
     run = plain.result("import.last")["runs"][0]
-    assert (run["status"], run["files_seen"], run["files_imported"], run["error"]) == ("cancelled", 1, 1, None)
+    assert (run["status"], run["files_seen"], run["files_imported"], run["error"]) == ("cancelled", 0, 0, None)
     assert plain.send("import.cancel")["error"] == {"code": "not_found", "message": "no import is running"}, "nothing runs now"
     again = plain.result("import.run", path=str(root), transport="export")
-    assert again["duplicate"] == 1 and again["ok"] > 0, "the slot is free; the one file kept counts as a duplicate"
+    assert again["duplicate"] == 0 and again["ok"] > 0, "the slot is free; nothing was kept, so nothing is a duplicate"
 
 
 def test_import_cancel_with_no_import_is_not_found(plain):

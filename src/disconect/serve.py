@@ -410,7 +410,12 @@ def import_run(session: Session, call: Call) -> Any:
     session.importing = True
     session.import_thread = threading.Thread(
         target=_import_worker, args=(session, call, path, TRANSPORTS.get(name)), name="import")
-    session.import_thread.start()
+    try:
+        session.import_thread.start()
+    except RuntimeError:   # no thread could start: free the slot (the Rust core resets both too)
+        session.importing = False
+        session.import_slot.release()
+        raise
     return _DEFERRED
 
 

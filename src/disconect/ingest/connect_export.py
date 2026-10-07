@@ -556,8 +556,9 @@ def import_connect_export(path: pathlib.Path, writer: Writer, progress=None, can
     pre-pass the caller orchestrates). Each file's claimed date window (from
     its name) is recorded for the coverage ledger, and a file that is not
     valid JSON is recorded as a failure instead of being skipped silently.
-    ``progress(done, None, stream)`` is called after each imported file, then ``cancel()`` is
-    asked (``sources.CancelCheck``): True ends the phase there with ``writer.stats.cancelled`` set.
+    ``progress(done, None, stream)`` is called after each imported file; ``cancel()`` is asked
+    before each one (``sources.CancelCheck``): True ends the phase there, unread, with
+    ``writer.stats.cancelled`` set.
     """
     path = pathlib.Path(path)
     done = 0
@@ -566,10 +567,10 @@ def import_connect_export(path: pathlib.Path, writer: Writer, progress=None, can
         if stream is None:
             writer.stats.ignored += 1
             continue
+        if cancel is not None and cancel():
+            writer.stats.cancelled = True
+            return
         _import_entry(entry, stream, writer)
         done += 1
         if progress is not None:
             progress(done, None, stream)
-        if cancel is not None and cancel():
-            writer.stats.cancelled = True
-            return

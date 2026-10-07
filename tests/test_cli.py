@@ -16,6 +16,11 @@ def _run(argv, capsys):
     return code, captured.out, captured.err
 
 
+#: The `import --json` / `reparse --json` keys, pinned on the Rust side too (`relay_cli_test.rs`): the two CLIs twin.
+IMPORT_JSON_KEYS = ["dates_assumed_utc", "derived_days", "dropped", "failures", "files_duplicate", "files_failed",
+                    "files_imported", "files_seen", "ignored", "records_written", "status", "streams", "transport", "warnings"]
+
+
 def test_import_status_contract_round_trip(tmp_path, db_path, capsys):
     root = tmp_path / "export"
     root.mkdir()
@@ -26,6 +31,7 @@ def test_import_status_contract_round_trip(tmp_path, db_path, capsys):
     code, out, _ = _run(["--db", str(db_path), "--json", "import", str(root)], capsys)
     payload = json.loads(out)
     assert code == cli.EXIT_OK and payload["status"] == "ok" and payload["files_imported"] == 0
+    assert sorted(payload) == IMPORT_JSON_KEYS, "the Rust CLI's key set (relay_cli_test.rs); `cancelled` is serve-only (BL-3)"
 
     code, out, _ = _run(["--db", str(db_path), "--json", "status", "--days", "3650"], capsys)
     report = json.loads(out)
@@ -37,6 +43,9 @@ def test_import_status_contract_round_trip(tmp_path, db_path, capsys):
 
     code, out, _ = _run(["--json", "contract"], capsys)
     assert code == cli.EXIT_OK and json.loads(out)["contract_version"]
+
+    code, out, _ = _run(["--db", str(db_path), "--json", "reparse"], capsys)   # last: it books a run of its own
+    assert code == cli.EXIT_OK and sorted(json.loads(out)) == IMPORT_JSON_KEYS
 
 
 def test_exit_codes(tmp_path, db_path, capsys):
