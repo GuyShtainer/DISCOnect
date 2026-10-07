@@ -201,7 +201,70 @@ def test_parse_listen_names_the_rule_and_never_the_input(text, rule):
 
 def test_pair_forget_is_the_phones_method_and_this_core_always_refuses_it(encrypted):
     """12-F: `pair.forget` is Rust-only on iOS. Here it answers `unsupported_transport` first, locked or not, with any params."""
-    assert list(serve.METHODS)[-1] == "pair.forget"
+    assert list(serve.METHODS)[-3:] == ["pair.forget", "pair.join", "pair.land"]
     expected = {"code": "unsupported_transport", "message": "this core is not a phone; there is nothing to forget"}
     for params in ({}, {"preview": True}, {"x": [1]}):
         assert encrypted.send("pair.forget", **params)["error"] == expected
+
+
+# ---- 12-F row 3: pair.join and pair.land, the phone's methods; this core runs the prefix and then refuses ----
+
+NOT_A_PHONE = {"code": "unsupported_transport", "message": "this core is not a phone; it does not join a pairing"}
+CLOCK_EXPIRED = "This offer expired by this phone's clock. Check the date and time."
+CLOCK_AHEAD = "This offer is too far ahead of this phone's clock. Check the date and time."
+
+
+def _offer(url: str, exp: int) -> str:
+    import os
+
+    from disconect import pair
+    return pair.encode_offer(os.urandom(32), os.urandom(32), os.urandom(16), os.urandom(16), exp, url)
+
+
+def test_pair_join_runs_the_phones_prefix_in_order_then_refuses(db_path):
+    import time
+
+    rig = Rig(db_path)          # no store yet: nothing here is "already paired"
+    now = int(time.time())
+    url = "http://192.168.1.20:24816"
+    bad = lambda message: {"code": "bad_params", "message": message}   # noqa: E731
+    failed = lambda message: {"code": "pair_failed", "message": message}   # noqa: E731
+    for params, expected in (
+        ({}, bad("offer must be a non-empty string")),
+        ({"offer": 12}, bad("offer must be a non-empty string")),
+        ({"offer": ""}, bad("offer must be a non-empty string")),
+        ({"offer": "hello"}, bad("that is not a pairing offer")),
+        ({"offer": "disconect-pair:v2." + "A" * 2000}, bad("that is not a pairing offer")),
+        ({"offer": _offer("http://mac.local:24816", now + 600)},
+         bad("the offer's address must be an IP address, not a name")),
+        ({"offer": _offer("http://mac.local:1", 1000)}, bad("the offer's address must be an IP address, not a name")),
+        ({"offer": _offer(url, now + 1500)}, failed(CLOCK_AHEAD)),
+        ({"offer": _offer(url, now - 400)}, failed(CLOCK_EXPIRED)),
+        ({"offer": _offer(url, now + 600)}, NOT_A_PHONE),
+        ({"offer": _offer(url, now - 100)}, NOT_A_PHONE),       # inside the 300 s tolerance
+        ({"offer": _offer("http://[fd00::5]:24816", now + 600)}, NOT_A_PHONE),
+    ):
+        assert rig.send("pair.join", **params)["error"] == expected, params
+    # nothing of the offer is echoed
+    assert "192.168" not in json.dumps(rig.send("pair.join", offer=_offer(url, now - 400)))
+
+
+def test_pair_join_refuses_an_already_paired_phone_after_the_expiry_check(db_path):
+    import time
+
+    _seed(db_path)             # a store exists here
+    rig = Rig(db_path)
+    now = int(time.time())
+    url = "http://192.168.1.20:24816"
+    assert rig.send("pair.join", offer=_offer(url, now + 600))["error"] == {
+        "code": "pair_failed", "message": "This phone is already paired"}
+    assert rig.send("pair.join", offer=_offer(url, 1000))["error"]["message"] == CLOCK_EXPIRED
+
+
+def test_pair_land_checks_the_shape_then_refuses(db_path):
+    rig = Rig(db_path)
+    for params in ({}, {"confirm": "yes"}, {"confirm": 1}, {"confirm": None}):
+        assert rig.send("pair.land", **params)["error"] == {
+            "code": "bad_params", "message": "confirm must be true or false"}
+    for value in (True, False):
+        assert rig.send("pair.land", confirm=value)["error"] == NOT_A_PHONE
