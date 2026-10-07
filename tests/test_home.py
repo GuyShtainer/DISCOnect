@@ -201,12 +201,17 @@ def test_a_bare_tilde_expands_and_a_named_user_is_left_alone_like_the_rust_core(
     assert home.expand_user("~nobody") == pathlib.Path("~nobody")
     assert home.expand_user("/abs/~") == pathlib.Path("/abs/~")
     assert home.expand_user("rel/~/x") == pathlib.Path("rel/~/x")
+    assert home.expand_user("./~/a") == pathlib.Path("./~/a"), "a folder named ~ (the parts would drop the dot)"
+    assert home.expand_user("~\\x") == pathlib.Path("~\\x")
     assert home.expand_user("~") == pathlib.Path("/h")
     assert home.expand_user("~/") == pathlib.Path("/h")
     assert home.expand_user("~/a/b") == pathlib.Path("/h/a/b")
     assert home.expand_user("~//a") == pathlib.Path("/h/a")
     monkeypatch.delenv("HOME")
     assert home.expand_user("~/a") == pathlib.Path("~/a")
+    monkeypatch.setenv("HOME", "")
+    assert home.expand_user("~/a") == pathlib.Path("~/a"), "an empty HOME is unset on both cores"
+    assert home.expand_user("~") == pathlib.Path("~")
     # every relay and override site reads through it: a named user's folder is the relative folder as written
     assert relay_config.open_relay("folder", "~root/x").root == pathlib.Path("~root/x")
 

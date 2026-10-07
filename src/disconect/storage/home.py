@@ -22,11 +22,11 @@ from disconect.storage.errors import HomeMoved
 def expand_user(text: str) -> pathlib.Path:
     """A leading ``~`` (bare or ``~/…``) stands for ``$HOME``, exactly like the Rust core's ``keys::expand_user``:
     ``~name/…`` is left alone (``Path.expanduser`` would look ``name`` up in the password database and the two cores
-    would open different folders), and with no ``$HOME`` the ``~`` stays as written (no password-database fallback)."""
-    parts = pathlib.Path(text).parts
+    would open different folders), and with no ``$HOME`` (or an empty one) the ``~`` stays as written (no
+    password-database fallback). The text is tested, not its parts: ``./~/a`` is a folder named ``~``."""
     home = os.environ.get("HOME")
-    if parts and parts[0] == "~" and home is not None:
-        return pathlib.Path(home).joinpath(*parts[1:])
+    if (text == "~" or text.startswith("~/")) and home:
+        return pathlib.Path(home).joinpath(*pathlib.Path(text).parts[1:])
     return pathlib.Path(text)
 
 DB_ENV = identity.ENV_PREFIX + "DB"
