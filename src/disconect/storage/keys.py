@@ -310,9 +310,31 @@ def rewrap(path: pathlib.Path, master: bytes, new_passphrase: str) -> None:
 
 # ---- unlock paths ----
 
+#: TEST-ONLY switch, the twin of `keychain.rs`'s `BACKEND_ENV`: ``fail`` makes every keychain call behave like
+#: ``PYTHON_KEYRING_BACKEND=keyring.backends.fail.Keyring`` (reads find nothing, writes raise
+#: ``NoKeyringError``, the item probe never spawns), so a differential run never touches the login keychain.
+#: The desktop sidecar's env allowlist never passes it on.
+KEYCHAIN_BACKEND_ENV = "DISCONECT_KEYCHAIN"
+
+
 def _keychain():
     import keyring  # imported lazily: optional at runtime, and slow to import
+    if os.environ.get(KEYCHAIN_BACKEND_ENV) == "fail":
+        from keyring.backends import fail  # noqa: PLC0415 - only on this path
+        if not isinstance(keyring.get_keyring(), fail.Keyring):
+            keyring.set_keyring(fail.Keyring())
     return keyring
+
+
+def _login_keychain_active() -> bool:
+    """True only when the live macOS keychain is the active backend: the one place a ``stale`` item can exist.
+    A memory, null or fail backend (tests, the differential harness) holds no items of ours, so the
+    ``security`` probe must never run for it."""
+    if sys.platform != "darwin":
+        return False
+    keyring = _keychain()
+    from keyring.backends import macOS  # noqa: PLC0415 - only on this path
+    return isinstance(keyring.get_keyring(), macOS.Keyring)
 
 
 def keychain_get(key_id: bytes) -> bytes | None:
@@ -327,8 +349,9 @@ KEYCHAIN_CACHED, KEYCHAIN_ABSENT, KEYCHAIN_STALE = "cached", "absent", "stale"
 
 
 def _keychain_item_exists(key_id: bytes) -> bool:
-    """macOS only: does an item for this key id exist at all (readable by us or not)? Never reads it."""
-    if sys.platform != "darwin":
+    """macOS only: does an item for this key id exist at all (readable by us or not)? Never reads it, and
+    never runs unless the login keychain is the active backend (see ``_login_keychain_active``)."""
+    if not _login_keychain_active():
         return False
     import subprocess  # noqa: PLC0415 - only on this path
     try:
