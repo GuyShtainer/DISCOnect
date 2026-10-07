@@ -10,6 +10,7 @@ import base64
 import json
 import os
 import pathlib
+import re
 import socket
 import subprocess
 import sys
@@ -40,6 +41,7 @@ class Rig:
         self.session = serve.Session(db_path, serve.Channel(self.out))
         self.next_id = 0
         self.lines: list[dict] = []
+        self.methods: dict[int, str] = {}      # request id -> method, for walks keyed by the method of a response
 
     def feed(self, lines) -> list[dict]:
         serve.serve_lines(self.session, lines)
@@ -52,6 +54,7 @@ class Rig:
     def send(self, method, **params) -> dict:
         """One request; the response (events are kept in ``self.lines`` only)."""
         self.next_id += 1
+        self.methods[self.next_id] = method
         written = self.feed([json.dumps({"id": self.next_id, "method": method, "params": params})])
         return next(line for line in written if line.get("id") == self.next_id)
 
@@ -603,14 +606,25 @@ def test_import_failure_is_an_error_line_not_a_crash(plain, tmp_path, monkeypatc
 
 # ---- privacy walk: every method, every line ----
 
-def _walk_strings(node, path=""):
+RELAY_PATH_AT = re.compile(r"\.result\.relay_list\[\d+\]\.path")
+
+
+def _allowed_here(method, path) -> bool:
+    """The two places a path is legal on the wire: ``app.info``'s ``db`` and one folder's ``path`` in
+    ``sync.status``'s ``relay_list`` (BL-7) -- keyed by the method of the response, never by the JSON path alone."""
+    return ((method == "app.info" and path == ".result.db")
+            or (method == "sync.status" and RELAY_PATH_AT.fullmatch(path) is not None))
+
+
+def _walk_strings(node, path="", method=None):
     if isinstance(node, dict):
         for key, value in node.items():
-            assert key not in FORBIDDEN_KEYS, f"forbidden key {key!r} at {path}"
-            yield from _walk_strings(value, f"{path}.{key}")
+            assert key not in FORBIDDEN_KEYS or _allowed_here(method, f"{path}.{key}"), \
+                f"forbidden key {key!r} at {path}"
+            yield from _walk_strings(value, f"{path}.{key}", method)
     elif isinstance(node, list):
         for index, item in enumerate(node):
-            yield from _walk_strings(item, f"{path}[{index}]")
+            yield from _walk_strings(item, f"{path}[{index}]", method)
     elif isinstance(node, str):
         yield path, node
 
@@ -641,23 +655,59 @@ def _calls(export_root):
                ("key.lock", {}), ("key.status", {})])
 
 
-def test_every_method_passes_the_privacy_walk_with_no_network(encrypted, tmp_path, no_network):
+def test_every_method_passes_the_privacy_walk_with_no_network(encrypted, db_path, tmp_path, no_network):
     root = tmp_path / "export"
     root.mkdir()
     _build_export(root)
+    # a relay list whose folder text is everything the walk forbids: only sync.status' relay_list[N].path may carry it
+    (db_path.parent / "relay.json").write_text(json.dumps({"relays": [
+        {"id": "a1", "kind": "folder", "path": f"/Users/someone/Garmin-{SERIAL}@example.com/relay", "label": "disk"}]}))
     calls = _calls(root)
     assert {method for method, _ in calls} >= set(serve.METHODS), "add a privacy call for every new method"
     for method, params in calls:
         encrypted.send(method, **params)
     assert len(encrypted.lines) >= len(calls)
     for line in encrypted.lines:
-        for path, text in _walk_strings({k: v for k, v in line.items()}):
-            if path == ".result.db":
+        method = encrypted.methods.get(line.get("id"))
+        for path, text in _walk_strings({k: v for k, v in line.items()}, "", method):
+            if _allowed_here(method, path):
                 continue                                     # app.info states the path it was started with
             for needle in FORBIDDEN_TEXT:
                 assert needle not in text, f"{needle!r} leaked at {path}"
             assert "garmin" not in text.lower(), f"manufacturer name at {path}"
-        assert SERIAL not in json.dumps(line) and PASS not in json.dumps(line)
+        if method != "sync.status":
+            assert SERIAL not in json.dumps(line)
+        assert PASS not in json.dumps(line)
+
+
+def test_a_relay_path_is_legal_only_at_sync_status_relay_list(encrypted, db_path, tmp_path):
+    """BL-7 negative: a folder text full of forbidden strings rides ONLY at ``sync.status`` ``.result.relay_list[N].path``;
+    ``sync.run`` (the folder is unavailable) and every event say nothing of it."""
+    secrets_ = ("/Users/someone", "@example.com", "garmin", SERIAL)
+    folder = f"/Users/someone/Garmin-{SERIAL}/me@example.com/relay"
+    (db_path.parent / "relay.json").write_text(json.dumps({"relays": [
+        {"id": "a1", "kind": "folder", "path": folder, "label": "", "serve": True}]}))
+    encrypted.result("key.unlock", passphrase=PASS)
+    status = encrypted.send("sync.status")
+    assert status["result"]["relay_list"] == [
+        {"id": "a1", "kind": "folder", "label": "", "serve": True, "path": folder}]
+    run = encrypted.send("sync.run")
+    for line in encrypted.lines:
+        text = json.dumps(line, ensure_ascii=False).lower()
+        if line is status:
+            continue
+        for needle in secrets_:
+            assert needle.lower() not in text, (needle, line)
+    assert encrypted.lines.count(status) == 1
+    rows = (run.get("result") or {}).get("sites") or []
+    assert rows == [] or all(row["error"] == "unavailable" for row in rows)
+    # the same line, walked under another method, is refused: the allowance is keyed by the method
+    with pytest.raises(AssertionError):
+        list(_walk_strings({"result": status["result"]}, "", "sync.run"))
+    with pytest.raises(AssertionError):
+        list(_walk_strings({"result": {"other": [{"path": "x"}]}}, "", "sync.status"))
+    assert [p for p, t in _walk_strings({"result": status["result"]}, "", "sync.status")
+            if any(n.lower() in t.lower() for n in secrets_)] == [".result.relay_list[0].path"]
 
 
 def test_the_no_network_fixture_actually_blocks(no_network):

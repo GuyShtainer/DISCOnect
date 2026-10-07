@@ -78,11 +78,35 @@ def test_sync_status_names_the_lan_relay_address_and_nothing_else(encrypted, db_
         assert url() is None, bad
 
 
+def test_sync_status_relay_list(encrypted, db_path):
+    encrypted.result("key.unlock", passphrase=PASS)
+    listed = lambda: encrypted.result("sync.status")["relay_list"]  # noqa: E731
+    assert listed() is None                                     # no relay.json
+    _relay_json(db_path, {"relays": []})
+    assert listed() == []
+    _relay_json(db_path, {"relays": [
+        {"id": "a1", "kind": "folder", "path": "/vol/one", "label": "Disk"},
+        {"id": "b2", "kind": "folder", "path": "/vol/two", "serve": True},
+        {"id": "c3", "kind": "lan", "url": " http://192.168.1.20:8321/ ", "label": "Home"}]})
+    assert listed() == [
+        {"id": "a1", "kind": "folder", "label": "Disk", "serve": False, "path": "/vol/one"},
+        {"id": "b2", "kind": "folder", "label": "", "serve": True, "path": "/vol/two"},
+        {"id": "c3", "kind": "lan", "label": "Home", "serve": False, "url": "http://192.168.1.20:8321"}]
+    _relay_json(db_path, {"relays": [{"id": "d4", "kind": "lan", "url": "http://u:p@10.0.0.1:1"}]})
+    assert listed() == [{"id": "d4", "kind": "lan", "label": "", "serve": False, "url": None}]
+    # the configured text, exactly: never expanded, resolved or stat-ed
+    _relay_json(db_path, {"relays": [{"id": "e5", "kind": "folder", "path": "~/relay x"},
+                                     {"id": "f6", "kind": "folder", "path": "relay"}]})
+    assert [row["path"] for row in listed()] == ["~/relay x", "relay"]
+    _relay_json(db_path, {"folder": "/some/folder"})            # legacy form: the one entry ``default``, serving
+    assert listed() == [{"id": "default", "kind": "folder", "label": "", "serve": True, "path": "/some/folder"}]
+
+
 def test_a_plaintext_store_reports_empty_counts_and_cannot_run(plain, db_path, tmp_path):
     assert plain.result("sync.status")["bundles"] == {}
     status = plain.result("sync.status")
     assert set(status) == {"bundles", "records_unsent", "records_seen", "conflicts", "superseded", "gaps",
-                           "last_pushed_at", "last_pulled_at", "chains", "serving", "relay_url", "relay_kind", "relays"}
+                           "last_pushed_at", "last_pulled_at", "chains", "serving", "relay_url", "relay_kind", "relays", "relay_list"}
     assert status["serving"] is None and status["relay_url"] is None and status["relays"] is None
     assert status["records_unsent"] > 0 and status["gaps"] == []
     assert status["last_pushed_at"] is None and status["last_pulled_at"] is None
@@ -113,7 +137,7 @@ def test_a_store_older_than_the_relay_tables_answers_like_a_fresh_one(db_path):
     conn.close()
     status = Rig(db_path).result("sync.status")
     assert status == {"bundles": {}, "records_unsent": 0, "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [],
-                      "last_pushed_at": None, "last_pulled_at": None, "chains": [], "serving": None, "relay_url": None, "relay_kind": None, "relays": None}
+                      "last_pushed_at": None, "last_pulled_at": None, "chains": [], "serving": None, "relay_url": None, "relay_kind": None, "relays": None, "relay_list": None}
 
 
 def test_a_folder_relay_pushes_then_pulls_with_events_and_counts_only(encrypted, db_path, tmp_path):

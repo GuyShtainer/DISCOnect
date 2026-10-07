@@ -455,14 +455,27 @@ def import_last(session: Session, call: Call) -> dict:
 
 # ---- sync ----
 
+def _relay_row(entry: relay_config.RelayEntry) -> dict:
+    row = {"id": entry.id, "kind": entry.kind, "label": entry.label, "serve": entry.serve}
+    if entry.kind == "lan":
+        row["url"] = relay_config.lan_base_url(entry.value)
+    else:
+        row["path"] = entry.value
+    return row
+
+
 @_unlocked_only
 def sync_status(session: Session, call: Call) -> dict:
     """The relay counts of the store (``sync status``): read-only, so a store older than the relay
     tables answers what a fresh one would. ``relay_url`` is the first LAN entry's ``http://host:port`` from
     ``relay.json``, null when it names none (a folder relay has no address); ``relay_kind`` is ``folder``, ``lan`` or
     ``mixed`` over the list's entries, null with no file or an empty list; ``relays`` is the ``sites`` of the
-    last ``sync.run`` of this session, null before the first."""
+    last ``sync.run`` of this session, null before the first. ``relay_list`` is the entries of ``relay.json`` in file
+    order (null when ``relay_kind`` is null, ``[]`` for an empty list): a folder's ``path`` is the configured text
+    (never expanded or stat-ed; it can carry the account name, a volume name or a cloud account's email, on purpose),
+    a lan entry's ``url`` is ``http://host:port`` or null when the text is refused; never a credential."""
     entries = relay_config.read_list(session.db_path.parent / home.RELAY_CONFIG_NAME)
+    relay_list = None if entries is None else [_relay_row(entry) for entry in entries]
     lan = relay_config.first_lan_url(entries) if entries else None
     relay_url = relay_config.lan_base_url(lan) if lan is not None else None
     kinds = {entry.kind for entry in entries or []}
@@ -472,11 +485,11 @@ def sync_status(session: Session, call: Call) -> dict:
     with session.reader() as conn:
         if migrations.has_table(conn, "relay_bundles"):
             return {**sync_module.status(conn), "serving": None, "relay_url": relay_url, "relay_kind": relay_kind,
-                    "relays": relays}
+                    "relays": relays, "relay_list": relay_list}
         return {"bundles": {}, "records_unsent": conn.execute("SELECT count(*) FROM raw_records").fetchone()[0],
                 "records_seen": 0, "conflicts": 0, "superseded": 0, "gaps": [], "last_pushed_at": None,
                 "last_pulled_at": None, "chains": [], "serving": None, "relay_url": relay_url, "relay_kind": relay_kind,
-                "relays": relays}
+                "relays": relays, "relay_list": relay_list}
 
 
 def _sync_event(session: Session, phase: str, state: str, counts: dict | None = None) -> None:
