@@ -42,7 +42,7 @@ from disconect.relay import bundle as bundle_module
 from disconect.relay import config as relay_config
 from disconect.relay.bundle import BundleRejected, account_for, new_name, pack, unpack
 from disconect.relay.folder import FolderRelay, Relay
-from disconect.storage import parse_iso_utc, sqlite, utc_now_iso
+from disconect.storage import home, parse_iso_utc, sqlite, utc_now_iso
 from disconect.storage._time import now_utc
 
 TRANSPORT_RELAY = "relay"
@@ -218,7 +218,7 @@ def open_sites(specs: list[SiteSpec], master: bytes) -> tuple[list[Site], list[S
         elif spec.unavailable:
             word = "unavailable"
         elif spec.kind == "folder":
-            root = pathlib.Path(spec.value).expanduser()
+            root = home.expand_user(spec.value)
             identity = _folder_identity(root)
             if identity is None and spec.create_root and not root.exists():
                 relay = FolderRelay(root, create_root=True)

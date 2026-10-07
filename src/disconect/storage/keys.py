@@ -194,7 +194,7 @@ def key_path_for(db_path: pathlib.Path) -> pathlib.Path:
     """``$DISCONECT_KEYS`` if set, else ``<db>.keys.json`` beside the database."""
     override = os.environ.get(KEYS_ENV)
     if override:
-        return pathlib.Path(override).expanduser()
+        return home.expand_user(override)
     db_path = pathlib.Path(db_path)
     return db_path.with_name(db_path.name + KEY_FILE_SUFFIX)
 

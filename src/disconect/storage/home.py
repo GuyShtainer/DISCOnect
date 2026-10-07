@@ -18,6 +18,17 @@ from collections.abc import Mapping
 from disconect import identity
 from disconect.storage.errors import HomeMoved
 
+
+def expand_user(text: str) -> pathlib.Path:
+    """A leading ``~`` (bare or ``~/…``) stands for ``$HOME``, exactly like the Rust core's ``keys::expand_user``:
+    ``~name/…`` is left alone (``Path.expanduser`` would look ``name`` up in the password database and the two cores
+    would open different folders), and with no ``$HOME`` the ``~`` stays as written (no password-database fallback)."""
+    parts = pathlib.Path(text).parts
+    home = os.environ.get("HOME")
+    if parts and parts[0] == "~" and home is not None:
+        return pathlib.Path(home).joinpath(*parts[1:])
+    return pathlib.Path(text)
+
 DB_ENV = identity.ENV_PREFIX + "DB"
 #: Env names of the old builds. They are not aliases: nothing reads them, we only warn.
 LEGACY_ENV_SUFFIXES = ("DB", "KEYS", "PASSPHRASE", "RECOVERY_WORDS")
@@ -33,7 +44,7 @@ def resolve_default_db() -> tuple[pathlib.Path, str | None]:
     """
     override = os.environ.get(DB_ENV)
     if override:
-        return pathlib.Path(override).expanduser(), None
+        return expand_user(override), None
     home = pathlib.Path.home()
     current = home / identity.DATA_DIR / identity.DB_FILENAME
     if not current.is_file():

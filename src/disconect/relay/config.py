@@ -19,6 +19,7 @@ import re
 import secrets
 
 from disconect.relay.folder import FolderRelay
+from disconect.storage import home
 
 LAN_TEXT = "a LAN relay needs disconect-core; this core reads folder relays only"
 
@@ -274,7 +275,7 @@ def open_relay(kind: str, value: str) -> FolderRelay:
     """The relay a configuration names; a LAN one raises :class:`UnsupportedTransport`."""
     if kind == "lan":
         raise UnsupportedTransport(LAN_TEXT)
-    return FolderRelay(pathlib.Path(value).expanduser(), create_root=True)
+    return FolderRelay(home.expand_user(value), create_root=True)
 
 
 def never_a_pairing_address(host: str) -> bool:

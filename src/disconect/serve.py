@@ -402,7 +402,7 @@ def _import_worker(session: Session, call: Call, path: pathlib.Path, transport: 
 @_unlocked_only
 def import_run(session: Session, call: Call) -> Any:
     """Start an import on the worker thread; the answer is sent when it finishes."""
-    path = pathlib.Path(_text_param(call.params, "path")).expanduser()
+    path = home.expand_user(_text_param(call.params, "path"))
     name = _text_param(call.params, "transport", required=False)
     if name is not None and name not in TRANSPORTS:
         raise ServeError("bad_params", f"transport must be one of {sorted(TRANSPORTS)}")

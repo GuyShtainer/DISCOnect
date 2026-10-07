@@ -197,7 +197,7 @@ def _run_sync_list(args: argparse.Namespace, db_path: pathlib.Path, master: byte
 
 def _folder_key(folder: str) -> str:
     """Who a folder is for the duplicate check: its (device, inode) when it exists, else the expanded path."""
-    path = pathlib.Path(folder).expanduser()
+    path = home.expand_user(folder)
     try:
         info = path.stat()
     except OSError:

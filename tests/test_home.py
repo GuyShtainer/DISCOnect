@@ -5,6 +5,7 @@ import pathlib
 import pytest
 
 from disconect import cli, identity, storage
+from disconect.relay import config as relay_config
 from disconect.storage import home
 
 LEGACY_HINT = "using legacy data folder ~/.hearthbeat; run 'disconect migrate-home' to move it"
@@ -190,3 +191,22 @@ def test_a_missing_folder_that_is_not_a_legacy_home_is_still_created(tmp_path):
     with storage.open_for_write(tmp_path / ".disconect" / "disconect.db", "test"):
         pass
     assert (tmp_path / ".disconect" / "disconect.db").is_file()
+
+
+def test_a_bare_tilde_expands_and_a_named_user_is_left_alone_like_the_rust_core(monkeypatch):
+    """The Rust twin is `keys.rs::home_expansion`. ``Path.expanduser`` would turn ``~root/x`` into ``/var/root/x`` and
+    the two cores would open different folders; with no ``$HOME`` it would fall back to the password database."""
+    monkeypatch.setenv("HOME", "/h")
+    assert home.expand_user("~root/x") == pathlib.Path("~root/x")
+    assert home.expand_user("~nobody") == pathlib.Path("~nobody")
+    assert home.expand_user("/abs/~") == pathlib.Path("/abs/~")
+    assert home.expand_user("rel/~/x") == pathlib.Path("rel/~/x")
+    assert home.expand_user("~") == pathlib.Path("/h")
+    assert home.expand_user("~/") == pathlib.Path("/h")
+    assert home.expand_user("~/a/b") == pathlib.Path("/h/a/b")
+    assert home.expand_user("~//a") == pathlib.Path("/h/a")
+    monkeypatch.delenv("HOME")
+    assert home.expand_user("~/a") == pathlib.Path("~/a")
+    # every relay and override site reads through it: a named user's folder is the relative folder as written
+    assert relay_config.open_relay("folder", "~root/x").root == pathlib.Path("~root/x")
+
