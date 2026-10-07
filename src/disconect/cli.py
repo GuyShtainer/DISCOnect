@@ -558,11 +558,10 @@ def cmd_key_rotate_recovery(args: argparse.Namespace) -> int:
         keys.write_key_file(key_path, document)
         result = {"database": None, "snapshots": [], "copies": []}
     storage.remember(db_path, new_master)
-    if keys.keychain_get(keys.key_id_for(old_master)) is not None:
-        keys.keychain_delete(keys.key_id_for(old_master))
-        keys.keychain_set(keys.key_id_for(new_master), new_master)
-    keys.keychain_delete_legacy(keys.key_id_for(old_master))      # an earlier build's item for the old key
     shown = _show_words_once(new_master)
+    keychain_note = keys.keychain_after_rotate(old_master, new_master)  # after the words: a keychain failure is a note
+    if keychain_note:
+        print(keychain_note, file=sys.stderr)
     _emit({"rotated": True, "words_shown": shown, "relay_cleared": relay_cleared, **result}, args.json,
           f"master key rotated: database, {len(result['snapshots'])} snapshot(s) and {len(result['copies'])} "
           "pre-restore copy(ies) re-encrypted; earlier key-file copies and the old phrase no longer open them. "
@@ -751,6 +750,11 @@ def main(argv: list[str] | None = None) -> int:
     except storage.DatabaseError as exc:
         print(f"database: {exc}", file=sys.stderr)
         return EXIT_DATABASE
+    except Exception as exc:  # noqa: BLE001 - only a keychain backend failure is mapped; anything else propagates
+        if not keys.is_keychain_error(exc):
+            raise
+        print(f"keychain: {exc}", file=sys.stderr)
+        return EXIT_FAILED
 
 
 if __name__ == "__main__":

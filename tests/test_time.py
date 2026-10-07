@@ -16,20 +16,23 @@ PROBES = [
     "2026-03-04 01:02:03Z", "2026-03-04T01:02:03+00:00", "2026-03-04T01:02:03", "20260304T010203Z",
     "2026-03-04T01:02:03.5Z", " 2026-03-04T01:02:03Z", "2026-03-04T01:02:03Z\n", "0000-03-04T01:02:03Z",
     "2026-02-30T01:02:03Z", "2026-03-04T01:02:60Z", "2026-13-04T01:02:03Z", "2026-03-04T24:02:03Z", "",
+    "2026-03-04T24:00:00Z", "2026-12-31T24:00:00Z",  # 3.14's fromisoformat reads these as the next midnight
+    "2026-03-04T01:60:00Z", "2026-03-04T23:59:59Z", "9999-12-31T23:59:59Z", "0001-01-01T00:00:00Z",
+    None, b"2026-03-04T01:02:03Z", 20260304,  # not text: strptime's TypeError text
 ]
 
 
 def _strptime_outcome(text: str):
     try:
         return datetime.datetime.strptime(text, ISO).replace(tzinfo=UTC)
-    except ValueError as exc:
+    except (ValueError, TypeError) as exc:
         return (type(exc), str(exc))
 
 
 def _outcome(text: str):
     try:
         return parse_iso_utc(text)
-    except ValueError as exc:
+    except (ValueError, TypeError) as exc:
         return (type(exc), str(exc))
 
 

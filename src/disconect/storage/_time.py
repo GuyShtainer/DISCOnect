@@ -22,17 +22,19 @@ def iso_utc(moment: datetime.datetime) -> str:
 
 
 ISO = "%Y-%m-%dT%H:%M:%SZ"
-#: The store's shape, exactly: ASCII digits in place, nothing around them. Text of this shape takes the
-#: fast path below; everything else keeps ``strptime``'s acceptance and its error text (which the Rust
-#: core mirrors), so the parser's behaviour is the same as before 7b-14, only ~10× faster per call.
-_STORE_SHAPE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\Z")
+#: The store's shape, exactly: ASCII digits in place, nothing around them, and every field pinned to the
+#: range ``strptime``'s ``%H``/``%M``/``%S`` take. The ranges matter: ``fromisoformat``'s grammar moves between
+#: Python versions (3.14 reads ``T24:00:00`` as the next midnight, which ``strptime`` and the Rust twin refuse).
+#: Text of this shape takes the fast path below; everything else keeps ``strptime``'s acceptance and its error
+#: text (which the Rust core mirrors), so the parser's behaviour is the same as before 7b-14, ~10× faster per call.
+_STORE_SHAPE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z\Z")
 _strptime = datetime.datetime.strptime
 _fromisoformat = datetime.datetime.fromisoformat
 
 
 def parse_iso_utc(text: str) -> datetime.datetime:
     """Parse the store's ``YYYY-MM-DDTHH:MM:SSZ`` shape back into an aware datetime."""
-    if _STORE_SHAPE.match(text):
+    if type(text) is str and _STORE_SHAPE.match(text):  # non-str input: strptime's own TypeError text
         try:
             return _fromisoformat(text)  # aware UTC, equal to strptime's result
         except ValueError:

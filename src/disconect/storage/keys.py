@@ -317,24 +317,56 @@ def rewrap(path: pathlib.Path, master: bytes, new_passphrase: str) -> None:
 KEYCHAIN_BACKEND_ENV = "DISCONECT_KEYCHAIN"
 
 
+class _FailKeychain:
+    """The ``fail`` switch as a stand-in for the ``keyring`` module: the fail backend behind the same four
+    calls, without ``keyring``'s backend detection (which loads plugins and, on Linux, opens D-Bus) and
+    without touching its process-wide global, so the switch is never sticky and never races a thread."""
+
+    def __init__(self, keyring) -> None:
+        from keyring.backends import fail  # noqa: PLC0415 - only on this path
+        self._backend = fail.Keyring()
+        self.errors = keyring.errors
+
+    def get_keyring(self):
+        return self._backend
+
+    def get_password(self, service: str, username: str):
+        return self._backend.get_password(service, username)
+
+    def set_password(self, service: str, username: str, password: str) -> None:
+        self._backend.set_password(service, username, password)
+
+    def delete_password(self, service: str, username: str) -> None:
+        self._backend.delete_password(service, username)
+
+
 def _keychain():
     import keyring  # imported lazily: optional at runtime, and slow to import
     if os.environ.get(KEYCHAIN_BACKEND_ENV) == "fail":
-        from keyring.backends import fail  # noqa: PLC0415 - only on this path
-        if not isinstance(keyring.get_keyring(), fail.Keyring):
-            keyring.set_keyring(fail.Keyring())
+        return _FailKeychain(keyring)
     return keyring
 
 
+def is_keychain_error(exc: BaseException) -> bool:
+    """A failure of the keychain backend itself (no backend, a refused write), as opposed to an absent item."""
+    try:
+        import keyring.errors  # noqa: PLC0415 - optional at runtime
+    except ImportError:
+        return False
+    return isinstance(exc, keyring.errors.KeyringError)
+
+
 def _login_keychain_active() -> bool:
-    """True only when the live macOS keychain is the active backend: the one place a ``stale`` item can exist.
-    A memory, null or fail backend (tests, the differential harness) holds no items of ours, so the
-    ``security`` probe must never run for it."""
+    """True only when the live macOS login keychain is the active backend: the one place a ``stale`` item
+    can exist. A memory, null or fail backend (tests, the differential harness) holds no items of ours, and
+    a macOS backend pointed at another keychain file (``KEYCHAIN_PATH``) is not the login keychain either,
+    so the ``security`` probe (which searches the default keychain list) must never run for them."""
     if sys.platform != "darwin":
         return False
     keyring = _keychain()
     from keyring.backends import macOS  # noqa: PLC0415 - only on this path
-    return isinstance(keyring.get_keyring(), macOS.Keyring)
+    backend = keyring.get_keyring()
+    return isinstance(backend, macOS.Keyring) and not getattr(backend, "keychain", None)
 
 
 def keychain_get(key_id: bytes) -> bytes | None:
@@ -393,9 +425,26 @@ def keychain_delete_legacy(key_id: bytes) -> bool:
         try:
             keyring.delete_password(service, key_id.hex())
             removed = True
-        except keyring.errors.PasswordDeleteError:
+        except keyring.errors.KeyringError:  # absent (PasswordDeleteError) or no backend at all: ignored, as documented
             pass
     return removed
+
+
+def keychain_after_rotate(old_master: bytes, new_master: bytes) -> str | None:
+    """Keychain housekeeping after a rekey: a cached item moves to the new key, an earlier build's item for
+    the old key goes. Runs after the new words were shown, and a keychain failure is a note for stderr, never
+    an error: nothing may stand between a successful rekey and the words."""
+    old_id, new_id = key_id_for(old_master), key_id_for(new_master)
+    try:
+        if keychain_get(old_id) is not None:
+            keychain_delete(old_id)
+            keychain_set(new_id, new_master)
+        keychain_delete_legacy(old_id)
+    except Exception as exc:  # noqa: BLE001 - a keychain failure must not reach the caller
+        if not is_keychain_error(exc):
+            raise
+        return f"keychain not updated ({type(exc).__name__}: {exc}); run 'disconect key cache' to cache the new key"
+    return None
 
 
 def status_for(db_path: pathlib.Path) -> dict:
