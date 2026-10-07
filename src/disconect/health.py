@@ -11,10 +11,11 @@ from __future__ import annotations
 import datetime
 
 from disconect import contract, coverage, queries
+from disconect.ingest.clock import ClockOffsets
 from disconect.redact import redact_text
 from disconect.storage import migrations
 from disconect.storage._time import now_utc
-from disconect.storage import sqlite
+from disconect.storage import parse_iso_utc, sqlite
 
 UTC = datetime.timezone.utc
 
@@ -109,9 +110,12 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
         "WHERE source_scope != 'live' AND substr(ts_utc,1,10) >= ? GROUP BY metric", (since,))}
     live_records = conn.execute("SELECT COUNT(*) FROM raw_records WHERE stream='json:live'").fetchone()[0]
     live_samples, live_first, live_last = conn.execute(
-        "SELECT COUNT(*), MIN(substr(ts_utc,1,10)), MAX(substr(ts_utc,1,10)) FROM metric_samples "
-        "WHERE source_scope = 'live'").fetchone()
-    live = {"records": live_records, "samples": live_samples, "first_day": live_first, "last_day": live_last}
+        "SELECT COUNT(*), MIN(ts_utc), MAX(ts_utc) FROM metric_samples WHERE source_scope = 'live'").fetchone()
+    # the live block's days are the watch's local days, like every other day in the product (BL-9)
+    live_offsets = ClockOffsets.load(conn)
+    live = {"records": live_records, "samples": live_samples,
+            "first_day": None if live_first is None else live_offsets.local_date(parse_iso_utc(live_first)),
+            "last_day": None if live_last is None else live_offsets.local_date(parse_iso_utc(live_last))}
 
     daily_total = {}
     for metric, scope, days, first, last in conn.execute(

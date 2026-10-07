@@ -66,7 +66,7 @@ def test_the_health_report_lists_the_live_stream_and_the_live_block(stores):
     health = Rig(with_live).result("data.health")
     assert health["streams"]["json:live"] == {"records": 4, "first": "2025-03-06T01:00:00Z",
                                               "last": "2025-06-21T00:05:00Z"}
-    assert health["live"] == {"records": 4, "samples": 37, "first_day": "2025-03-06", "last_day": "2025-06-21"}
+    assert health["live"] == {"records": 4, "samples": 37, "first_day": "2025-03-05", "last_day": "2025-06-21"}
     plain = Rig(without).result("data.health")
     assert "json:live" not in plain["streams"]
     assert plain["live"] == {"records": 0, "samples": 0, "first_day": None, "last_day": None}

@@ -219,6 +219,26 @@ def test_as_of_health_counts_and_coverage_keep_live_apart(tmp_path, sessions):
         assert [(f["metric"], f["source_scope"], f["window_days_with_data"]) for f in asked] == [("heart_rate", "live", 1)]
 
 
+def test_the_live_block_days_are_the_watchs_local_days(tmp_path, sessions):
+    import datetime
+    from disconect.ingest.clock import ClockOffsets
+    from disconect.ingest.model import ClockOffset
+    a_dir, _b_dir = sessions
+    db = tmp_path / "s.db"
+    _import(db, a_dir)
+    with storage.open_read_only(db) as conn:
+        first, last = conn.execute("SELECT MIN(ts_utc), MAX(ts_utc) FROM metric_samples WHERE source_scope='live'").fetchone()
+        assert health.data_health(conn)["live"]["first_day"] == first[:10]
+    with storage.open_for_write(db, "test") as conn:
+        conn.execute("UPDATE metric_samples SET ts_utc = '2025-06-15T02:30:00Z' WHERE source_scope='live' AND ts_utc = ?", (first,))
+        raw = conn.execute("SELECT id FROM raw_records WHERE stream='json:live'").fetchone()[0]
+        ClockOffsets.persist(conn, [ClockOffset(datetime.datetime(2025, 6, 1, 12, tzinfo=datetime.timezone.utc), -18000)], None, raw)
+    with storage.open_read_only(db) as conn:
+        live = health.data_health(conn)["live"]
+    assert live["first_day"] == "2025-06-14"  # 02:30Z is the previous evening at -5 h
+    assert live["last_day"] == "2025-06-15"  # the newest sample is 10:xx UTC the same day, -5 h keeps the date
+
+
 def test_the_contract_names_the_scope_and_every_scope_has_a_chart_colour():
     assert contract.SOURCE_SCOPES == ("device", "vendor_cloud", "local", "live")
     assert contract.CONTRACT_VERSION == "2"
