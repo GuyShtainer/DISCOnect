@@ -930,6 +930,69 @@ def test_a_malformed_clock_offset_cell_reads_as_strptimes_text(tmp_path, cell, t
     assert response["error"] == {"code": "bad_params", "message": text}
 
 
+SYNTHETIC_FITS = pathlib.Path(__file__).parents[2] / "disconect-core" / "tests" / "fixtures" / "synthetic"
+STAMP_TEXT = "time data '2025-06-15T12:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+
+
+def _import_store_state(db):
+    """What an import leaves in the store: the run rows (no timestamps) and the table counts."""
+    with storage.open_for_write(db, purpose="test") as conn:
+        runs = conn.execute("SELECT id, status, files_seen, files_imported, files_failed, records_written, error "
+                            "FROM import_runs ORDER BY id").fetchall()
+        counts = [conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+                  for table in ("raw_records", "daily_metrics", "metric_samples", "monitoring_intervals")]
+    return [tuple(run) for run in runs], counts
+
+
+def _corrupt_import_rig(tmp_path, seed_sql):
+    """A fresh store holding one raw record and one hand-edited row (`seed_sql`), and a folder with the one
+    synthetic monitoring FIT (device 42, 2025-06-15T06:00Z; steps intervals and stress samples)."""
+    db = tmp_path / "plain.hbdb"
+    folder = tmp_path / "drop"
+    folder.mkdir()
+    (folder / "a.fit").write_bytes((SYNTHETIC_FITS / "monitoring_sentinels_counters.fit.bin").read_bytes())
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("INSERT INTO raw_records(stream, source_key, source_scope, transport, payload_kind, payload, "
+                     "payload_hash, payload_bytes, imported_at) VALUES('fit:monitoring_b','k','device','usb','fit',"
+                     "x'00','h',1,'2025-07-01T00:00:00Z')")
+        conn.execute(seed_sql)
+    return db, folder
+
+
+def test_import_over_a_malformed_clock_offset_cell_is_bad_params_and_leaves_the_store_alone(tmp_path):
+    """Write-path stamp row (BACKLOG 477): the offsets load raises before `begin_run`, so no run row and no
+    new record; the Rust core mirrors the text and the store (serve_import_test.rs twin)."""
+    db, folder = _corrupt_import_rig(
+        tmp_path, "INSERT INTO clock_offsets(ts_utc, offset_s) VALUES('2025-06-15 00:00:00', 0)")
+    before = _import_store_state(db)
+    response = Rig(db).send("import.run", path=str(folder))
+    assert response["error"] == {"code": "bad_params", "message":
+                                 "time data '2025-06-15 00:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"}
+    assert _import_store_state(db) == before and before[0] == []
+
+
+@pytest.mark.parametrize(("table", "seed_sql", "state"), [   # the steps derivation fails first; the samples one runs after it
+    ("monitoring_intervals",
+     "INSERT INTO monitoring_intervals(ts_utc, activity_type, steps, source_scope, device_id, raw_record_id) "
+     "VALUES('2025-06-15T12:00:00','walking',5,'device','42',1)",
+     ([(1, "failed", 1, 1, 0, 12, "ValueError: " + STAMP_TEXT)], [2, 3, 7, 2])),
+    ("metric_samples",
+     "INSERT INTO metric_samples(ts_utc, metric, value, source_scope, device_id, raw_record_id) "
+     "VALUES('2025-06-15T12:00:00','stress',5,'device','42',1)",
+     ([(1, "failed", 1, 1, 0, 12, "ValueError: " + STAMP_TEXT)], [2, 11, 8, 1])),
+])
+def test_import_over_an_unparseable_derivation_cell_is_bad_params_and_the_run_is_booked_failed(
+        tmp_path, table, seed_sql, state):
+    """Write-path stamp row (BACKLOG 478): `derive_daily_steps` / `derive_daily_from_samples` call `parse_iso_utc`
+    on every stored cell in the days' window; a hand-edited cell raises strptime's ValueError out of
+    `import_path`, which books the run `failed` and keeps what was written before the derivations. The Rust
+    core answers and leaves the same (serve_import_test.rs twin)."""
+    db, folder = _corrupt_import_rig(tmp_path, seed_sql)
+    response = Rig(db).send("import.run", path=str(folder))
+    assert response["error"] == {"code": "bad_params", "message": STAMP_TEXT}
+    assert _import_store_state(db) == state, table
+
+
 def test_a_mean_the_float_cannot_hold_is_internal_unexpected_overflowerror(tmp_path):
     """Lower-end `date − n` row review (2026-10-08): the window clamp took every OverflowError out of the
     oracles, so the serve wire text for one is pinned here on both cores (serve_test.rs twin): two stored
