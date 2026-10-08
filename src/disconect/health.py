@@ -124,9 +124,9 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
         "SELECT COUNT(*), MIN(ts_utc), MAX(ts_utc) FROM metric_samples WHERE source_scope = 'live'").fetchone()
     # the live block's days are the watch's local days, like data.live's (BL-9); every other day in this report
     # (samples_total, streams, coverage) is the UTC prefix of the stored stamp
-    live_offsets = ClockOffsets.load(conn)
+    known_offsets = ClockOffsets.load(conn)  # once: the live block, local_today and the coverage ledger share it
     live = {"records": live_records, "samples": live_samples,
-            "first_day": _live_day(live_offsets, live_first), "last_day": _live_day(live_offsets, live_last)}
+            "first_day": _live_day(known_offsets, live_first), "last_day": _live_day(known_offsets, live_last)}
 
     daily_total = {}
     for metric, scope, days, first, last in conn.execute(
@@ -163,7 +163,7 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
 
     return {
         "contract_version": contract.CONTRACT_VERSION,
-        "coverage": coverage.ledger(conn, queries.local_today(conn), window_days),
+        "coverage": coverage.ledger(conn, queries.local_today(conn, known_offsets), window_days, known_offsets),
         "schema_version": migrations.current_version(conn),
         "window": {"days": window_days, "from": since, "to": today},
         "never_imported": not raw,

@@ -261,12 +261,17 @@ def _declared_and_drift(conn: sqlite.Connection) -> tuple[dict[tuple[str, str], 
     return streams_for, drift
 
 
-def _analyse(conn: sqlite.Connection, first_day: str, last_day: str) -> _Analysis:
-    """The status of every local day in the window, for every (metric, scope) the store knows."""
+def _analyse(conn: sqlite.Connection, first_day: str, last_day: str,
+             offsets: ClockOffsets | None = None) -> _Analysis:
+    """The status of every local day in the window, for every (metric, scope) the store knows.
+
+    ``offsets`` is the store's clock offsets when the caller already loaded them; None loads them here.
+    """
     window = _Window(first_day, last_day)
     if window.days < 1:
         raise ValueError("last_day must not be before first_day")
-    offsets = ClockOffsets.load(conn)
+    if offsets is None:
+        offsets = ClockOffsets.load(conn)
     refinements = migrations.has_table(conn, "export_ranges") and migrations.has_table(conn, "import_failures")
     streams_for, drift = _declared_and_drift(conn)
     covered, undatable = _covered_by_stream(conn, window, offsets, refinements)
@@ -295,16 +300,18 @@ def statuses_on(conn: sqlite.Connection, day: str) -> dict[tuple[str, str], str]
     return {key: statuses[0] for key, statuses in analysis.statuses.items()}
 
 
-def ledger(conn: sqlite.Connection, last_day: str, window_days: int) -> dict:
+def ledger(conn: sqlite.Connection, last_day: str, window_days: int,
+           offsets: ClockOffsets | None = None) -> dict:
     """The coverage block of ``data_health``: per (metric, scope) counts and gaps over the window.
 
     ``last_day`` is the window's last local date (inclusive); ``window_days``
-    is clipped to :data:`MAX_WINDOW_DAYS`. Returns plain data: no values, no
+    is clipped to :data:`MAX_WINDOW_DAYS`; ``offsets`` is the store's clock offsets when the
+    caller already loaded them (None loads them here). Returns plain data: no values, no
     identifiers.
     """
     window_days = max(1, min(int(window_days), MAX_WINDOW_DAYS))
     last = datetime.date.fromisoformat(last_day)
-    analysis = _analyse(conn, (last - (window_days - 1) * _DAY).isoformat(), last.isoformat())
+    analysis = _analyse(conn, (last - (window_days - 1) * _DAY).isoformat(), last.isoformat(), offsets)
     window = analysis.window
     rows = []
     for (metric, scope), streams in sorted(analysis.streams_for.items()):

@@ -16,6 +16,21 @@ def _seed(db_path):
                          "VALUES(?,?,?,?,?,1)", rows)
 
 
+def test_data_health_loads_the_clock_offsets_once(db_path, monkeypatch):
+    """The live block, local_today and the coverage ledger share one load of clock_offsets (BL-9 review row;
+    the Rust core passes the one load the same way)."""
+    from disconect.ingest.clock import ClockOffsets
+    loads = []
+    real_load = ClockOffsets.load
+    monkeypatch.setattr(ClockOffsets, "load", classmethod(lambda cls, conn: loads.append(1) or real_load(conn)))
+    _seed(db_path)
+    conn = storage.open_read_only(db_path)
+    report = health.data_health(conn, 30)
+    conn.close()
+    assert loads == [1]
+    assert report["clock_offsets_known"] == 0 and report["coverage"]["ledger"]
+
+
 def test_empty_store_reports_never_imported(db_path):
     with storage.open_for_write(db_path, "test"):
         pass

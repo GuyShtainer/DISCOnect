@@ -31,14 +31,17 @@ def _today() -> datetime.date:
     return now_utc().date()
 
 
-def local_today(conn: sqlite.Connection) -> str:
+def local_today(conn: sqlite.Connection, offsets: ClockOffsets | None = None) -> str:
     """Today as ``YYYY-MM-DD``: the later of the UTC date and the watch's local date.
 
     The watch's clock can be ahead of UTC (a late evening there is already tomorrow here), and
     a store without any known offset falls back to UTC, so the later of the two is "today".
+    ``offsets`` is the store's clock offsets when the caller already loaded them (``data_health``
+    loads the table once); None loads them here.
     """
     now = now_utc()
-    return max(now.date().isoformat(), ClockOffsets.load(conn).local_date(now))
+    known = ClockOffsets.load(conn) if offsets is None else offsets
+    return max(now.date().isoformat(), known.local_date(now))
 
 
 _DAY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
