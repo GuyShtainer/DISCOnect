@@ -62,10 +62,10 @@ development tree, by differential tests that hold a Rust port to the same answer
 - `sqlcipher3` must build or ship a wheel for your platform; on an unsupported platform the
   install fails before anything runs.
 
-## How this snapshot was made
+## How this repository was made
 
-The package is developed inside a private monorepo beside the Rust port and the shells. This
-repository starts at one snapshot commit of that package directory, with the tests made to run
-standalone, the internal planning notes left behind, and the trademark and licensing files added;
-the development history stays in the private tree. Commits are authored by the maintainer under
-his GitHub no-reply address.
+The package is developed inside a private monorepo beside the Rust port and the shells. The history
+here starts on 2026-10-03, when the package took its present name; the earlier history and the internal
+planning notes stay in the private development tree and were filtered out of the commits published here.
+The tests were made to run standalone and the trademark and licensing files added in the last commits.
+Commits are authored by the maintainer under his GitHub no-reply address.
