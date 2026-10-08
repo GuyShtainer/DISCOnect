@@ -299,6 +299,16 @@ def test_reads_at_the_calendar_ends_answer_empty_instead_of_overflowing(tmp_path
             assert queries.sample_day_aggregates(conn, "heart_rate", edge, edge, offsets, ("device",)) == {}, edge
             assert queries.intraday_samples(conn, "heart_rate", edge)["series"] == [], edge
         assert coverage.fetch_window(datetime.date.min, datetime.date.min) == ("0001-01-01", "0001-01-03")
+        assert coverage.fetch_window(datetime.date(1, 1, 2), datetime.date(1, 1, 2)) == ("0001-01-01", "0001-01-04")
         assert coverage.fetch_window(datetime.date.max, datetime.date.max) == ("9999-12-30", "9999-12-31")
+        assert coverage.fetch_window(datetime.date(9999, 12, 30), datetime.date(9999, 12, 30)) == (
+            "9999-12-29", "9999-12-31")
         assert coverage.fetch_window(datetime.date(9999, 12, 29), datetime.date(9999, 12, 29)) == (
             "9999-12-28", "9999-12-31")
+    # the completeness day bounds: the midnight after 9999-12-31, and a local midnight before year 1 under a
+    # positive offset, are plain integers (the opus review of 1e2d688 found `data.metric` at 9999-12-31 still internal)
+    with storage.open_for_write(db, "test") as conn:
+        conn.execute("INSERT INTO clock_offsets(ts_utc, offset_s) VALUES('2025-06-01T12:00:00Z', 45900)")
+    with storage.open_read_only(db) as conn:
+        for edge in ("0001-01-01", "9999-12-31"):
+            assert coverage.calendar(conn, "heart_rate", "device", edge, edge) == [(edge, coverage.NOT_COVERED, None)]

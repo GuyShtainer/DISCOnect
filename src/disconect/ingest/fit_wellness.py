@@ -156,6 +156,16 @@ def _datetime(frame: fitdecode.FitDataMessage, name: str) -> datetime.datetime |
     return value if isinstance(value, datetime.datetime) else None
 
 
+def _local_wall(frame: fitdecode.FitDataMessage) -> datetime.datetime | None:
+    """``local_timestamp`` as a wall clock, or None below ``0x10000000``: such a value is system seconds since
+    power-on, not a wall clock, though fitdecode still renders it as a date. Twin of ``fit.rs``'s ``local_wall``."""
+    for field in frame.fields:
+        if field.is_named("local_timestamp") and not _is_dev(field):
+            keep = isinstance(field.raw_value, int) and field.raw_value >= 0x10000000
+            return field.value if keep and isinstance(field.value, datetime.datetime) else None
+    return None
+
+
 def _text(value) -> str | None:
     return None if value is None else str(value)
 
@@ -240,7 +250,7 @@ class _FitDecoder:
 
     def monitoring_info(self, frame) -> None:
         ts_utc = _datetime(frame, "timestamp")
-        self._offset(ts_utc, _datetime(frame, "local_timestamp"))
+        self._offset(ts_utc, _local_wall(frame))
         rmr = _number(_value(frame, "resting_metabolic_rate"))
         if ts_utc is not None and rmr is not None and rmr > 0:
             self.out.daily.append(DailyFact("resting_metabolic_rate", rmr, ts_utc=ts_utc))
@@ -380,7 +390,7 @@ class _FitDecoder:
         if ts_utc is None:
             return
         self._touch(ts_utc)
-        self._offset(ts_utc, _datetime(frame, "local_timestamp"))
+        self._offset(ts_utc, _local_wall(frame))
         for field, metric in _SKIN_TEMP_FIELDS.items():
             value = _number(_value(frame, field))
             if value is not None:
@@ -398,7 +408,7 @@ class _FitDecoder:
             self.out.labels.append(DailyLabel("vo2max_sport", sport, ts_utc=ts_utc))
 
     def timestamp_correlation(self, frame) -> None:
-        self._offset(_datetime(frame, "timestamp"), _datetime(frame, "local_timestamp"))
+        self._offset(_datetime(frame, "timestamp"), _local_wall(frame))
 
     def session(self, frame) -> None:
         start = _datetime(frame, "start_time")

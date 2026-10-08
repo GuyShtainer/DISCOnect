@@ -343,6 +343,11 @@ def _epoch(moment: datetime.datetime) -> int:
     return int(moment.timestamp())
 
 
+_DAY_S = 86_400
+_LAST_SECOND = 253_402_300_799  # 9999-12-31T23:59:59Z, the calendar's last second
+_I64 = 2 ** 63
+
+
 def _day_bounds(window: _Window, offsets: ClockOffsets) -> list[int]:
     """Epoch seconds each window day starts at, plus the end of the last one (``window.days + 1`` entries).
 
@@ -350,13 +355,19 @@ def _day_bounds(window: _Window, offsets: ClockOffsets) -> list[int]:
     as the watch's clock made it; UTC is assumed where no offset is known, as ``local_date`` does. The
     bounds never step back: an offset that jumps by more than a day between two midnights (a watch clock
     that was never set) leaves the day between them empty rather than negative, so the clipping stays
-    non-negative and both cores search a sorted list. An offset that puts a midnight outside years
-    1-9999 raises OverflowError, as ``local_date`` does.
+    non-negative and both cores search a sorted list. The bounds are plain integers, so the midnight
+    after 9999-12-31 and a local midnight before year 1 are bounds too (the offset nearest to a moment
+    past the calendar is read at its last second); only an offset the Rust twin's i64 cannot subtract
+    raises OverflowError.
     """
     bounds: list[int] = []
+    first = _epoch(datetime.datetime.combine(window.first, datetime.time(), tzinfo=UTC))
     for position in range(window.days + 1):
-        midnight = datetime.datetime.combine(window.first + position * _DAY, datetime.time(), tzinfo=UTC)
-        bound = _epoch(midnight - datetime.timedelta(seconds=offsets.offset_at(midnight) or 0))
+        midnight = first + position * _DAY_S
+        moment = datetime.datetime.fromtimestamp(min(midnight, _LAST_SECOND), UTC)
+        bound = midnight - (offsets.offset_at(moment) or 0)
+        if not -_I64 <= bound < _I64:
+            raise OverflowError("clock offset out of range")
         bounds.append(max(bound, bounds[-1]) if bounds else bound)
     return bounds
 

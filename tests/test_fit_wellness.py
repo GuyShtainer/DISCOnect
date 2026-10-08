@@ -215,3 +215,8 @@ def test_clock_offset_beyond_26_hours_is_dropped_and_counted_at_decode(t0):
         decoded = decode_fit(b.build())          # a dropped offset is not an error
         assert [o.offset_s for o in decoded.offsets] == ([delta] if kept else []), delta
         assert decoded.dropped == ({} if kept else {"clock_offset_out_of_range": 1}), delta
+        assert fit_wellness.scan_clock_offsets(b.build()) == decoded.offsets, delta
+    b = FitBuilder("monitoring_b")
+    b.add("monitoring_info", timestamp=t0, local_timestamp=5)  # system seconds since power-on, not a wall clock
+    decoded = decode_fit(b.build())
+    assert decoded.offsets == [] and decoded.dropped == {}, decoded.dropped
