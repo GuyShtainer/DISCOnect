@@ -1,0 +1,7 @@
+as of 2025-06-30: last 7 day(s) (2025-06-24..2025-06-30) vs the 28 day(s) before (2025-05-27..2025-06-23)
+  sleep_score                      [device      ]      80.0 score        higher    baseline 76.96 (delta +3.04, z +0.42)  high
+  sleep_score                      [vendor_cloud]      80.0 score        higher    baseline 76.96 (delta +3.04, z +0.42)  high
+  resting_heart_rate               [device      ]     56.29 bpm          lower     baseline 56.96 (delta -0.68, z -0.63)  high
+  resting_heart_rate               [vendor_cloud]     56.29 bpm          lower     baseline 56.96 (delta -0.68, z -0.63)  high
+  steps                            [vendor_cloud]  10463.71 steps        higher    baseline 9559.96 (delta +903.75, z +0.30)  high
+  steps                            [local       ]  10487.14 steps        higher    baseline 9568.79 (delta +918.36, z +0.30)  high

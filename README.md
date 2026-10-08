@@ -19,6 +19,43 @@ not claim about your data is set out in [CLAIMS-POLICY.md](CLAIMS-POLICY.md), an
 on one real account export in September 2026; the newer parts (encryption, sync, pairing, the
 serve protocol) are validated on synthetic data only. Details and dates in [STATUS.md](STATUS.md).
 
+## What it looks like
+
+These charts come from `disconect chart`, the package's own PNG renderer, run over a made-up 90-day
+export. No real watch or account data is shown. The generator is
+[docs/screenshots/make_screenshots.py](docs/screenshots/make_screenshots.py); it rebuilds every image
+from a fixed seed.
+
+![Steps over 90 days: daily values and a 7-day trailing mean, the watch-derived and the cloud figures side by side](docs/screenshots/steps.png)
+
+Steps per day. The watch-derived figure (`local`) and the cloud's own figure (`vendor_cloud`) are
+drawn on top of each other, so where they agree you see one line.
+
+![Resting heart rate over 90 days, trending down](docs/screenshots/resting-heart-rate.png)
+
+Resting heart rate. Here the watch's figure (`device`) matched the cloud's on every day, so its line
+sits under the other.
+
+![One night's sleep stages as a hypnogram](docs/screenshots/sleep-night.png)
+
+One night, decoded from the watch's sleep file: stages, totals and the watch's own sleep score.
+
+![One day of heart-rate samples with the sleep window shaded](docs/screenshots/heart-rate-day.png)
+
+One day of heart-rate samples on the watch's local clock, with the stored sleep window shaded.
+
+The last 7 days against the person's own 28-day baseline (`disconect facts`), on the same data:
+
+```
+as of 2025-06-30: last 7 day(s) (2025-06-24..2025-06-30) vs the 28 day(s) before (2025-05-27..2025-06-23)
+  sleep_score                      [device      ]      80.0 score        higher    baseline 76.96 (delta +3.04, z +0.42)  high
+  sleep_score                      [vendor_cloud]      80.0 score        higher    baseline 76.96 (delta +3.04, z +0.42)  high
+  resting_heart_rate               [device      ]     56.29 bpm          lower     baseline 56.96 (delta -0.68, z -0.63)  high
+  resting_heart_rate               [vendor_cloud]     56.29 bpm          lower     baseline 56.96 (delta -0.68, z -0.63)  high
+  steps                            [vendor_cloud]  10463.71 steps        higher    baseline 9559.96 (delta +903.75, z +0.30)  high
+  steps                            [local       ]  10487.14 steps        higher    baseline 9568.79 (delta +918.36, z +0.30)  high
+```
+
 ## Install and first run
 
 Python 3.12 or newer.
@@ -166,7 +203,8 @@ src/disconect/
   serve.py             the JSON-over-stdio service for a shell
   cli.py, mcp_server.py
 tests/                 pytest; synthetic data only; monorepo.py names what is developed elsewhere
-docs/                  architecture, serve and relay protocols, the ADRs the code implements
+docs/                  architecture, serve and relay protocols, the ADRs the code implements,
+                       the README screenshots and their generator
 ```
 
 Design lineage: the contract module, raw-payload retention, `COALESCE(device_id,'')` unique
