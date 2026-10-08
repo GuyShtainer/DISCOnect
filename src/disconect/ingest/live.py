@@ -39,7 +39,9 @@ SENTINEL_RULES: dict[str, tuple[str, object]] = {
 VALUE_LIMIT = 2 ** 63
 
 
-#: Exclusive upper bound of a reading's ``t`` (unix seconds, 9999-01-01Z): a millisecond stamp falls outside, and a year of headroom keeps every local-day conversion inside the calendar whatever the clock offset.
+#: Exclusive upper bound of a reading's ``t`` (unix seconds, 9999-01-01Z): a millisecond stamp falls outside, and
+#: a year of headroom keeps every local-day conversion inside the calendar for any clock offset within a year
+#: (the offset itself is unbounded today: BACKLOG).
 T_LIMIT = 253370764800
 
 

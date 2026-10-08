@@ -346,6 +346,15 @@ def metric_calendar(conn: sqlite.Connection, metric: str, scope: str, first_day:
 LIVE_SCOPE = "live"
 
 
+def _span_days(offsets: ClockOffsets, first: datetime.datetime, last: datetime.datetime) -> tuple[str, str] | None:
+    """The local days of a span's two ends, or None when the calendar cannot hold one of them: a row written
+    before the live import bound was lowered (9999-01-01Z) is never listed instead of failing the whole read."""
+    try:
+        return offsets.local_date(first), offsets.local_date(last)
+    except OverflowError:
+        return None
+
+
 def _local_minute(moment: datetime.datetime, offsets: ClockOffsets) -> str:
     """``YYYY-MM-DDTHH:MM`` on the watch's clock at ``moment`` (UTC assumed where no offset is known)."""
     local = moment.astimezone(datetime.timezone.utc) + datetime.timedelta(seconds=offsets.offset_at(moment) or 0)
@@ -370,7 +379,8 @@ def live_day(conn: sqlite.Connection, day: str) -> dict:
             f"SELECT start_utc, end_utc FROM raw_records WHERE stream IN ({','.join('?' * len(streams))}) "
             "AND start_utc IS NOT NULL AND end_utc IS NOT NULL ORDER BY start_utc, end_utc", streams):
         first, last = parse_iso_utc(start), parse_iso_utc(end)
-        if offsets.local_date(first) != day and offsets.local_date(last) != day:
+        days = _span_days(offsets, first, last)
+        if days is None or day not in days:
             continue
         if sessions and first <= sessions[-1][1]:
             sessions[-1][1] = max(sessions[-1][1], last)

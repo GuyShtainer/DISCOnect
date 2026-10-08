@@ -266,7 +266,15 @@ def test_a_reading_at_the_last_accepted_stamp_reads_back_at_a_plus_14_hour_offse
         assert [(s["start_utc"], s["end_local"]) for s in day["sessions"]] == [
             ("9998-12-31T23:59:59Z", "9999-01-01T13:59")]
         assert [(m["metric"], m["minutes"]) for m in day["metrics"] if m["minutes"]] == [("heart_rate", 1)]
+        assert len(day["sessions"]) == 1
         assert health.data_health(conn)["live"]["last_day"] == "9999-01-01"
+    # a store written before the bound was lowered may hold a span past it: data.live skips it instead of failing
+    with storage.open_for_write(db, "test") as conn:
+        conn.execute("UPDATE raw_records SET start_utc='9999-12-31T23:59:59Z', end_utc='9999-12-31T23:59:59Z' "
+                     "WHERE stream='json:live'")
+    with storage.open_read_only(db) as conn:
+        assert queries.live_day(conn, "9999-01-01")["sessions"] == []
+        assert queries.live_day(conn, "2025-06-15")["sessions"] == []
 
 
 def test_the_contract_names_the_scope_and_every_scope_has_a_chart_colour():
