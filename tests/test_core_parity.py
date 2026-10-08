@@ -1,4 +1,4 @@
-"""Rust core (projects/disconect-core) parity with the Python core: shared DDL and a shared encrypted store.
+"""Rust core (disconect-core, the Rust twin, developed beside this package; not in this repository) parity with the Python core: shared DDL and a shared encrypted store.
 
 (a) always: the Rust crate's ``sql/v{1,2,3}.sql`` are byte-identical to ``migrations._V1/_V2/_V3``.
 (b) when the debug binary exists: Python makes an encrypted store and Rust reads it; Rust ``init``
@@ -252,7 +252,7 @@ def test_synthetic_export_imports_identically(tmp_path, form):
 
 
 def test_core_diff_never_accepts_a_rust_null_as_an_enum_name():
-    """Opus review of slice 2: ``dict.get`` of an unknown pair is None, so P-text vs R-NULL used to
+    """Review finding: ``dict.get`` of an unknown pair is None, so P-text vs R-NULL used to
     vanish into the newer-profile allowance; the allowance is for a verified name only."""
     core_diff = monorepo.harness("core_diff")
 

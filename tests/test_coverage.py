@@ -271,7 +271,7 @@ def test_half_hour_zone_samples_land_on_their_local_day(db_path):
     conn.close()
 
 
-# ---- completeness (7b-12) --------------------------------------------------------------------
+# ---- completeness --------------------------------------------------------------------
 
 def _minutes(conn, raw, metric, start, end, step_s=60, scope="device"):
     """One reading of ``metric`` every ``step_s`` from ``start`` up to (excluding) ``end``."""
@@ -394,7 +394,7 @@ def test_completeness_day_bounds_never_step_back(db_path):
 
 
 def test_calendar_is_one_pass_of_statuses_and_completeness(db_path):
-    """7b-13: `calendar` is what `metric_calendar` reads; it must equal the two projections it replaced."""
+    """`calendar` is what `metric_calendar` reads; it must equal the two projections it replaced."""
     with storage.open_for_write(db_path, "test") as conn:
         first = _raw(conn, "fit:monitoring_b", "2025-06-01T00:00:00Z", "2025-06-03T00:00:00Z")
         _minutes(conn, first, "heart_rate", _utc(1), _utc(1, 12))
@@ -409,7 +409,7 @@ def test_calendar_is_one_pass_of_statuses_and_completeness(db_path):
 
 
 def test_a_midnight_hour_reads_its_samples_through_the_index(db_path):
-    """7b-13 review: on a half-hour-zone watch the UTC hour that holds local midnight is resolved per sample;
+    """Review: on a half-hour-zone watch the UTC hour that holds local midnight is resolved per sample;
     that read searches the sample index on the hour's range (``substr`` alone walked every row of the metric,
     ~11 s for a year of minutes) and still puts each sample of one pair on its own local day (twin of the
     Rust vector)."""
@@ -433,7 +433,7 @@ def test_a_midnight_hour_reads_its_samples_through_the_index(db_path):
 
 
 def test_completeness_dst_night_twin(db_path):
-    """7b-12 review, minor: the day bounds read the offset nearest to each UTC midnight while a reading is
+    """Review: the day bounds read the offset nearest to each UTC midnight while a reading is
     dated by the offset nearest to itself, so with an offset moment between a reading and the UTC midnight
     the reading's worn seconds can land on the day next to the one its value averages into. Pinned here
     on a spring-forward night (+1 h at 01:00Z) with a file that starts an hour before the change and a

@@ -1,8 +1,8 @@
-"""Pure functions of the pairing protocol (ADR 0011 as amended by 12-G: protocol v2, Bets 12-E and 12-G).
+"""Pure functions of the pairing protocol (ADR 0011 as amended: protocol v2).
 
 This module is the independent oracle of the Rust implementation (``disconect-core``'s ``pair``): it was
-written from the text of ADR 0011 and the 12-E / 12-G pitches only, so a shared misreading cannot hide, and its
-known-answer vectors are pinned in ``docs/kb/24-wire-constants.md``. The Python core runs no pairing
+written from the text of ADR 0011 and the pairing design notes only, so a shared misreading cannot hide, and its
+known-answer vectors are pinned by ``tests/test_wire_constants.py`` and the Rust twin's tests. The Python core runs no pairing
 (ADR 0003: what is wire-pure is twinned, what is a server is not), so nothing here touches a network,
 a file or a clock; every function maps bytes to bytes. Offer text is a QR-photo-grade secret: no error
 message ever contains it.
@@ -30,7 +30,7 @@ LABEL_CONFIRM = b"disconect/pair/v2/confirm"
 LABEL_OFFERER = b"disconect/pair/v2/offerer"
 LABEL_SAS = b"disconect/pair/v2/sas"
 LABEL_PAYLOAD = b"disconect/pair/v2/payload"
-#: The commitment's domain: ``c = SHA-256(LABEL_COMMIT || N_o)`` (12-G).
+#: The commitment's domain: ``c = SHA-256(LABEL_COMMIT || N_o)``.
 LABEL_COMMIT = b"disconect/pair/v2/commit"
 MSG_CONFIRM = b"confirm"
 MSG_OFFERER = b"offerer"
@@ -153,7 +153,7 @@ def _label_ok(label: str) -> bool:
 
 
 def _host_ok(host: str) -> bool:
-    """kb/24 offer URL grammar: an IPv4 address, a bracketed IPv6 address or a lowercase hostname."""
+    """Offer URL grammar: an IPv4 address, a bracketed IPv6 address or a lowercase hostname."""
     if host.startswith("["):
         return host.endswith("]") and _ipv6_ok(host[1:-1])
     if host and set(host) <= set("0123456789."):
@@ -166,7 +166,7 @@ def _port_ok(port: str) -> bool:
 
 
 def _check_url(url: object) -> str:
-    """The offer URL is exactly ``http://`` host ``:`` port (kb/24 § offer URL grammar), nothing else."""
+    """The offer URL is exactly ``http://`` host ``:`` port, nothing else."""
     rest = url[len("http://"):] if isinstance(url, str) and url.startswith("http://") else None
     host, _, port = rest.rpartition(":") if rest is not None else ("", "", "")
     if rest is None or not _port_ok(port) or not _host_ok(host):

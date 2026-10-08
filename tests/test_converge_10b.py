@@ -1,4 +1,4 @@
-"""Bet 10b: daily rows are a pure function of the converged raw set.
+"""Daily rows are a pure function of the converged raw set.
 
 Devices that imported different account exports converge on raw records through the relay; these
 tests hold that the *daily facts* converge too, in every arrival order, and that
@@ -424,7 +424,7 @@ def test_a_kill_inside_the_import_rederive_is_healed_by_the_retry(tmp_path, monk
 
 # ---------------------------------------------------------------- a known class, pinned
 def test_a_damaged_local_record_is_repaired_from_the_relays_copy_before_the_pull_decides(tmp_path):
-    """Was the pinned known class "relay repairs a damaged local copy" (BACKLOG, 10b review); DONE 2026-10-05.
+    """Was the pinned known class "relay repairs a damaged local copy" (fixed 2026-10-05).
 
     A raw record whose stored bytes no longer inflate to their hash is kept (decode-before-delete), a peer
     never pushes a pulled record back, and ``reparse_all`` cannot heal it from the damaged bytes alone. The

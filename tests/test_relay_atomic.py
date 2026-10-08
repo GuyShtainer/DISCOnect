@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Bet 12a: the relay's conflict write is one transaction, and a storage error is an error.
+"""The relay's conflict write is one transaction, and a storage error is an error.
 
 A conflict winner used to be written in three commits (decision, loser delete, winner insert); a storage
 error on the last one left the loser gone, turned into ``FAILED`` and still marked the bundle ``applied``,
@@ -112,7 +112,7 @@ def test_failed_loser_record_leaves_no_transaction_open(tmp_path):
 
 
 
-# ---- opus review of 12a: F1-F5 ------------------------------------------------------------------
+# ---- review fixes F1-F5 ------------------------------------------------------------------
 
 def _rec(day: str, steps: int, end_hour: str) -> dict:
     record = _uds(day, steps, 50)

@@ -1,4 +1,4 @@
-"""Frozen wire constants (docs/kb/24-wire-constants.md): known-answer vectors and verbatim strings.
+"""Frozen wire constants: known-answer vectors and verbatim strings.
 
 These strings are inputs to key derivation, AEAD associated data and file formats. They stay
 ``hearthbeat`` forever, whatever the product is called: changing one makes every existing store,
@@ -41,7 +41,7 @@ FROZEN = [
 ]
 PYTHON_SRC = pathlib.Path(keys.__file__).resolve().parents[1]
 
-#: Pairing labels (Bet 12-E, v2 since 12-G): the Python oracle (pair.py) and the Rust module (src/pair.rs) hold them verbatim.
+#: Pairing labels (v2): the Python oracle (pair.py) and the Rust module (src/pair.rs) hold them verbatim.
 PAIR_LABELS = [
     "disconect-pair:v2.",
     "disconect/pair/v2",
@@ -99,12 +99,12 @@ def test_known_answer_relay_bundle(master):
     assert digest.hexdigest() == meta["payload_sha256"]
 
 
-# ---- the LAN relay token (Bet 12 slice B): a Rust-only label, held by an independent computation ----
+# ---- the LAN relay token: a Rust-only label, held by an independent computation ----
 
 LAN_LABEL = "disconect/lan/v1/token"
 LAN_MASTER = bytes(range(1, 33))
 LAN_TOKEN_KEY = "fb82fb73a463f5df7439df5e66c64e3731a8d8c7e7e6b07ea5715b54c7822350"
-# header = v1.<timestamp>.<pre>.<tag>. The tags are the vectors committed with slice 12-B and are unchanged;
+# header = v1.<timestamp>.<pre>.<tag>. The tags are the vectors committed with the LAN relay and are unchanged;
 # the pre-tags (over the declared Content-Length, checked before any body byte is read) came with the review fix.
 LAN_PUT_TAG = "2011a51d77be5327a5f5018eb22c266c5f137a1a3c4586f1f2617c8c51f6d060"
 LAN_GET_TAG = "71e67dc1ec1cefcf4692eabba5cbd8f4940fa4e97f7c4a18479fc7d15b194d62"

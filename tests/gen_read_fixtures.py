@@ -5,7 +5,7 @@
     python tests/gen_read_fixtures.py --check     # exit 1 when the committed file is not what this makes today
     python tests/gen_read_fixtures.py --build-store   # (re)build tests/fixtures/read/wide.hbdb (committed once)
 
-Bet 11e, slice 1. The MCP server answers four read paths: ``queries.metric_series``, ``queries.sleep_detail``,
+The MCP server answers four read paths: ``queries.metric_series``, ``queries.sleep_detail``,
 ``queries.list_activities`` and ``insight.period_facts`` with its options (``end_date``, ``metrics``,
 ``source_scope``, ``include_points``). This calls the Python functions **directly** (no MCP) over the committed
 stores and records, per case, ``{store, fn, args, result}``: the value after ``identity.neutral``, exactly what
@@ -14,7 +14,7 @@ A call that raises ``ValueError`` or ``OverflowError`` is ``result = {"error": <
 ``ValueError`` text becomes a ``ToolError`` text over MCP, an ``OverflowError`` (no usable text) becomes
 ``Error executing tool <name>``. ``parse_day`` and ``_window`` are recorded on their own (``store`` null).
 
-Pins, as for the MCP transcripts: ``DISCONECT_NOW`` (``tools/mcp_diff.NOW``) and ``TZ=Pacific/Chatham`` for the
+Pins, as for the MCP transcripts: ``DISCONECT_NOW`` (``tools/mcp_diff.NOW``; the two-core differential harness is not in this repository) and ``TZ=Pacific/Chatham`` for the
 block only. Stores: the committed serve stores (current schema, schema v1, never imported), the privacy-test seed
 store, and ``wide.hbdb`` (synthetic too: 25 activities, sleep nights with absent columns, a float in an INTEGER
 column, a retro night, a long stage timeline, 14 months of a daily metric and a sample metric, a daily metric of tiny floats), which exists so

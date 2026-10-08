@@ -300,7 +300,7 @@ def test_an_idle_running_program_refuses_the_move_and_touches_nothing(tmp_path, 
     before = _names(db.parent)
     proc = _named_sleeper(tmp_path, name)
     # the refusal names the lowest pid of ours that is running, and a sibling session's real core or app may come
-    # before the sleeper: keep the real pgrep detection but let only the launched pid through (BL-1 review)
+    # before the sleeper: keep the real pgrep detection but let only the launched pid through
     monkeypatch.setattr(migrate_home, "running_programs",
                         lambda own_pid=None: [p for p in REAL_RUNNING_PROGRAMS(own_pid) if p[1] == proc.pid])
     try:

@@ -99,7 +99,7 @@ def _round(value: float | None, digits: int = 2) -> float | None:
 def _latest_stored_date(conn: sqlite.Connection, scopes: tuple[str, ...] | None = None) -> str | None:
     """The newest stored day: dailies or non-live samples -- a live-link session today must not move
     every device fact's window. Asked for session scopes only, the newest day of those scopes instead
-    (else a session newer than the last cable sync could never be asked for; 9b-2 review S1)."""
+    (else a session newer than the last cable sync could never be asked for; found in review)."""
     if scopes and all(scope in contract.SESSION_SCOPES for scope in scopes):
         marks = ",".join("?" * len(scopes))
         return conn.execute(f"SELECT MAX(substr(ts_utc, 1, 10)) FROM metric_samples WHERE source_scope IN ({marks})",
@@ -175,7 +175,7 @@ def period_facts(conn: sqlite.Connection, window_days: int = DEFAULT_WINDOW_DAYS
     baseline_days = max(1, min(int(baseline_days), MAX_BASELINE_DAYS))
     if source_scope is not None and source_scope not in contract.SOURCE_SCOPES:
         raise ValueError(f"source_scope must be one of {contract.SOURCE_SCOPES}")
-    # a session scope (live) answers only when asked for: a link's minutes never shape the default facts (9b-2)
+    # a session scope (live) answers only when asked for: a link's minutes never shape the default facts
     scopes = (source_scope,) if source_scope else contract.DEFAULT_FACT_SCOPES
     if end_date:
         queries.parse_day(end_date, "end_date")

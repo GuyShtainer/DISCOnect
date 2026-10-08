@@ -39,7 +39,7 @@ class WriteLockBusy(Exception):
 
 def lock_path_for(db_path: pathlib.Path) -> pathlib.Path:
     """Sidecar lock file next to the database, named after the store's path with symlinks resolved: a symlinked
-    store *name* then gets the same lock file as the name it points to (7b-10 review N6; the Rust core resolves
+    store *name* then gets the same lock file as the name it points to (review: the Rust core resolves
     the same way). A dangling link is followed too (SQLite follows it and creates the target); a store that does
     not exist yet and is no link is taken as spelled; a symlinked folder needs no resolving (both spellings open
     the one lock file); a hard link cannot be resolved by path."""

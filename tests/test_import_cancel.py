@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""BL-3 review N8: ``import_path(cancel=)`` per phase — what is read, what is skipped, what is still derived.
+"""Review: ``import_path(cancel=)`` per phase — what is read, what is skipped, what is still derived.
 
 Twin of ``disconect-core/tests/import_cancel_test.rs``. Synthetic data only.
 """

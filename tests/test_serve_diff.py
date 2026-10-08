@@ -1,4 +1,4 @@
-"""The two-core differential harness (``tools/serve_diff.py``) tests itself, and the oracle it feeds.
+"""The two-core differential harness (``tools/serve_diff.py``, not in this repository) tests itself, and the oracle it feeds.
 
 * the tagged-tree comparison tells ``1``, ``1.0`` and ``True`` apart and names a JSON path, never a value;
 * the copied privacy constants have not drifted from ``test_privacy``;
@@ -114,7 +114,7 @@ def test_the_script_covers_every_protocol_method_and_the_malformed_line_classes(
     methods = {e["send"]["method"] for e in entries if "send" in e}
     assert set(serve.METHODS) - serve_diff.PHONE_ONLY <= methods and serve_diff.DEFERRED <= methods
     assert not serve_diff.PHONE_ONLY & methods, "a phone-only method is never sent: on a phone build it would erase the store"
-    assert serve_diff.DEFERRED == set(), "slice 3D ported the last deferred methods"
+    assert serve_diff.DEFERRED == set(), "the last deferred methods are ported"
     names = " ".join(e["name"] for e in entries)
     for needle in ("not JSON", "JSON array", "id: missing", "params null", "unknown method", "id: beyond u64",
                    "NaN in params", "bare CR", "empty line"):
@@ -280,10 +280,10 @@ def test_the_gate_passes_on_the_committed_synthetic_stores(capsys, store, label,
     assert "post-import core_diff: 0 differing rows" in report and "import leg run_id equal: 8/8" in report
     assert "sync leg: 129 steps" in report and "identical 129, differing 0" in report
     assert "sync.run results: python 7, rust 7" in report and "post-sync core_diff: 0 differing rows" in report
-    # BL-7 review blocker: a step that removes relay.json turns every later bad_params check into not_found on both
+    # Review blocker: a step that removes relay.json turns every later bad_params check into not_found on both
     # cores (identical, so the diff stays 0) — the code histogram pins the mix the leg must answer
     assert "sync leg Rust error codes: None 38, bad_params 66, busy 5, locked 3, not_folder 1, not_found 6, pair_failed 10" in report
-    assert "site leg: 8 pair.join steps beside no store, identical 8, differing 0" in report      # 12-H (d)
+    assert "site leg: 8 pair.join steps beside no store, identical 8, differing 0" in report
     assert "prefix passed (unsupported_transport) python 4, rust 4, expected 4" in report
     assert "site leg stores created: python False, rust False" in report
     assert "booked (named allowance, Rust bad_params): 0" in report
@@ -306,7 +306,7 @@ def test_inproc_excludes_the_other_binary_switches(capsys):
     (STORE_EMPTY, "synthetic-never-imported"),
 ])
 def test_the_gate_passes_through_the_apps_in_process_core(capsys, store, label):
-    """Bet 12a: the app's in-process thread (examples/inproc_serve.rs) is byte-for-byte the sidecar's protocol."""
+    """The app's in-process thread (examples/inproc_serve.rs) is byte-for-byte the sidecar's protocol."""
     status = serve_diff.main(["--db", str(store), "--label", label, "--anchors-from", str(STORE), "--inproc"])
     report = capsys.readouterr().out
     assert status == 0, report

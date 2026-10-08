@@ -25,7 +25,7 @@ def _counting_load(loads: list, real_load):
 
 
 def test_data_health_loads_the_clock_offsets_once(db_path, monkeypatch):
-    """The live block, local_today and the coverage ledger share one load of clock_offsets (BL-9 review row;
+    """The live block, local_today and the coverage ledger share one load of clock_offsets (review;
     the Rust core passes the one load the same way), and that load is the object they use: a watch +3 h
     at 22:00Z makes "today", the ledger window's last day, the next date."""
     from disconect.ingest.clock import ClockOffsets
@@ -78,7 +78,7 @@ def _runs(db_path, transports):
 
 def test_recent_imports_list_the_newest_sweep_beside_five_runs_of_the_other_transports(db_path):
     """A live link ends with a `ble` sweep of the readings folder; listed like any run, the sweeps would
-    push the USB and export runs out of the five-row list within a day (9b review N8)."""
+    push the USB and export runs out of the five-row list within a day."""
     _runs(db_path, ["usb", "connect_export", "ble", "usb", "ble", "drop", "usb", "ble", "usb", "ble", "ble"])
     conn = storage.open_read_only(db_path)
     runs = health.data_health(conn, 30)["recent_imports"]

@@ -1,4 +1,4 @@
-"""Bet 9b slice 2 gate: live-link files import identically on the Python and the Rust core.
+"""Gate: live-link files import identically on the Python and the Rust core.
 
 ``core_diff`` must report 0 between a Python-imported and a Rust-imported scratch store in four orders:
 (a) live only, (b) live then FIT, (c) FIT then live, (d) import-last vs pull-last through the folder relay.

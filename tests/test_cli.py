@@ -31,7 +31,7 @@ def test_import_status_contract_round_trip(tmp_path, db_path, capsys):
     code, out, _ = _run(["--db", str(db_path), "--json", "import", str(root)], capsys)
     payload = json.loads(out)
     assert code == cli.EXIT_OK and payload["status"] == "ok" and payload["files_imported"] == 0
-    assert sorted(payload) == IMPORT_JSON_KEYS, "the Rust CLI's key set (relay_cli_test.rs); `cancelled` is serve-only (BL-3)"
+    assert sorted(payload) == IMPORT_JSON_KEYS, "the Rust CLI's key set (relay_cli_test.rs); `cancelled` is serve-only"
 
     code, out, _ = _run(["--db", str(db_path), "--json", "status", "--days", "3650"], capsys)
     report = json.loads(out)

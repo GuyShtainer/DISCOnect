@@ -1,4 +1,4 @@
-"""Live-link session files (``live-*.jsonl``) as one retained raw record each, and the fold (bet 9b-2).
+"""Live-link session files (``live-*.jsonl``) as one retained raw record each, and the fold.
 
 A live file holds one JSON object per line: a reading ``{"t": unix seconds, "metric": str,
 "value": int}`` or a status line (a ``status`` or ``stop`` key). The record keeps the readings
@@ -41,7 +41,7 @@ VALUE_LIMIT = 2 ** 63
 
 #: Exclusive upper bound of a reading's ``t`` (unix seconds, 9999-01-01Z): a millisecond stamp falls outside, and
 #: a year of headroom keeps every local-day conversion inside the calendar for any clock offset within a year
-#: (the offset itself is unbounded today: BACKLOG).
+#: (the offset itself is unbounded today: a known limit).
 T_LIMIT = 253370764800
 
 

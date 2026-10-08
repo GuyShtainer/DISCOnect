@@ -1,4 +1,4 @@
-"""The language-neutral MCP description the Rust core loads (``projects/disconect-core/mcp.json``).
+"""The language-neutral MCP description the Rust core loads (``disconect-core/mcp.json``; disconect-core is the Rust twin, developed beside this package, not in this repository).
 
 The live Python server is the source: ``tests/gen_mcp_fixtures.py`` runs it, measures what it serves and
 answers, and this test demands the committed file be byte-identical. A change to a tool, a text, a clamp or the
@@ -43,7 +43,7 @@ def test_what_the_rust_mcp_relies_on_is_in_the_file():
 
 
 def test_the_file_names_no_manufacturer():
-    """ADR 0001: the descriptions, instructions and conventions the file carries are the scrubbed ones."""
+    """The descriptions, instructions and conventions the file carries are the scrubbed ones."""
     text = gen_mcp_fixtures.MCP_JSON.read_text(encoding="utf-8")
     assert not re.search("garmin", text, re.IGNORECASE)
     assert identity.VENDOR_PLACEHOLDER in text

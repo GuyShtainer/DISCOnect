@@ -14,7 +14,7 @@ named by the key id (opt-in, holds the master key) -> a passphrase prompt only
 when both stdin and stderr are terminals. Nothing here ever prints or logs key
 material; the words are shown once by ``key init`` and only to a terminal.
 
-Format pinned for the Rust core (Bet 11) and the phone app (Bet 12): standard
+Format pinned for the Rust core and the phone app (both developed separately): standard
 base64 with padding, fixed AAD bytes (never re-serialised JSON), NFC-normalised
 passphrases, Argon2id version 0x13 with parallelism 1 (libsodium's constraint).
 """
@@ -49,7 +49,7 @@ KEYS_ENV = "DISCONECT_KEYS"
 KEY_FILE_SUFFIX = ".keys.json"
 NEXT_SUFFIX = ".next"          # a rotation in progress: the key the database is being moved to
 RECOVERY_WORDS_ENV = "DISCONECT_RECOVERY_WORDS"
-KEYCHAIN_SERVICE = identity.CLI_KEYCHAIN_SERVICE   # the Rust core uses its own (kb/23 class 5)
+KEYCHAIN_SERVICE = identity.CLI_KEYCHAIN_SERVICE   # the Rust core uses its own (macOS binds a keychain item to the program that made it)
 MIN_PASSPHRASE_CHARS = 12
 PURPOSE_PASSPHRASE = "passphrase"
 

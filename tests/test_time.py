@@ -1,4 +1,4 @@
-"""7b-14: `parse_iso_utc` takes a fast path for the store's exact shape and behaves exactly like `strptime` otherwise."""
+"""`parse_iso_utc` takes a fast path for the store's exact shape and behaves exactly like `strptime` otherwise."""
 
 from __future__ import annotations
 

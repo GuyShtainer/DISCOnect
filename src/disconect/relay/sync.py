@@ -1,4 +1,4 @@
-"""Push and pull: what crosses the relay and how it is applied (pitch 10 v2).
+"""Push and pull: what crosses the relay and how it is applied.
 
 Push  = every raw record and export range not yet marked in ``relay_seen`` / ``relay_seen_ranges``
         (pushed or received: pulled rows keep their origin transport, so the marks alone stop echoes) → one bundle (split at ~8 MB of payload) → ``relay.put``.
@@ -185,7 +185,7 @@ class SiteSpec:
     create_root: bool = False   # a missing root is opened anyway and the first put creates it (the entry this device serves)
     label: str = ""             # the entry's label; echoed in the site's report
     check_address: bool = False   # a ``lan`` address must also pass the pairing joiner's class: set for per-call entries
-    not_auto: bool = False        # a ``lan`` site of an ``auto`` run (19a): reported ``not_auto``, never opened
+    not_auto: bool = False        # a ``lan`` site of an ``auto`` run: reported ``not_auto``, never opened
 
     @classmethod
     def from_entry(cls, entry: relay_config.RelayEntry) -> SiteSpec:
@@ -757,7 +757,7 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
                     result.rejected[name] = reason
                     writer.stats.files_failed += 1
                     if name in half_applied:
-                        # BL-5b: a half-applied bundle keeps its marker, so a good copy re-derives it
+                        # a half-applied bundle keeps its marker, so a good copy re-derives it
                         conn.execute("UPDATE relay_bundles SET noted_at=?, reason=? WHERE name=?",
                                      (utc_now_iso(), reason, name))
                     else:
@@ -770,7 +770,7 @@ def _pull_core(conn: sqlite.Connection, master: bytes, relays: list[Target], rep
             blob, (header, records, ranges) = fetched
             if name in half_applied:
                 # a crash cut the previous pull before its derive step: its records are in, the derived
-                # rows may not be — re-derive those streams in full (the pitch's breaker path)
+                # rows may not be — re-derive those streams in full (the breaker path)
                 reparse_streams.update(r["stream"] for r in records)
             conn.execute("INSERT OR REPLACE INTO relay_bundles(name, direction, status, noted_at, bytes, records) "
                          "VALUES(?, 'pulled', 'applying', ?, ?, ?)", (name, utc_now_iso(), len(blob), len(records)))

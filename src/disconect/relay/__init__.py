@@ -1,4 +1,4 @@
-"""The blind relay (ADR 0005, pitch 10): encrypted raw-record bundles between the user's devices.
+"""The blind relay (ADR 0005): encrypted raw-record bundles between the user's devices.
 
 The relay is a dumb object store the user already controls (a folder that WebDAV, rsync or
 Syncthing carries). It sees only ciphertext under an account id derived from the master key:

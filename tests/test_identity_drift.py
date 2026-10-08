@@ -1,6 +1,6 @@
 """One product identity in three languages: the Python core, the desktop UI and the Rust core must agree.
 
-ADR 0001's mitigations (a cheap rename, one notice, no manufacturer marks) only hold while
+The naming mitigations (a cheap rename, one notice, no manufacturer marks) only hold while
 ``identity.py``, ``disconect-app/src/identity.ts`` and ``disconect-core/src/identity.rs`` say the same
 thing, and while the Rust manufacturer scrub is the pattern ``serve.py`` really applies.
 """
@@ -56,7 +56,7 @@ def test_the_keychain_service_names_differ_on_purpose():
     """The Rust core and the Python core (so the MCP) keep separate keychain items.
 
     A generic password is unique per (service, account) and macOS binds it to the program that made it,
-    so a shared service would make the two cores evict or lock out each other's item (11d keychain matrix).
+    so a shared service would make the two cores evict or lock out each other's item.
     """
     from disconect.storage import keys
 
@@ -66,7 +66,7 @@ def test_the_keychain_service_names_differ_on_purpose():
 
 
 def test_the_coach_keychain_service_is_a_third_name_in_all_three_files():
-    """The in-app coach's provider key lives under its own service (Bet 15, slice 4)."""
+    """The in-app coach's provider key lives under its own service."""
     assert identity.COACH_KEYCHAIN_SERVICE == "disconect-coach"
     assert _ts_const("COACH_KEYCHAIN_SERVICE") == _rs_const("COACH_KEYCHAIN_SERVICE") == identity.COACH_KEYCHAIN_SERVICE
     assert identity.COACH_KEYCHAIN_SERVICE not in (_rs_const("KEYCHAIN_SERVICE"), identity.CLI_KEYCHAIN_SERVICE)
@@ -124,11 +124,11 @@ def test_mcp_instructions_carry_the_product_name_and_no_manufacturer():
 
     assert mcp_server.INSTRUCTIONS.startswith(f"{identity.PRODUCT} serves one person's watch health data")
     assert mcp_server.server.name == identity.MCP_SERVER_NAME
-    assert not identity.MANUFACTURER.search(mcp_server.INSTRUCTIONS.split("\n")[0]), "ADR 0001: no vendor name"
+    assert not identity.MANUFACTURER.search(mcp_server.INSTRUCTIONS.split("\n")[0]), "no vendor name"
 
 
 def test_the_disclaimer_is_the_claims_policys_first_allowed_sentence():
-    """The policy file, the three identity modules and the lint's allowlist carry one sentence (Bet 15)."""
+    """The policy file, the three identity modules and the lint's allowlist carry one sentence."""
     policy = (ROOT / "disconect" / "CLAIMS-POLICY.md").read_text()
     allow = re.search(r"^```allow\n(.*?)^```", policy, re.S | re.M).group(1).splitlines()
     assert allow[0] == identity.DISCLAIMER == _ts_const("DISCLAIMER") == _rs_const("DISCLAIMER")

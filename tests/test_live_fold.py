@@ -1,4 +1,4 @@
-"""Bet 9b-2: the live fold -- ``json:live`` records thinned into ``live``-scope samples, a pure function of the raw set."""
+"""The live fold -- ``json:live`` records thinned into ``live``-scope samples, a pure function of the raw set."""
 
 import datetime
 import json
@@ -73,7 +73,7 @@ def test_sentinels_follow_the_fit_decoder_and_steps_and_unknown_metrics_are_igno
 
 def test_a_value_past_i64_makes_the_file_not_live_on_this_core_too(tmp_path, sessions):
     """Rust's JSON parser refuses integers past i64; the oracle must agree, or one such file would
-    fold here and not there -- and, before the 9b-2 review (M1), crash every later import."""
+    fold here and not there -- and, before a review fix, crash every later import."""
     a_dir, _b_dir = sessions
     huge = tmp_path / "huge"
     huge.mkdir()
@@ -323,7 +323,7 @@ def test_reads_at_the_calendar_ends_answer_empty_instead_of_overflowing(tmp_path
         assert coverage.fetch_window(datetime.date(9999, 12, 29), datetime.date(9999, 12, 29)) == (
             "9999-12-28", "9999-12-31")
     # the completeness day bounds: the midnight after 9999-12-31, and a local midnight before year 1 under a
-    # positive offset, are plain integers (the opus review of 1e2d688 found `data.metric` at 9999-12-31 still internal)
+    # positive offset, are plain integers (a review found `data.metric` at 9999-12-31 still internal)
     with storage.open_for_write(db, "test") as conn:
         conn.execute("INSERT INTO clock_offsets(ts_utc, offset_s) VALUES('2025-06-01T12:00:00Z', 45900)")
     with storage.open_read_only(db) as conn:
@@ -332,7 +332,7 @@ def test_reads_at_the_calendar_ends_answer_empty_instead_of_overflowing(tmp_path
 
 
 def test_a_window_that_would_start_before_the_calendar_is_shortened():
-    """Lower-end `date − n` row (BACKLOG 2026-10-08): `coverage.earlier` cuts at 0001-01-01 instead of raising
+    """Lower end of `date − n` (2026-10-08): `coverage.earlier` cuts at 0001-01-01 instead of raising
     OverflowError, so `data.metric`, the MCP windows, the insight bounds and the coverage ledger answer at
     the calendar's start (Rust twin: live_fold_test.rs; the served answers are pinned by the serve steps at
     0001-01-0x and the read_paths cases)."""

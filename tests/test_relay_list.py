@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Bet 19d: a device with several relays (the Python twin of ``disconect-core/tests/relay_list_test.rs``). A push lands
+"""A device with several relays (the Python twin of ``disconect-core/tests/relay_list_test.rs``). A push lands
 on every site, an emptied site is healed from the store, a pull is the union of the listings with a fall-through to
 the next site, and ``open_sites`` reports what it could not open. Synthetic data only, scratch stores."""
 
@@ -77,7 +77,7 @@ def test_the_list_form_wins_and_every_malformed_case_reads_as_nothing(tmp_path):
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a"}, {"id": "ab", "kind": "folder", "path": "/b"}]}',
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "serve": true},'
         ' {"id": "cd", "kind": "folder", "path": "/b", "serve": true}]}',
-        # what the Rust core's JSON reader refuses (BL-8): a lone surrogate escape, NaN/Infinity, a number beyond f64
+        # what the Rust core's JSON reader refuses: a lone surrogate escape, NaN/Infinity, a number beyond f64
         '{"relays": [{"id": "ab", "kind": "folder", "path": "\\ud800"}]}',
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": NaN}]}',
         '{"relays": [{"id": "ab", "kind": "folder", "path": "/a", "x": -Infinity}]}',
@@ -112,7 +112,7 @@ def test_the_list_form_wins_and_every_malformed_case_reads_as_nothing(tmp_path):
 
 
 def test_a_lan_url_is_trimmed_of_white_space_only_like_the_rust_core(tmp_path):
-    """BL-8: ``str.strip()`` would also remove U+001C–U+001F and read a url the Rust core's ``trim`` refuses."""
+    """``str.strip()`` would also remove U+001C–U+001F and read a url the Rust core's ``trim`` refuses."""
     assert relay_config.lan_base_url(" http://10.0.0.1:1 ") == "http://10.0.0.1:1"
     assert relay_config.lan_base_url("\u3000http://10.0.0.1:1\n") == "http://10.0.0.1:1"
     for bad in ("\x1fhttp://10.0.0.1:1", "http://10.0.0.1:1\x1c", "\x00http://10.0.0.1:1"):
@@ -354,7 +354,7 @@ def test_a_pull_falls_through_a_bad_copy_to_the_next_site_and_applies_each_name_
     assert sorted(pulled.applied) == sorted([shared, lonely]), pulled
     assert pulled.rejected == {}, "a bad copy on one site is not a rejection"
     assert pulled.status == "ok"
-    # BL-4b: the counter marks a site only when the name ends rejected; a copy another site satisfied marks nothing
+    # the counter marks a site only when the name ends rejected; a copy another site satisfied marks nothing
     assert (reports[0].rejected, reports[0].pulled) == (0, 0)
     assert (reports[1].rejected, reports[1].pulled) == (0, 2)
     assert _count(b, "SELECT count(*) FROM relay_bundles WHERE status='rejected'") == 0
@@ -709,7 +709,7 @@ def test_sync_push_and_pull_run_over_the_whole_list_and_print_a_line_per_site(tm
     assert os.environ["DISCONECT_DB"] == str(db)
 
 
-# ---------------------------------------------------------------- 19d review fixes (twin of the Rust core's)
+# ---------------------------------------------------------------- review fixes (twin of the Rust core's)
 def test_heal_ignores_a_stale_account_row(tmp_path):
     roots = _three_roots(tmp_path)
     a = _device(tmp_path, "a")
@@ -923,7 +923,7 @@ def test_relay_json_is_written_atomically_with_a_private_parent(tmp_path):
 
 
 def test_a_half_applied_name_rejected_on_refetch_is_held_like_a_rejected_one(tmp_path):
-    """BL-5 review: the marker kept by BL-5b carries the reason, so the automatic run does not fetch a damaged
+    """Review: the marker kept carries the reason, so the automatic run does not fetch a damaged
     half-applied copy on every tick; a click still does, and a good copy's booking clears the reason."""
     roots = _three_roots(tmp_path)
     a = _device(tmp_path, "a")

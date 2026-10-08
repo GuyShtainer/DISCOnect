@@ -131,7 +131,7 @@ def scenarios() -> dict[str, bytes]:
     return out
 
 
-# Inputs that are not FIT files, kept byte-exact. ``hdr255`` is the one the Bet 12 review found to panic
+# Inputs that are not FIT files, kept byte-exact. ``hdr255`` is the one review found to panic
 # fitparser: a 14-byte header that declares ``header_size = 255`` with a nonzero header CRC (fitparser slices
 # ``input[0..253]`` before it consults ``SkipHeaderCrcValidation``). The Python decoder does not panic; it
 # answers ``unrecognized_payload``, the same kind the Rust ``catch_unwind`` maps the panic to.

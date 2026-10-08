@@ -1,4 +1,4 @@
-"""The language-neutral contract file the Rust core loads (`projects/disconect-core/contract.json`).
+"""The language-neutral contract file the Rust core loads (`disconect-core/contract.json`; disconect-core is the Rust twin, developed beside this package, not in this repository).
 
 Python's live tables are the source. This test serialises them and demands the committed file be
 byte-identical, so a contract change is one deliberate act: edit the Python, run
@@ -91,7 +91,7 @@ def test_the_snapshot_is_not_empty_where_the_rust_core_relies_on_it():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Print or rewrite projects/disconect-core/contract.json.")
+    parser = argparse.ArgumentParser(description="Print or rewrite disconect-core/contract.json.")
     parser.add_argument("--write", action="store_true", help="rewrite the committed file from the live tables")
     if parser.parse_args().write:
         CONTRACT_FILE.write_text(rendered(), encoding="utf-8")

@@ -1,4 +1,4 @@
-"""Known-answer and negative vectors of the pairing oracle (docs/kb/24-wire-constants.md, ADR 0011 v2 / 12-G).
+"""Known-answer and negative vectors of the pairing oracle (ADR 0011 v2).
 
 Inputs are the kb section's; every output is computed by ``disconect.pair`` (written from the ADR text)
 and compared with the value the Rust core froze. Synthetic keys and the committed test key file only.
@@ -202,7 +202,7 @@ _URL_VECTORS = json.loads((pathlib.Path(__file__).parent / "fixtures" / "pair-of
 
 @pytest.mark.parametrize("url", _URL_VECTORS["accepted"])
 def test_offer_url_grammar_accepts_the_shared_vectors(url):
-    """kb/24 § offer URL grammar: the vectors every parser of the offer text shares (both cores, the phone)."""
+    """Offer URL grammar: the vectors every parser of the offer text shares (both cores, the phone)."""
     assert pair.parse_offer(_offer_text(_doc(url=url))).url == url
 
 

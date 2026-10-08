@@ -445,7 +445,7 @@ def test_malformed_key_files_are_locked_not_crashes(tmp_path, db_path, capsys, m
     assert code == cli.EXIT_LOCKED and "Traceback" not in err
 
 
-# ---- Bet 02a: backup prefixes ----
+# ---- backup prefixes ----
 
 def _as_old_build(snapshot):
     """Rename a snapshot and its manifest to the prefix an earlier build wrote (`hearthbeat-*`)."""

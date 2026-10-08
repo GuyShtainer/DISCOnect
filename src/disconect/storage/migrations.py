@@ -5,7 +5,7 @@ that exact DDL, and editing it in place would make old and new libraries
 diverge. To change the schema, append a new version. The current version is
 ``PRAGMA user_version``; ``schema_migrations`` records when each step ran.
 
-Design rules carried in from the ZeppBridge post-mortems (docs/kb/14):
+Design rules carried in from the ZeppBridge post-mortems:
 
 * every canonical row points back to ``raw_records`` through ``raw_record_id``,
   and the raw bytes are retained, so a decoder fix is a replay, not a re-pull
@@ -225,7 +225,7 @@ CREATE TABLE IF NOT EXISTS import_runs (
 """
 
 _V2 = """
--- v2 (Bet 4, coverage ledger). Additive only; v1 tables are untouched.
+-- v2 (coverage ledger). Additive only; v1 tables are untouched.
 
 -- The window a Connect-export JSON file *claims* to cover, parsed from its
 -- name. A day inside a claimed window with no record for it is one the
@@ -258,7 +258,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_import_failures_payload
     ON import_failures(payload_hash) WHERE payload_hash IS NOT NULL;
 """
 
-# v3 (Bet 10): the blind relay's bookkeeping. Nothing here is health data: names are random,
+# v3: the blind relay's bookkeeping. Nothing here is health data: names are random,
 # hashes are of bytes, and the only payload column holds a record that lost a conflict (kept so
 # the retention promise holds). ADR 0005.
 _V3 = """

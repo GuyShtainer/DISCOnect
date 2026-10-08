@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The LAN relay across the two cores (Bet 12, slice B): the Rust core serves a relay folder over HTTP on
+"""The LAN relay across the two cores: the Rust core serves a relay folder over HTTP on
 127.0.0.1 (``disconect-core relay-serve``); a Rust device reaches it over the LAN, a Python device reads
 the same folder directly (the server's folder IS the folder relay, and Python has no LAN transport).
 After the rounds the daily rows of every device are equal and the replay of the raw set changes none.

@@ -1,7 +1,7 @@
 """Decode Garmin wellness FIT files into contract-shaped facts.
 
 Parser: fitdecode (MIT). Never Garmin's FIT SDK -- its license forbids use in
-this project (docs/kb/14-prior-art.md). Message and field names below are the
+this project. Message and field names below are the
 public FIT profile names fitdecode exposes; the mapping to metrics follows the
 verified signal catalogue in the learn skill's garmin-health-data-model.md.
 
@@ -43,7 +43,7 @@ SLEEP_EVENT_CODE = "74"
 #: ``stress_level`` (message 227) field number 3: the watch's own body-energy gauge, 0–100,
 #: one sample per minute, written on sentinel frames too. Not in fitdecode's profile.
 #: Provenance (documented reverse engineering, black-box): the message number was already
-#: public knowledge (docs/kb/16); the field number and meaning were found by correlating the
+#: public knowledge; the field number and meaning were found by correlating the
 #: user's own files with his own account export (fit-lab/fit_fieldscan.py, 2026-10-02, one
 #: fenix 8, 201 monitoring files, 21 labelled days). No source listing this field's number
 #: was opened for the decode. Observed: daily maximum equal to the vendor's daily high on
@@ -279,7 +279,7 @@ class _FitDecoder:
             # is a native field; when it arrives through the composite field 24 the record keeps
             # ``cycles`` (scale 2, half-steps). The raw field value is the step count either way,
             # and a resolved record reports it under both names (observed on the export corpus,
-            # Bet 11 slice 0: 117 such records in 424 files; see docs/kb/21).
+            # 117 such records in 424 files).
             raw = _raw_field(frame, 3, "cycles")
             if isinstance(raw, int) and not isinstance(raw, bool):
                 steps, cycles = raw, float(raw)

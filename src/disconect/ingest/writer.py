@@ -623,7 +623,7 @@ class Writer:
         return days
 
     def derive_live_samples(self) -> int:
-        """Rebuild the ``live``-scope samples from every ``json:live`` record in the store (bet 9b-2).
+        """Rebuild the ``live``-scope samples from every ``json:live`` record in the store.
 
         A pure function of the raw set, run after every import, pull and reparse: the rows are
         deleted and rebuilt from all live records in content order (``sources._raw_ids_by_stream``),
@@ -644,7 +644,7 @@ class Writer:
                 continue
         rows, dropped = live.fold_records(records)
         # every parameter is built before BEGIN, and any error -- not only sqlite's -- rolls back: an
-        # exception with the transaction left open would wedge this run and every later one (9b-2 review M1)
+        # exception with the transaction left open would wedge this run and every later one
         params = [(metric, ts_utc, float(value), live.SCOPE, raw_id) for metric, ts_utc, value, raw_id in rows]
         self.conn.execute("BEGIN")
         try:

@@ -90,7 +90,7 @@ def test_a_write_open_marks_a_dead_writers_running_run_interrupted(db_path):
 
 
 def test_a_symlinked_store_name_shares_the_write_lock(tmp_path):
-    """7b-10 review N6: a second name for the store (a symlink) meets the same lock, not a lock of its own."""
+    """Review: a second name for the store (a symlink) meets the same lock, not a lock of its own."""
     import importlib
 
     wl = importlib.import_module("disconect.storage.write_lock")   # the module, not the re-exported context manager

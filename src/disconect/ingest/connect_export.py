@@ -2,7 +2,7 @@
 
 A one-time cloud pull the *user* performs, so a new user can backfill history
 on day one. It is not an ongoing dependency. Format spec and traps:
-docs/kb/18-connect-account-export.md. The bundled FIT corpus is decoded by
+the Connect account export format (not described in this repository). The bundled FIT corpus is decoded by
 the same decoder as a USB pull (source_scope 'device'); the JSON daily figures
 are Garmin's computed layer and land as 'vendor_cloud', side by side.
 

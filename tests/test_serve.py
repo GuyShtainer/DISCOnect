@@ -324,7 +324,7 @@ def test_sleep_night_bad_date_and_params(tmp_path):
 
 
 def test_sleep_night_stages_across_a_clock_change_show_the_watchs_wall_clock(tmp_path):
-    """7b-4 review N6 (BACKLOG): each stage instant is read under the offset nearest to it. A +1 h change at
+    """Each stage instant is read under the offset nearest to it. A +1 h change at
     22:30Z inside the 06-15 night: the stage over the change runs 00:00-03:00 on the wall clock (two hours),
     the one after it is labelled under the new offset, and the session's own offset is the end's."""
     db = _store_copy(tmp_path)
@@ -612,7 +612,7 @@ RELAY_PATH_AT = re.compile(r"\.result\.relay_list\[\d+\]\.path")
 
 def _allowed_here(method, path) -> bool:
     """The two places a path is legal on the wire: ``app.info``'s ``db`` and one folder's ``path`` in
-    ``sync.status``'s ``relay_list`` (BL-7) -- keyed by the method of the response, never by the JSON path alone."""
+    ``sync.status``'s ``relay_list`` -- keyed by the method of the response, never by the JSON path alone."""
     return ((method == "app.info" and path == ".result.db")
             or (method == "sync.status" and RELAY_PATH_AT.fullmatch(path) is not None))
 
@@ -682,7 +682,7 @@ def test_every_method_passes_the_privacy_walk_with_no_network(encrypted, db_path
 
 
 def test_a_relay_path_is_legal_only_at_sync_status_relay_list(encrypted, db_path, tmp_path):
-    """BL-7 negative: a folder text full of forbidden strings rides ONLY at ``sync.status`` ``.result.relay_list[N].path``;
+    """Negative: a folder text full of forbidden strings rides ONLY at ``sync.status`` ``.result.relay_list[N].path``;
     ``sync.run`` (the folder is unavailable) and every event say nothing of it."""
     secrets_ = ("/Users/someone", "@example.com", "garmin", SERIAL)
     folder = f"/Users/someone/Garmin-{SERIAL}/me@example.com/relay"
@@ -921,7 +921,7 @@ STRPTIME_CELLS = [
 
 @pytest.mark.parametrize(("cell", "text"), STRPTIME_CELLS)
 def test_a_malformed_clock_offset_cell_reads_as_strptimes_text(tmp_path, cell, text):
-    """ts_utc row (BACKLOG 2026-10-08): a corrupt `clock_offsets.ts_utc` cell makes `data.health` answer
+    """A corrupt `clock_offsets.ts_utc` cell makes `data.health` answer
     `bad_params` with strptime's own text; the Rust core mirrors each text (serve_test.rs twin)."""
     db = _store_copy(tmp_path)
     with storage.open_for_write(db, purpose="test") as conn:
@@ -960,7 +960,7 @@ def _corrupt_import_rig(tmp_path, seed_sql):
 
 
 def test_import_over_a_malformed_clock_offset_cell_is_bad_params_and_leaves_the_store_alone(tmp_path):
-    """Write-path stamp row (BACKLOG 477): the offsets load raises before `begin_run`, so no run row and no
+    """Write path: the offsets load raises before `begin_run`, so no run row and no
     new record; the Rust core mirrors the text and the store (serve_import_test.rs twin)."""
     db, folder = _corrupt_import_rig(
         tmp_path, "INSERT INTO clock_offsets(ts_utc, offset_s) VALUES('2025-06-15 00:00:00', 0)")
@@ -983,7 +983,7 @@ def test_import_over_a_malformed_clock_offset_cell_is_bad_params_and_leaves_the_
 ], ids=["intervals", "samples"])
 def test_import_over_an_unparseable_derivation_cell_is_bad_params_and_the_run_is_booked_failed(
         tmp_path, table, seed_sql, state):
-    """Write-path stamp row (BACKLOG 478): `derive_daily_steps` / `derive_daily_from_samples` call `parse_iso_utc`
+    """Write path: `derive_daily_steps` / `derive_daily_from_samples` call `parse_iso_utc`
     on every stored cell in the days' window; a hand-edited cell raises strptime's ValueError out of
     `import_path`, which books the run `failed` and keeps what was written before the derivations. The Rust
     core answers and leaves the same (serve_import_test.rs twin)."""

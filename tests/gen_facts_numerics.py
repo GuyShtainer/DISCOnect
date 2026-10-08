@@ -4,7 +4,7 @@
     python tests/gen_facts_numerics.py            # rewrite ../../disconect-core/tests/fixtures/py_numerics_read.json
     python tests/gen_facts_numerics.py --check    # exit 1 when the committed file is not what this makes today
 
-What it pins (slice 3B, pitch ``11c-rust-core-slice-3.md`` step 3):
+What it pins:
 
 * ``math.fsum`` and ``statistics.fmean`` (= ``fsum(data) / n``) and ``statistics.stdev`` (exact rational variance,
   one correctly rounded square root) over vectors that are realistic (daily values with 2 decimals), all equal,

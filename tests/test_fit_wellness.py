@@ -167,7 +167,7 @@ def test_unknown_messages_are_counted_not_decoded(t0):
 
 
 def test_cycles_resolve_to_steps_when_activity_type_comes_through_the_composite_field(t0):
-    """Bet 11 slice 0: the watch often writes ``activity_type`` only inside field 24
+    """The watch often writes ``activity_type`` only inside field 24
     (``current_activity_type_intensity``); fitdecode then leaves field 3 as ``cycles`` with
     half-step values. The decoder must report the same step count as a natively typed record."""
     b = FitBuilder("monitoring_b", serial=42)

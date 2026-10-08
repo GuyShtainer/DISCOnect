@@ -197,7 +197,7 @@ def test_late_and_out_of_order_bundles_are_applied_and_rejected_ones_retried(tmp
     with storage.open_for_write(b, "test") as conn:
         report = sync.status(conn)
     assert report["bundles"] == {"pulled_applied": 2, "pulled_rejected": 1} and report["gaps"] == []
-    # 19b: the rejected object adds no chain row; A's chain is the one row, and it is not B's own
+    # the rejected object adds no chain row; A's chain is the one row, and it is not B's own
     (chain,) = report["chains"]
     assert (chain["bundles"], chain["last_seq"], chain["self"]) == (2, 2, False)
     assert chain["last_at"] is not None
@@ -283,7 +283,7 @@ def test_readiness_conflicts_converge_by_hash_alone(tmp_path):
 
 def test_relay_ignores_an_object_whose_name_ends_in_a_newline(tmp_path):
     """``re.match`` with ``$`` accepted ``<name>\\n``; a stranger with folder access could make every
-    pull report a rejected bundle. The name must match in full (opus review of Bet 11 slice 2)."""
+    pull report a rejected bundle. The name must match in full."""
     root = tmp_path / "x"
     _build_export(root)
     a = tmp_path / "a.db"
@@ -483,7 +483,7 @@ def test_operator_sees_nothing_usable(tmp_path, monkeypatch):
         "no index, manifest or other file on the relay"
 
 
-# ---------------------------------------------------------------- review fixes (opus, 2026-10-02)
+# ---------------------------------------------------------------- review fixes (2026-10-02)
 def _drop(tmp_path, name, *days):
     folder = tmp_path / name
     folder.mkdir()
@@ -668,7 +668,7 @@ def test_cli_sync_on_encrypted_stores_bootstraps_an_empty_device(tmp_path, capsy
     assert run(["--db", str(b), "--json", "sync", "status"], "another-strong-passphrase") == cli.EXIT_OK
     report = json.loads(capsys.readouterr().out)
     assert report["bundles"] == {"pulled_applied": 1} and report["records_unsent"] == 0
-    # 19b: the chains list is the one place a writer id appears (as `chain`), with counts only, and B is not its writer
+    # the chains list is the one place a writer id appears (as `chain`), with counts only, and B is not its writer
     assert "device_id" not in json.dumps(report)
     (chain,) = report["chains"]
     assert (chain["bundles"], chain["last_seq"], chain["self"]) == (1, 1, False) and chain["records"] > 0

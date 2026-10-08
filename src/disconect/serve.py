@@ -296,7 +296,7 @@ def data_metric(session: Session, call: Call) -> dict:
     last_day = _text_param(call.params, "last_day", required=False)
     cap = queries.MAX_SAMPLE_DAYS if contract.cadence_for(metric) == contract.CADENCE_SAMPLE else queries.MAX_DAILY_DAYS
     with session.reader() as conn:
-        # strict YYYY-MM-DD like the MCP paths (kb/23: the fromisoformat allowance is retired)
+        # strict YYYY-MM-DD like the MCP paths (the fromisoformat allowance is retired)
         last = queries.parse_day(last_day, "last_day") if last_day is not None else datetime.date.fromisoformat(queries.local_today(conn))
         first = coverage.earlier(last, max(1, min(days, cap)) - 1)  # the window is shortened at the calendar's start, never an error
         series = queries.metric_calendar(conn, metric, scope, first.isoformat(), last.isoformat())
@@ -747,7 +747,7 @@ def pair_forget(session: Session, call: Call) -> Any:
     raise ServeError("unsupported_transport", "this core is not a phone; there is nothing to forget")
 
 
-# ---- the phone as the pairing joiner (12-F row 3) ----
+# ---- the phone as the pairing joiner  ----
 
 MAX_OFFER_TEXT = 1024
 _EXP_AHEAD_MAX = 900 + 300     # an offerer sets exp = now + 900; the relay's own clock window is the slack
@@ -779,7 +779,7 @@ def _join_prefix(text: str, db_path) -> None:
     ``exp``), the landing site (a store, key file or rotation file here means "already paired"; so does a
     ``relay.json`` that is not a LAN relay, or a LAN relay of another address beside any store's key file in this
     folder: a LAN relay file alone is a failed landing's leftover, and one naming the offer's address is this
-    pairing's, 12-H (d)) and an unfinished forget. Nothing here touches the network and no message echoes the
+    pairing's) and an unfinished forget. Nothing here touches the network and no message echoes the
     offer."""
     from disconect import pair as pair_module   # late: the module name is also a method family here
 

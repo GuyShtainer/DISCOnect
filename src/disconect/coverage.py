@@ -162,7 +162,7 @@ def _failed_by_stream(conn: sqlite.Connection, window: _Window, offsets: ClockOf
 
 #: The samples of one (metric, scope) in one UTC hour bucket (``YYYY-MM-DDTHH``). The ``ts_utc`` range lets
 #: SQLite search the sample index for the hour; with ``substr`` alone it walked every row of the metric
-#: once per hour that holds a local midnight (7b-13 review: ~11 s on both cores for a year of minutes on a
+#: once per hour that holds a local midnight (review: ~11 s on both cores for a year of minutes on a
 #: half-hour-zone watch). The ``substr`` keeps the row set exactly the bucket's.
 _HOUR_SAMPLES = ("SELECT ts_utc FROM metric_samples WHERE metric=? AND source_scope=? "
                  "AND ts_utc >= ? AND ts_utc < ? AND substr(ts_utc, 1, 13)=?")
@@ -351,7 +351,7 @@ def ledger(conn: sqlite.Connection, last_day: str, window_days: int,
     }
 
 
-# ---- completeness (7b-12): how much of a day a per-minute metric's mean rests on -------------
+# ---- completeness: how much of a day a per-minute metric's mean rests on -------------
 
 UTC = datetime.timezone.utc
 
@@ -474,7 +474,7 @@ def calendar(conn: sqlite.Connection, metric: str, scope: str, first_day: str,
              last_day: str) -> list[tuple[str, str, int | None]]:
     """``(day, status, completeness)`` for every local day from ``first_day`` to ``last_day``, oldest
     first, in one coverage pass: the status as ``day_statuses`` gives it, the completeness as
-    ``day_completeness`` gives it (7b-13: ``metric_calendar`` used to pay for the store-wide stream map
+    ``day_completeness`` gives it (``metric_calendar`` used to pay for the store-wide stream map
     twice). Raises ValueError for a malformed or inverted range.
     """
     analysis = _analyse(conn, first_day, last_day)

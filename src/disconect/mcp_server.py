@@ -45,7 +45,7 @@ INSTRUCTIONS = identity.neutral(
 
 
 def _neutral_result(tool: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
-    """Run ``tool`` and scrub the manufacturer's name from its result, as ``serve`` does (ADR 0001)."""
+    """Run ``tool`` and scrub the manufacturer's name from its result, as ``serve`` does."""
     @functools.wraps(tool)
     def scrubbed(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return identity.neutral(tool(*args, **kwargs))
@@ -183,7 +183,7 @@ def run_tool(name: str, arguments: dict[str, Any], db_path: pathlib.Path) -> dic
 
     Arguments are validated by the SDK's own argument model (so ``"7"``, ``7.0`` and a JSON-text list are
     accepted exactly as the MCP accepts them); the body runs on a read-only connection to ``db_path`` and the
-    result is scrubbed (ADR 0001) and converted exactly as the SDK converts it. Raises :class:`UnknownTool`,
+    result is scrubbed and converted exactly as the SDK converts it. Raises :class:`UnknownTool`,
     :class:`ArgumentsRejected`, ``ToolError`` (an anticipated failure, with its text) or whatever the body
     raised (a crash: the caller words it with ``CRASH_TEMPLATE``)."""
     tool = server._tool_manager.get_tool(name)  # noqa: SLF001 - the SDK has no public lookup by name

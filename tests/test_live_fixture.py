@@ -1,4 +1,4 @@
-"""Bets 9b/9b-2: the committed ``synthetic-live.hbdb`` (four live files imported on top of the synthetic store)
+"""the committed ``synthetic-live.hbdb`` (four live files imported on top of the synthetic store)
 reads exactly like the same store without them, except at source scope ``live`` -- the fold's rows -- and in
 ``data.health``'s stream list and ``live`` block."""
 

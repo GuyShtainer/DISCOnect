@@ -26,7 +26,7 @@ ISO = "%Y-%m-%dT%H:%M:%SZ"
 #: range ``strptime``'s ``%H``/``%M``/``%S`` take. The ranges matter: ``fromisoformat``'s grammar moves between
 #: Python versions (3.14 reads ``T24:00:00`` as the next midnight, which ``strptime`` and the Rust twin refuse).
 #: Text of this shape takes the fast path below; everything else keeps ``strptime``'s acceptance and its error
-#: text (which the Rust core mirrors), so the parser's behaviour is the same as before 7b-14, ~10× faster per call.
+#: text (which the Rust core mirrors), so the parser's behaviour is the same as before the fast path, ~10× faster per call.
 _STORE_SHAPE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z\Z")
 _strptime = datetime.datetime.strptime
 _fromisoformat = datetime.datetime.fromisoformat

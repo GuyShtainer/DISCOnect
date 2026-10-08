@@ -1,5 +1,5 @@
-"""Bet 9b slice 1: a live-link session file is kept as one `json:live` raw record; the decoder derives nothing
-(the 9b-2 fold writes `live`-scope samples from the retained records, counted apart here)."""
+"""A live-link session file is kept as one `json:live` raw record; the decoder derives nothing
+(the live fold writes `live`-scope samples from the retained records, counted apart here)."""
 
 import datetime
 import hashlib
@@ -48,7 +48,7 @@ def _live_rows(db_path):
 
 def _canonical_counts(db_path):
     conn = storage.open_read_only(db_path)
-    # the 9b-2 fold writes `live`-scope samples; everything else must stay as it was
+    # the live fold writes `live`-scope samples; everything else must stay as it was
     return {t: conn.execute(f"SELECT COUNT(*) FROM {t}" + (" WHERE source_scope != 'live'" if t == "metric_samples" else "")).fetchone()[0]
             for t in ("metric_samples", "daily_metrics", "daily_labels", "monitoring_intervals", "activities")}
 
@@ -84,7 +84,7 @@ def test_status_only_file_is_skipped_with_a_counted_reason(tmp_path, db_path):
 
 def test_a_file_cut_off_mid_line_keeps_its_whole_lines_and_is_counted(tmp_path, db_path):
     """The lab killed mid-write leaves a partial last line: the session before it is imported, once,
-    as the same pinned record the whole file gives, and the loss is counted (9b-2 review O1)."""
+    as the same pinned record the whole file gives, and the loss is counted."""
     (tmp_path / "whole").mkdir()
     (tmp_path / "cut").mkdir()
     whole = _write_lines(tmp_path / "whole" / "live-x.jsonl", LIVE_LINES)
@@ -191,7 +191,7 @@ def test_relay_carries_the_live_record_and_the_peer_stores_the_bytes(tmp_path):
     (row,) = _live_rows(second)
     assert zlib.decompress(row[8]) == PINNED_PAYLOAD and row[3] == "ble"
     assert _canonical_counts(second) == before
-    # the pull itself folds the live minutes: a pull-only device gets the same rows (9b-2 review S2)
+    # the pull itself folds the live minutes: a pull-only device gets the same rows
     folded = "SELECT metric, ts_utc, value FROM metric_samples WHERE source_scope='live' ORDER BY metric, ts_utc"
     with storage.open_read_only(first) as a, storage.open_read_only(second) as b:
         assert a.execute(folded).fetchall() == b.execute(folded).fetchall() != []

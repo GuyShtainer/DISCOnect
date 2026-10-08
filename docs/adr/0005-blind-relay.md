@@ -1,11 +1,11 @@
 # ADR 0005 — Zero-knowledge sync relay ("PC is the brain, relay is blind")
 
-- **Status:** ACCEPTED 2026-10-02 (Guy, Bet 3). Guy: remote server "could also be synced with
+- **Status:** ACCEPTED 2026-10-02 (the maintainer). The maintainer: remote server "could also be synced with
   distance server on aws or google … But data there is encrypted! Without the key!"
 
 ## Decision
 - The relay is a **dumb object store**: PUT/GET/LIST of opaque, client-encrypted blobs under
-  a per-user prefix. Nothing on it can decrypt, decode, or compute. *(Amended 2026-10-02, Bet 10
+  a per-user prefix. Nothing on it can decrypt, decode, or compute. *(Amended 2026-10-02, relay
   shaping: no sequence number — S3/GCS assign none, client-assigned ones collide between
   desktops, and folder transports deliver out of order. Pull is a set difference: every object
   name not yet applied. Ordering per device travels inside the ciphertext.)* Two adapters from day one: **self-hosted** (a tiny AGPL
@@ -20,7 +20,7 @@
   "same bytes" or "newer observation wins" (`observed_utc` of the decoded facts, ties by the
   larger payload hash — a pure function of the two rows, so every device converges), never
   field-level merges. Coverage claims (`export_ranges`) travel too and merge as a union.
-  *(Amended 2026-10-03, Bet 10b: that rule makes **raw records** converge; daily rows converge
+  *(Amended 2026-10-03: that rule makes **raw records** converge; daily rows converge
   because they are a deterministic function of the converged raw set — rebuilt from the raw
   records of every touched JSON stream, in the content order `(start_utc, payload_hash, stream,
   source_key)`, at the end of every import and every pull. No per-write tie-break exists. Known
@@ -38,14 +38,14 @@
   optional LAN transport later.
 
 ## Consequences
-- The self-hosted **web app** (Bet 16) runs only on a device that holds the key (the user's
+- The self-hosted **web app** (planned) runs only on a device that holds the key (the user's
   own box), never on the blind relay.
-- Bet 10 implements the folder adapter and the protocol (pitch 10 v2); networked adapters
-  (S3/GCS) move to Bet 12's shaping. Evidence must show the relay operator cannot read anything
+- The first version implements the folder adapter and the protocol; networked adapters
+  (S3/GCS) came later. Evidence must show the relay operator cannot read anything
   (canary + AEAD-only put + wrong-master failure), and that two desktops converge.
 
-## Amendment 2026-10-07 (Bet 19d, after the opus attack) — a list of blind stores
-Guy's condition on the Phase 4 amendment: more than one cloud service **and** the desktop at once, no
+## Amendment 2026-10-07 (after review) — a list of blind stores
+The maintainer's condition on this amendment: more than one cloud service **and** the desktop at once, no
 restrictions. The relay becomes a **list** (`relay.json {"relays": [...]}`; the legacy `{"folder"}` and
 `{"lan"}` forms read as a one-entry list). Every bundle goes to every relay under the **same name** and
 the pull is the union of the listings minus what is applied, each name tried on every site that lists
@@ -69,9 +69,9 @@ this device pushed minus the listing are re-packed and put again, within a budge
   (fresh nonce), so two routes to one cloud folder (the phone's and the Mac's) or a provider that evicts
   a file from the listing (iCloud's `.name.icloud` placeholder) can make a provider conflict copy and a
   re-upload of up to the heal budget per site per sync. Corrected 2026-10-07 (review): the heal counts
-  an evicted placeholder as present; two routes to one folder remain a known cost (BACKLOG: dedupe by
+  an evicted placeholder as present; two routes to one folder remain a known cost (open: dedupe by
   listing the sibling route's names before healing).
 - One compromised cloud client can keep every pull `partial` with a planted object (re-fetched on every
   run, times N sites); a bad copy on one site never shadows a good one on another. Backing off a
-  rejected name is BACKLOG.
+  rejected name is open work.
 

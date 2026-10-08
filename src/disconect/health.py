@@ -23,7 +23,7 @@ UTC = datetime.timezone.utc
 # The "last imports" list (`recent_imports` here, `import.last` in serve): the newest LAST_IMPORTS runs of
 # every transport but `ble`, plus the newest `ble` run, newest first. A live link ends with a sweep of the
 # readings folder (transport `ble`, usually "0 imported, N duplicate"); listed like any run, the sweeps
-# push the USB and export runs out of the list within a day (9b review N8).
+# push the USB and export runs out of the list within a day.
 LAST_IMPORTS = 5
 RUN_COLUMNS = ("id", "started_at", "finished_at", "transport", "status", "files_seen", "files_imported",
                "files_duplicate", "files_failed", "records_written", "error")
@@ -122,7 +122,7 @@ def data_health(conn: sqlite.Connection, window_days: int = 30) -> dict:
     live_records = conn.execute("SELECT COUNT(*) FROM raw_records WHERE stream='json:live'").fetchone()[0]
     live_samples, live_first, live_last = conn.execute(
         "SELECT COUNT(*), MIN(ts_utc), MAX(ts_utc) FROM metric_samples WHERE source_scope = 'live'").fetchone()
-    # the live block's days are the watch's local days, like data.live's (BL-9); every other day in this report
+    # the live block's days are the watch's local days, like data.live's; every other day in this report
     # (samples_total, streams, coverage) is the UTC prefix of the stored stamp
     known_offsets = ClockOffsets.load(conn)  # once: the live block, local_today and the coverage ledger share it
     live = {"records": live_records, "samples": live_samples,

@@ -1,6 +1,8 @@
 # Relay protocol v1 — encrypted raw-record bundles over a blind store
 
-Status: Bet 10 (2026-10-02); LAN relay added by Bet 12 slice B (2026-10-03). Implements ADR 0005 with
+*This repository holds the Python core only (CLI, MCP server, serve protocol, relay client, pairing). The Rust core and the desktop/phone shells this document also describes are developed separately and are not published here.*
+
+Status: relay and bundles 2026-10-02; LAN relay added 2026-10-03. Implements ADR 0005 with
 ADR 0004's key model. Code: `src/disconect/relay/{bundle,folder,sync,config}.py` and
 `disconect-core/src/relay/{bundle,folder,sync,config,lan,lan_server}.rs`.
 
@@ -53,7 +55,7 @@ carry the **later observed time** wins (`end_utc`, else the latest daily fact's 
 the **larger payload_hash**. A pure function of the two rows under one decoder version, so every
 device running the same core converges whatever the arrival order; for streams whose decoder
 yields no time (the readiness batch, bare labels) the rule is the hash alone. The loser's bytes go to `raw_superseded`, the decision to `sync_conflicts` — per-bundle journals; the reported counts are by content (distinct versions that lost), the only form that converges across devices.
-Local import stays first-wins (BACKLOG). FIT never conflicts (its key is its hash).
+Local import stays first-wins (a known limitation). FIT never conflicts (its key is its hash).
 **Damaged local copies:** before applying anything, a pull verifies every stored record the relay has
 carried (`relay_seen`) against its hash and refetches a damaged one from the bundle that carried it
 (`records_repaired`); the relay is the copy of last resort, since a pulled record is never pushed back.
@@ -67,7 +69,7 @@ the decoder replays them. Two versions of one key that neither decodes conflict 
 (the batch-stream rule): the one rule a device without the decoder can apply. Known limitation: a
 device that *can* decode both uses the observed-time rule, so a fleet of mixed builds may keep
 different winners for that key until the lagging build upgrades and a conflict is re-decided — booked
-in kb/22 with the other accepted classes.
+as a known limitation.
 
 The conflict rule converges the **raw set** only. Daily rows converge because every import and
 every pull ends by re-deriving the touched JSON streams from the raw records now stored, in the
@@ -75,13 +77,13 @@ content order `(start_utc, payload_hash, stream, source_key)` — delete the str
 rows, rebuild record by record, then the readiness batch (its duplicate collapse also walks the
 records by hash). The day a device shows therefore depends on which raw records it holds, never
 on the order they arrived or on local ids; a superseded record stops contributing and the
-runner-up it hid contributes again. Reparse after an import or a pull changes 0 rows (Bet 10b),
+runner-up it hid contributes again. Reparse after an import or a pull changes 0 rows,
 with one known exception: a stored record whose bytes no longer decode keeps the rows it has, and
 the relay does not repair it (the hash still matches, so a peer's copy counts as a duplicate);
-such a device can differ by that record's rows until the bytes are restored (BACKLOG). An import
+such a device can differ by that record's rows until the bytes are restored (a known limitation). An import
 re-derives every JSON stream in the store, so an interrupted import is healed by running it again (its run row is marked `interrupted` on the next write open).
 
-Back-off (BL-4b): only the desktop's automatic run (`sync.run` with `auto`) holds a name booked `rejected`: it leaves
+Back-off: only the desktop's automatic run (`sync.run` with `auto`) holds a name booked `rejected`: it leaves
 the name out while its booking (`noted_at`, the core's clock) is at least 0 and under 24 h old, then retries it once
 a day. A click, the CLI, the phone's pull and the single-relay `pull` always retry. A booking whose reason is an I/O
 failure of the folder (`OSError`, `TimeoutError`, `BlockingIOError`, `InterruptedError`, `BrokenPipeError`,
@@ -97,8 +99,8 @@ ends rejected on every site that holds it (a copy another site satisfied marks n
 their origin transport, so the marks alone stop echoes). After a rotation every device re-pushes
 what it holds, received records included: that is intended (the new account must hold everything).
 Per-device chains (`device_seq`, `prev`) travel inside the ciphertext; `sync status` reports a
-missing link as a gap, and lists the chains it holds (19b: per writer id among the applied bundles, the
-bundle and record counts, the highest `device_seq`, `last_at` = the newest `created_utc` among them (BL-4b), and whether the id is this store's own; the row key is `chain`).
+missing link as a gap, and lists the chains it holds (per writer id among the applied bundles, the
+bundle and record counts, the highest `device_seq`, `last_at` = the newest `created_utc` among them, and whether the id is this store's own; the row key is `chain`).
 Cost: `sync forget` (and a re-pair) wipes `relay_device` and `relay_bundles`, so the next push mints a new id, and
 nothing deletes relay objects: the old id's row stays on every device while its bundles stay on the relay, including
 on the device that forgot (where it reads as another writer). `records` counts what a writer's bundles carried, not
@@ -123,13 +125,13 @@ and therefore the relay, unchanged.
 `FolderRelay(root)`: objects are files `<root>/<account>/<32 hex>`; writes go to a temp file in
 the same directory and are renamed into place; names outside the pattern are ignored. Any folder
 that WebDAV, rsync or Syncthing carries is the self-host story. Networked buckets (S3/GCS) are
-a later bet (phones hold the credentials, the user pays); the LAN relay below is Bet 12's answer for
+a later version (phones hold the credentials, the user pays); the LAN relay below is the answer for
 a phone at home. Every adapter implements `put`, `get`, `list(account)` and `delete(name)`; nothing
 in a push or a pull deletes (pairing and tests do). `delete` of a missing object is
 `FileNotFoundError`, as `get` is.
 
 
-## LAN relay (Bet 12 slice B): the user's own Mac serves its relay folder
+## LAN relay: the user's own Mac serves its relay folder
 ADR 0005's "self-hosted" adapter with a network face. `disconect-core relay-serve --relay <folder>
 [--listen <addr:port>]` (default `127.0.0.1:0`, the bound address is printed as `listening
 http://<addr>`; `--listen 0.0.0.0:<port>` is an explicit choice) serves the folder of the one
@@ -145,7 +147,7 @@ is started by the app only as the user's switch (see "Serve mode" below), never 
 token proves possession of the master key; an eavesdropper on the Wi-Fi sees the (Padmé-rounded)
 object sizes and when they move, which a folder carried by Syncthing shows too.
 
-**Serve mode (7b-2, Rust core).** The desktop app's sidecar runs at most one server per session, on an
+**Serve mode (Rust core).** The desktop app's sidecar runs at most one server per session, on an
 address the user picks from a fresh list (`relay.addresses`) and passes as `listen` on every call; nothing
 about serving is remembered, so the switch is "while the app runs". `relay.serve {"on": true}` starts it and
 keeps it until `{"on": false}` or the session ends. A pairing offer (`pair.offer`) starts it if it is not
@@ -180,15 +182,14 @@ over one bundle: `MAX_OBJECT` = 64 MiB + 4096, declared), `408` (a head or body 
 `tag = HMAC(token_key, METHOD ‖ "\n" ‖ path ‖ "\n" ‖ <unix seconds, decimal> ‖ "\n" ‖ hex(sha256(body)))` (method upper
 case, `path` as sent: `/v1/objects/<account>/<name>`, empty body for GET and DELETE), with
 `token_key = HKDF-SHA256(ikm = master, salt = the 64 hex characters of the account as ASCII, info =
-"disconect/lan/v1/token")`, 32 bytes. The label is frozen from now on (`docs/kb/24-wire-constants.md`,
-which holds the known-answer vectors, pre-tag ones included). The server checks, in this order and with a
+"disconect/lan/v1/token")`, 32 bytes. The label is frozen from now on (`tests/test_wire_constants.py` and the Rust twin's tests hold the known-answer vectors, pre-tag ones included). The server checks, in this order and with a
 bare `401` for every failure: header shape, `|now - timestamp| <= 300 s` (a timestamp from the future is as
 stale as one from the past), **the pre-tag against the declared `Content-Length`, before it reads a single body
 byte**, then the body (exactly the declared length, at most one bundle), then the tag in constant time. A request
 without a `Content-Length` has an empty body, which is never read; chunked uploads are refused (`400`). Two
 devices that hold the same master (a paired phone and the Mac) therefore derive the same key with no exchange.
 
-**Response tag (12-RA).** Every answer from `handle()` except `/v1/health` and `/v1/pair*`, whatever its status (200, 204 and every refusal), carries
+**Response tag.** Every answer from `handle()` except `/v1/health` and `/v1/pair*`, whatever its status (200, 204 and every refusal), carries
 `X-Disconect-Resp: v1.<server unix seconds>.<rtag>` with
 `rtag = HMAC(token_key, "resp" ‖ "\n" ‖ METHOD ‖ "\n" ‖ target ‖ "\n" ‖ <the request's X-Disconect-Auth value as the server
 received it, SP/HTAB-trimmed, empty when there was none> ‖ "\n" ‖ <server unix seconds, decimal> ‖ "\n" ‖ <status, decimal> ‖ "\n" ‖
@@ -213,11 +214,11 @@ clocks disagree; the text carries the offset in minutes, "check the date and tim
 - *Replay.* A request captured on the LAN can be replayed for 300 s: a replayed `PUT` rewrites the same bytes, a
   replayed `GET` shows ciphertext the sniffer already has, a replayed `DELETE` removes the object again. Nothing
   re-pushes a bundle that was pushed, and nothing deletes anything today (the trait has `delete` for the pairing and
-  pruning slices to come), so a replayed `DELETE` has no victim yet. The pairing offer (12-E) is single-use
-  but needs no seen-tag cache (12-B review D1): its routes are not token-authenticated at all, a replay of the
+  pruning slices to come), so a replayed `DELETE` has no victim yet. The pairing offer is single-use
+  but needs no seen-tag cache: its routes are not token-authenticated at all, a replay of the
   joiner's POST carries the same public key and gets the identical `202` (idempotent), a different key aborts the
   offer, and nothing is read before the declared length is checked ("Pairing routes" below).
-- *Slow peers (Bet 12 review F1).* The first version read the body before it could check the tag, so four
+- *Slow peers.* The first version read the body before it could check the tag, so four
   connections with a well-formed forged header, `Content-Length: 1000000` and no body held every worker and
   `/v1/health` timed out. Now the pre-tag refuses a peer without the key on the head alone (`401` at once,
   nothing read), every socket read and write has a time-out (`idle` = 10 s; the head must arrive within it in total,
@@ -228,18 +229,18 @@ clocks disagree; the text carries the offset in minutes, "check the date and tim
   length can hold a slot, and make the server buffer what it sends (one bundle at most), until the body budget ends.
   Bind to the LAN only on a network you trust. The HTTP layer is the server's own small subset (one request per
   connection, `Connection: close`; the library first tried, `tiny_http`, has no time-outs), see `lan_server.rs`.
-- *A fake or tampering relay (12-RA).* A peer without the key (a fake server on a re-used address, a man in the middle)
+- *A fake or tampering relay.* A peer without the key (a fake server on a re-used address, a man in the middle)
   can still refuse the connection, hold it open, or answer nothing; it cannot make the client book a push, trust a
   list or re-pair, because every answer it could forge fails the tag. The body of a pulled bundle was already AEAD; the
   status and the list were the gap. Left open on purpose: an unverified `PUT` may have landed, so the retry pushes the
   same records as a new bundle (a fresh name each time, never reused) and pulls de-duplicate them (`mark_existing`, no false gap);
   a peer that strips tags can only make the relay grow by duplicates. Two requests with identical headers in the same
   second (a repeated `GET` of one path) have identical tags, so a peer may swap their answers: harmless, nothing is booked
-  from a list and names are random. A tag proves a holder of the account key, not this particular relay (Bet 14 pins a
+  from a list and names are random. A tag proves a holder of the account key, not this particular relay (a later version is meant to pin a
   relay id at pairing and binds it into the tag). Nothing may act on health beyond "something answers".
 - Time-skewed phones get a tagged `401` (`relay_auth_failed`, "check the date and time on both devices") until their clock is right.
-- *An unverified `PUT` that landed (12-RA review).* The retry reuses `(device_id, seq, prev)`, so the relay then holds two
-  sibling bundles with the same `seq`. `gaps()` ignores it today; a future fork or tamper check (Bet 14, pruning) must allow
+- *An unverified `PUT` that landed.* The retry reuses `(device_id, seq, prev)`, so the relay then holds two
+  sibling bundles with the same `seq`. `gaps()` ignores it today; a future fork or tamper check (pruning) must allow
   it. The pusher later pulls its own orphan back as duplicates.
 
 **Client errors** (`RelayError`): unreachable (connect, name lookup, time-out, broken answer) is
@@ -253,7 +254,7 @@ does after a crash). The CLI exits 5 for an unreachable, unverified or clock-ref
 `{"lan": "http://host:port"}` (a non-empty `lan` wins); `--relay http://host:port` selects LAN, and
 `https://` or a URL with a path is a usage error.
 
-## Relay list (Bet 19d, 2026-10-07): several relays, one name per bundle
+## Relay list (2026-10-07): several relays, one name per bundle
 `relay.json` is a list: `{"relays": [{"id": "<8 hex>", "kind": "folder"|"lan", "path"|"url": "...",
 "label"?: "...", "serve"?: true}]}`. The legacy `{"folder": path}` reads as one entry `default` **with
 `serve: true`**; the legacy `{"lan": url}` as one entry `default` (a non-empty `lan` still wins over
@@ -264,7 +265,7 @@ rewrites it (`sync relay add|remove`, `--remember`), always in the list form wit
 path|url, serve`; `label` only when non-empty, `serve` only when true); a folder is stored as typed. At most one entry serves:
 `relay.serve`, `pair.offer` and the offerer's push use that folder; no `serve` entry = a joiner.
 `relay_url` is the first `lan` entry's base address.
-`sync.status` also carries the list itself as `relay_list` (BL-7: each folder's `path` exactly as configured, each lan entry's `url` as `relay_url` gives it, see serve-protocol.md).
+`sync.status` also carries the list itself as `relay_list` (each folder's `path` exactly as configured, each lan entry's `url` as `relay_url` gives it, see serve-protocol.md).
 
 **Push.** A new bundle is packed once and the same bytes are `put` to every site in list order under one
 name; it is booked when at least one site took it; when none did the push stops there (the `prev` chain
@@ -292,7 +293,7 @@ is `bad_url` — the list is the one way an address reaches the sync without the
 `<root>/<account>` under an existing root, never the root (a root that vanished after the open fails the put as
 `missing`; nothing is re-created on the boot disk) — except for the `serve` entry (and so the legacy `{"folder"}`),
 this Mac's own folder, which the first put creates as before.
-**`not_auto`** (19a): under `sync.run {"auto": true}` every `lan` entry is reported `not_auto` and never opened or
+**`not_auto`**: under `sync.run {"auto": true}` every `lan` entry is reported `not_auto` and never opened or
 connected to — a `lan` site is never polled on a schedule, only by a click; the run stays `ok` when that is the only
 site word (it is the rule, not a failure), and a list with no folder entry is refused `not_folder`.
 **Site words during the run** (review 2026-10-07, both cores, the one table the shells map): `too_large`,
@@ -315,10 +316,10 @@ entry's label, `""` when it has none — user text, never a path; `error` a reas
 or the push stopped. The phone's shell owns its list (security-scoped bookmarks are per container) and
 passes it per call (`sync.run {"relays": [...]}`); the desktop reads `relay.json`.
 
-## Pairing routes (Bet 12-E): one offer slot on the same server
+## Pairing routes: one offer slot on the same server
 Only a server started by `disconect-core pair offer` (or a library caller that attaches an offer) carries these
-routes; a plain `relay-serve` answers `404` to all of them. The offer's `url` follows the kb/24 offer URL grammar (IPv4, bracketed IPv6 or lowercase hostname, explicit port; shared vectors in `tests/fixtures/pair-offer-urls.json`). The protocol (offer text, key schedule, tags, the six
-digits, the sealed payload) is ADR 0011; the constants and vectors are `docs/kb/24-wire-constants.md`. **No
+routes; a plain `relay-serve` answers `404` to all of them. The offer's `url` follows the offer URL grammar (IPv4, bracketed IPv6 or lowercase hostname, explicit port; shared vectors in `tests/fixtures/pair-offer-urls.json`). The protocol (offer text, key schedule, tags, the six
+digits, the sealed payload) is ADR 0011; the constants and vectors are pinned by `tests/test_wire_constants.py` and `tests/test_pair_vectors.py`. **No
 `X-Disconect-Auth` header**: the joiner holds no master yet, and possession of the offer's secret `s` is the proof.
 `<id>` is the offer's 32 lowercase hex characters. Checks run top to bottom; the first that fails answers, with an
 empty body.
@@ -330,7 +331,7 @@ empty body.
 | `POST /v1/pair/<id>`, declared `Content-Length` absent or not exactly 64 | `400`, **nothing read** (one status for shorter and longer: no `413`) |
 | `POST /v1/pair/<id>`, offer expired (`now > exp`) or aborted | `410` |
 | `POST /v1/pair/<id>`, body `joiner_pub (32) ‖ HMAC(K_confirm, "confirm") (32)`, wrong tag or a low-order key | `401`, the offer untouched |
-| same, tag valid, offer open | `202`, body = the 64-byte reply `N_o (32) ‖ HMAC(K_offerer, "offerer" ‖ N_o) (32)` (v2, 12-G: the reveal of the nonce the offer committed to in `c`; the joiner checks `SHA-256("disconect/pair/v2/commit" ‖ N_o) == c` and the tag before it shows a code); the offer is bound to `joiner_pub` |
+| same, tag valid, offer open | `202`, body = the 64-byte reply `N_o (32) ‖ HMAC(K_offerer, "offerer" ‖ N_o) (32)` (v2: the reveal of the nonce the offer committed to in `c`; the joiner checks `SHA-256("disconect/pair/v2/commit" ‖ N_o) == c` and the tag before it shows a code); the offer is bound to `joiner_pub` |
 | same, tag valid, offer already bound to the same `joiner_pub` | `202`, the identical body (idempotent) |
 | same, tag valid, offer already bound to a different `joiner_pub` | `410` and the offer is aborted: every later request is `410` |
 | `GET /v1/pair/<id>/payload`, declared `Content-Length` present and not 0 | `400`, nothing read (a GET with no length is the normal case) |

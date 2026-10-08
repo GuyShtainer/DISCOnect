@@ -15,7 +15,7 @@ rows ``_extend_for_health`` adds (runs and provenance messages to redact). The v
 is the same data under the schema-v1 migration alone. ``synthetic-live.hbdb`` is the synthetic store plus four
 live-link session files imported through ``sources.import_path`` (``live_files``: one spans midnight, two
 overlap a day that has monitoring rows, one is an evening session on a negative-offset watch), so the fold's ``live`` rows are in the differential. The clock is pinned with ``DISCONECT_NOW`` so the
-``imported_at`` stamps are the same every time. ``tools/serve_diff.py`` produces the oracle file.
+``imported_at`` stamps are the same every time. ``tools/serve_diff.py`` (the two-core differential harness, not in this repository) produces the oracle file.
 """
 
 from __future__ import annotations
@@ -267,7 +267,7 @@ def live_files(folder: pathlib.Path) -> None:
 
     ``live-a`` runs 2025-06-20T23:55Z..2025-06-21T00:05Z: readings on both sides of a UTC midnight, ``t`` an int
     and a float in turn. ``live-b`` runs on 2025-06-15 10:00Z.., a day that has monitoring rows for the same metrics.
-    ``live-c`` is ``live-b`` again, longer (bet 9b-2: the fold's de-duplication, median and sentinel cases).
+    ``live-c`` is ``live-b`` again, longer (the fold's de-duplication, median and sentinel cases).
     ``live-d`` is an evening session of a watch behind UTC, its readings at :30 (see below): its UTC date is the day after its local day.
     """
     midnight = int(datetime.datetime(2025, 6, 21, tzinfo=datetime.timezone.utc).timestamp())
@@ -453,7 +453,7 @@ def _import_entries() -> list[dict]:
                                                               "params": {"limit": 1, "x": [1]}}},
         {"name": "gen: import.last params null", "raw": '{"id":14002,"method":"import.last","params":null}'},
         {"name": "gen: import.last params array", "raw": '{"id":14003,"method":"import.last","params":[]}'},
-        # import.cancel (BL-3): a stop path; no import runs in the differential, so not_found on both cores
+        # import.cancel: a stop path; no import runs in the differential, so not_found on both cores
         {"name": "gen: import.cancel plain (no import running)", "send": {"id": 14004, "method": "import.cancel"}},
         {"name": "gen: import.cancel ignores params", "send": {"id": 14005, "method": "import.cancel",
                                                                 "params": {"limit": 1, "x": [1]}}},
@@ -494,7 +494,7 @@ def _sync_entries() -> list[dict]:
                                                            "params": {"relay": "x", "n": [1]}}},
         {"name": "gen: sync.run params null", "raw": '{"id":16102,"method":"sync.run","params":null}'},
         {"name": "gen: sync.run params array", "raw": '{"id":16103,"method":"sync.run","params":[]}'},
-        # 12-F row 5c: key.lock on a plaintext store (nothing to lock) answers the same everywhere; the unlocked-to-
+        # key.lock on a plaintext store (nothing to lock) answers the same everywhere; the unlocked-to-
         # locked change is checked in the harness's sync leg, on encrypted copies
         {"name": "gen: key.lock plain", "send": {"id": 16300, "method": "key.lock"}},
         {"name": "gen: key.lock ignores params", "send": {"id": 16301, "method": "key.lock", "params": {"x": [1]}}},

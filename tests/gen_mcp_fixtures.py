@@ -7,7 +7,7 @@
 
 ``--oracle`` also records the three hostile corpora (``hostile-*``, see ``HOSTILE``) on the synthetic store.
 
-``mcp.json`` is the language-neutral description of the server as it is served (pitch 11e): the tools exactly as
+``mcp.json`` is the language-neutral description of the server as it is served: the tools exactly as
 ``tools/list`` sends them, ``instructions``, ``serverInfo``, ``capabilities``, the error templates, the protocol
 version rule, the answers to the methods without parameters and the **coercion table**: for each parameter type,
 every input tried and whether the Python server accepted it, rejected it, answered with a protocol error or sent

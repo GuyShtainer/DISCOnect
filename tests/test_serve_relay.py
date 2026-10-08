@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The five relay/pair methods on the Python oracle: the shared check prefix, the parameter shapes, then
 ``unsupported_transport`` (this core runs no server); ``parse_listen``'s rules, with the vectors the Rust core's
-``serve_pair_test`` uses. ``tools/serve_diff.py`` compares the two cores on the refusals they share."""
+``serve_pair_test`` uses. ``tools/serve_diff.py`` (the two-core differential harness, not in this repository) compares the two cores on the refusals they share."""
 
 from __future__ import annotations
 
@@ -200,14 +200,14 @@ def test_parse_listen_names_the_rule_and_never_the_input(text, rule):
 
 
 def test_pair_forget_is_the_phones_method_and_this_core_always_refuses_it(encrypted):
-    """12-F: `pair.forget` is Rust-only on iOS. Here it answers `unsupported_transport` first, locked or not, with any params."""
+    """`pair.forget` is Rust-only on iOS. Here it answers `unsupported_transport` first, locked or not, with any params."""
     assert list(serve.METHODS)[-3:] == ["pair.forget", "pair.join", "pair.land"]
     expected = {"code": "unsupported_transport", "message": "this core is not a phone; there is nothing to forget"}
     for params in ({}, {"preview": True}, {"x": [1]}):
         assert encrypted.send("pair.forget", **params)["error"] == expected
 
 
-# ---- 12-F row 3: pair.join and pair.land, the phone's methods; this core runs the prefix and then refuses ----
+# ---- pair.join and pair.land, the phone's methods; this core runs the prefix and then refuses ----
 
 NOT_A_PHONE = {"code": "unsupported_transport", "message": "this core is not a phone; it does not join a pairing"}
 CLOCK_EXPIRED = "This offer expired by this phone's clock. Check the date and time."
@@ -298,7 +298,7 @@ def test_pair_join_refuses_after_an_unfinished_forget(db_path):
 
 
 def test_pair_join_reads_a_lan_relay_file_alone_as_a_failed_landings_leftover(db_path):
-    """12-H (d), the rule both cores share: a relay.json that is not a LAN relay is a pairing; a LAN relay of another
+    """The rule both cores share: a relay.json that is not a LAN relay is a pairing; a LAN relay of another
     address is one only beside some store's key file (a desktop folder); alone it is a leftover; one naming the
     offer's address is this pairing's."""
     import time

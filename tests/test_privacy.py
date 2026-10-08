@@ -57,7 +57,7 @@ def _seed(db_path, live=True):
                      "'2025-07-01T00:00:00Z')")
         conn.execute("INSERT INTO export_ranges(run_id, stream, from_day, to_day) VALUES(1,'json:uds','2025-06-01','2025-06-30')")
         if live:
-            # real bytes (a 9b-shaped record), so the 9b-2 fold produces 'live' rows the corpus walks
+            # real bytes (a live-link-shaped record), so the live fold produces 'live' rows the corpus walks
             import zlib
             from disconect.ingest import live as live_module
             base = int(datetime.datetime(2025, 6, 29, 10, tzinfo=utc).timestamp())
@@ -110,7 +110,7 @@ def test_tool_output_carries_no_identifiers(db_path, monkeypatch, tool, args):
 
 @pytest.mark.parametrize("tool,args", CALLS, ids=[c[0] for c in CALLS])
 def test_tool_output_names_no_manufacturer(db_path, monkeypatch, tool, args):
-    """ADR 0001: ``identity.neutral`` runs over every MCP tool result, as it does over ``serve``'s."""
+    """``identity.neutral`` runs over every MCP tool result, as it does over ``serve``'s."""
     _seed(db_path)
     monkeypatch.setenv(storage.DEFAULT_DB_ENV, str(db_path))
     from disconect import mcp_server

@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Bet 10b across the two cores: a Rust device and a Python device must agree on every daily row.
+"""Across the two cores: a Rust device and a Python device must agree on every daily row.
 
 The scenarios of ``test_converge_10b`` re-run with some devices on the Rust binary (``import``,
 ``sync push``, ``sync pull``) and some on the Python oracle, all holding one master key. After every
 scenario the daily rows of all devices are equal, and the invariant holds on the Rust-made stores
 too: the replay of the raw set (``disconect-core reparse`` on the Rust seats, Python's ``reparse_all`` on
-the Python seats) changes no daily row. Bet 12a adds the failed-conflict-write scenario (i). Synthetic data only.
+the Python seats) changes no daily row. The failed-conflict-write scenario (i) is included. Synthetic data only.
 """
 
 from __future__ import annotations
@@ -140,7 +140,7 @@ def _reparse_runs(db: pathlib.Path) -> int:
 
 
 def _assert_rust_reparse_quiet(device: Device) -> None:
-    """The 10b invariant on a Rust seat, replayed by the Rust binary itself: a run row, no daily row changed."""
+    """The convergence invariant on a Rust seat, replayed by the Rust binary itself: a run row, no daily row changed."""
     before, runs = _daily(device.db, with_observed=True), _reparse_runs(device.db)
     done = subprocess.run([str(BINARY), "--db", str(device.db), "--json", "reparse"], env=_rust_env(),
                           capture_output=True, text=True, timeout=300)
@@ -346,7 +346,7 @@ def test_failed_conflict_write_leaves_the_loser_and_the_retry_converges(tmp_path
     _quiet([feeder, puller])
 
 
-# ---- opus review of 12a (F1-F4, F6) on every core pairing ---------------------------------------
+# ---- review fixes (F1-F4, F6) on every core pairing ---------------------------------------
 
 CORE_PAIRS = [("py", "rs"), ("rs", "py"), ("py", "py"), ("rs", "rs")]
 
@@ -503,11 +503,11 @@ def test_f6_corrupt_record_reparse_failures_carry_the_same_keys(tmp_path, fleet)
     assert len(py) == len(rs) == 1
     assert sorted(py[0]) == sorted(rs[0]) == ["error", "file", "kind", "stream"]
     for key in ("file", "kind", "stream"):
-        assert py[0][key] == rs[0][key], key   # the error wording differs (kb/22 #9)
+        assert py[0][key] == rs[0][key], key   # the error wording differs (an accepted difference)
     assert payloads["py"]["status"] == payloads["rs"]["status"] == "failed"
 
 
-# ---- Phase 5 hardening: the conflict counts are a content fact, not an arrival fact (BACKLOG, 2026-10-05) ----
+# ---- hardening (2026-10-05): the conflict counts are a content fact, not an arrival fact ----
 
 def _status(fleet: Fleet, device: Device) -> dict:
     if device.core == "rs":
@@ -582,7 +582,7 @@ def test_a_damaged_copy_is_repaired_from_the_relay_on_either_core(tmp_path, flee
     _quiet([damaged, peer])
 
 
-# k: a stream one build cannot decode is kept, not dropped, on either core (BACKLOG "store unknown-stream
+# k: a stream one build cannot decode is kept, not dropped, on either core ("store unknown-stream
 # bytes on pull", 2026-10-06); the raw set and the ledger trail agree across the cores
 @pytest.mark.parametrize("sender_core,keeper_core", [("py", "rs"), ("rs", "py")])
 def test_a_stream_without_a_decoder_is_kept_on_either_core(tmp_path, fleet, sender_core, keeper_core):

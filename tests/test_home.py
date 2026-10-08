@@ -1,4 +1,4 @@
-"""Where the data folder is (Bet 02a): pure resolution, the legacy read-through, one stderr hint."""
+"""Where the data folder is pure resolution, the legacy read-through, one stderr hint."""
 
 import argparse
 import os

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""``sync.status`` and ``sync.run`` over the serve protocol (Bet 12, slice B), on the Python oracle:
+"""``sync.status`` and ``sync.run`` over the serve protocol, on the Python oracle:
 the checks in order, the progress events, counts-only results, the slot shared with ``import.run``,
 and the refusal of a LAN relay (``unsupported_transport``). The Rust core is compared with these
-answers by ``tools/serve_diff.py`` (its sync leg)."""
+answers by ``tools/serve_diff.py`` (the two-core differential harness, not in this repository) (its sync leg)."""
 
 from __future__ import annotations
 
@@ -257,7 +257,7 @@ def test_sync_methods_are_registered():
     assert sync is not None
 
 
-# ---------------------------------------------------------------- Bet 19d: the relay list
+# ---------------------------------------------------------------- the relay list
 def _sites_ids(result) -> list[tuple]:
     return [(site["id"], site["kind"], site["error"]) for site in result["sites"]]
 

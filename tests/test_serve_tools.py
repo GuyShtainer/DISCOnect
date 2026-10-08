@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""``tools.call`` over the serve protocol (Bet 15, slice 2), on the Python oracle: the six MCP tools answered
+"""``tools.call`` over the serve protocol, on the Python oracle: the six MCP tools answered
 through the session's own store, with the SDK's own argument coercion and result conversion. The Rust core is
-compared with these answers by ``tools/serve_diff.py`` (the ``gen: tools.call`` script entries)."""
+compared with these answers by ``tools/serve_diff.py`` (the two-core differential harness, not in this repository) (the ``gen: tools.call`` script entries)."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Where the data folder is: pure resolution, no side effects (Bet 02a).
+"""Where the data folder is: pure resolution, no side effects.
 
 ``resolve_default_db`` only looks. It never creates, renames or moves anything, because it runs from
 argparse defaults, ``--help``, every read-only MCP call and the app's verify steps. Moving the old

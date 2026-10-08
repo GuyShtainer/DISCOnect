@@ -1,4 +1,4 @@
-"""The MCP differential harness (``tools/mcp_diff.py``) and its stock-client leg test themselves, and the oracle.
+"""The MCP differential harness (``tools/mcp_diff.py``, not in this repository) and its stock-client leg test themselves, and the oracle.
 
 * the committed oracle transcripts are what the Python server answers today, on every store (content compare),
   and the harness compares that run with the oracle at 0 differences, privacy walk clean;

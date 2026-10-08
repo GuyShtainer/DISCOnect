@@ -243,7 +243,7 @@ def _energy_rows(db_path, date: str) -> dict[str, float]:
 
 
 def test_second_import_starting_midday_keeps_the_previous_days_dailies(tmp_path, db_path):
-    """Opus review of Bet 8 (blocker): the derive window is span ± 1 day, so a file starting at noon on
+    """Review blocker: the derive window is span ± 1 day, so a file starting at noon on
     D+1 sees only the afternoon of D. D's figures must not be rewritten from that tail."""
     midnight = datetime.datetime(2025, 6, 14, 21, 0, tzinfo=UTC)  # local midnight of 2025-06-15
     first = tmp_path / "first"

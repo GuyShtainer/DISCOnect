@@ -2,7 +2,7 @@
 """Generate the Rust ``canon`` module's oracle fixtures (canonical JSON byte identity).
 
 For each invented case ``<name>`` it writes, under
-``projects/disconect-core/tests/fixtures/canon/``:
+``disconect-core/tests/fixtures/canon/`` (disconect-core is the Rust twin, developed beside this package; not in this repository):
 
 * ``<name>.json``     the input bytes (``json.dumps(obj, indent=1, ensure_ascii=False)``: unsorted,
                       raw UTF-8; a few cases are hand-written texts that a dict cannot produce);

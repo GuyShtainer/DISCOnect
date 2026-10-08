@@ -2,7 +2,7 @@
 
 Constants, field names and order, reason codes and the two prose strings are read out of the Rust source
 and compared with the Python module they port; the numerics differential fixture is the committed output of
-``gen_facts_numerics.py``. Values and behaviour are the job of ``tools/serve_diff.py`` and the Rust parity tests.
+``gen_facts_numerics.py``. Values and behaviour are the job of ``tools/serve_diff.py`` (the two-core differential harness, not in this repository) and the Rust parity tests.
 """
 
 from __future__ import annotations

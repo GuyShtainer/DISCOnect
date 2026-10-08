@@ -1,10 +1,10 @@
 """The Rust MCP server (``disconect-core mcp``) against the Python one and against the stock SDK clients.
 
-Bet 11e, slice 2. A sibling of ``test_mcp_diff.py`` (which tests the harness against Python) and of
+A sibling of ``test_mcp_diff.py`` (which tests the harness against Python) and of
 ``test_serve_rust.py`` (the same idea for ``serve``): the harness itself is the gate, wrapped here so ``pytest``
 runs it.
 
-* ``tools/mcp_diff.py``, Python against the Rust debug binary, at 0 differences (a result's ``text`` compared
+* ``tools/mcp_diff.py`` (the two-core differential harness, not in this repository), Python against the Rust debug binary, at 0 differences (a result's ``text`` compared
   byte for byte) on every store of the oracle set: synthetic, its schema-v1 twin, empty, the privacy seed, the
   wide store (tiny and huge floats, non-ASCII echoes), a store that was never imported, and the
   encrypted store **locked** (both exit 9 before reading stdin), plus the encrypted store **unlocked**: Python

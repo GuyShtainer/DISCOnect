@@ -1,9 +1,9 @@
-"""CLAIMS-POLICY.md as a lint (Bet 15, slice 1): authored copy never claims medicine or borrows a score name.
+"""CLAIMS-POLICY.md as a lint: authored copy never claims medicine or borrows a score name.
 
 The policy file is the source of truth: its fenced ``terms <category> [case]`` blocks are the banned lists
 (one term per line, a trailing ``*`` is any word ending) and its ``allow`` block is the exact-sentence
 allowlist for negations. Scope is authored strings only; contract labels (``contract.py``, ``mcp.json``, the
-Rust read paths) are BACKLOG debt and out of scope, as are tests, docs and pitches (see the policy).
+Rust read paths) are known debt and out of scope, as are tests, docs and design notes (see the policy).
 """
 
 import ast

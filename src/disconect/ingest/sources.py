@@ -224,7 +224,7 @@ def _reparse_readiness(conn: sqlite.Connection, writer: Writer) -> None:
 def rederive_json(conn: sqlite.Connection, writer: Writer, streams: list[str]) -> None:
     """Make the daily rows of the JSON ``streams`` a pure function of the raw records stored now.
 
-    Run at the end of every import and every pull (bet 10b): devices that converged on the
+    Run at the end of every import and every pull: devices that converged on the
     same raw set must converge on the same days, whatever order the records arrived in. An
     export import passes every JSON stream in the store, not just the ones it wrote this run:
     each record commits on its own, so a retry of an interrupted import sees the finished

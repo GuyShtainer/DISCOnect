@@ -1,7 +1,7 @@
 # ADR 0011 — Device pairing: ephemeral X25519 over a QR secret, mutual key confirmation, a short authentication string, a single-use offer
 
-- **Status:** AMENDED 2026-10-07 (12-G: protocol v2, commit-reveal of the SAS nonce; see the amendment at the end; v1 never paired a device, so nothing migrates). ACCEPTED 2026-10-06 05:55 (Bet 12-E: vectors frozen in `docs/kb/24-wire-constants.md` § Pairing
-  vectors, routes frozen in `relay-protocol.md` § Pairing routes, opus review ACCEPT WITH FIXES applied
+- **Status:** AMENDED 2026-10-07 (protocol v2, commit-reveal of the SAS nonce; see the amendment at the end; v1 never paired a device, so nothing migrates). ACCEPTED 2026-10-06 05:55 (vectors frozen in `tests/test_pair_vectors.py` and `tests/test_wire_constants.py`,
+  routes frozen in `relay-protocol.md` § Pairing routes, review: accept with fixes applied
   `c424280`, two loopback pairings by the release binary). Refines ADR 0004 §3. PROPOSED 2026-10-06 00:40.
 
 ## Decision
@@ -13,7 +13,7 @@
   written from this text.
 - **Secrets in the offer (QR / pasted text):** an ephemeral X25519 public key, a commitment
   `c = SHA-256("disconect/pair/v2/commit" ‖ N_o)` to a 32-byte nonce `N_o` the offerer draws with the offer
-  and reveals only after the join is bound (v2, 12-G), a 128-bit secret `s`, an offer id, an expiry, the
+  and reveals only after the join is bound (v2), a 128-bit secret `s`, an offer id, an expiry, the
   relay URL. `s` is what a network-only attacker lacks; the public key is how the
   joiner authenticates the offerer; the expiry is 15 minutes (ADR 0004). The offer text enters the joiner
   by stdin or a scan, never by argv.
@@ -32,11 +32,11 @@
   the joiner's own key, and any later key is a second, different one. Without the commitment the offerer's
   code was computable offline by anyone holding the offer text (see the amendment).
 - **Human check:** a 6-digit SAS, `first 4 bytes of HMAC(K_sas, "sas" ‖ N_o)` big-endian mod 10⁶, **shown
-  on the joiner only**: the offerer never displays it (the app since design decision 6, the CLI since 12-G)
+  on the joiner only**: the offerer never displays it (the app since design decision 6, the CLI since v2)
   and only compares the digits the user types into it (a habitual `y` must not survive a wrong code); the
   offerer releases only on an exact match, re-checked against abort and expiry under the slot's lock. There
   are two human steps, not one: (1) the joiner's digits typed into the offerer protect the offerer's master;
-  (2) the joiner's landing confirmation ("did the other device say paired?", 12-F) is the only defence
+  (2) the joiner's landing confirmation ("did the other device say paired?") is the only defence
   against a planted offerer that releases its *own* master to the joiner.
 - **Single-use offer:** the first well-formed reply binds the joiner's key; **the same key again is
   idempotent** (an honest retry or a replay changes nothing); **a different key with a valid tag aborts
@@ -46,7 +46,7 @@
   do nothing; the QR-photo attacker can deny a pairing, never obtain the key; the attacker who holds the
   photo *and* plants an offer in front of the joiner gets one guess at 10⁻⁶ per offer on the offerer's side
   and one per fresh scan on the joiner's side, and no automatic re-offer or re-scan exists to amplify it
-  (v1 let that attacker grind the offerer's code offline: 12-F's attack, fixed by 12-G).
+  (v1 let that attacker grind the offerer's code offline: found in review, fixed by v2).
 - **Payload:** `master ‖ the offerer's key file bytes` under `AEAD-ChaCha20-Poly1305(K_payload, nonce 0)`
   with the transcript as AAD, **sealed exactly once and cached**, served on every `GET` until expiry or
   process exit (single delivery protected nothing: the ciphertext opens only with `K`, and the one `200`
@@ -62,7 +62,7 @@
   offer hold the photo-plus-planted-offer attacker to one guess per offer (v2); a PAKE would also take the
   photo attacker's *deny* away, which is not worth the primitive yet.
 - **Pairing through the blind relay:** the account name is `HKDF(master)` — the joiner cannot name the
-  mailbox before it holds the master (the relay's `delete`, added by 12-B, would have served the cleanup;
+  mailbox before it holds the master (the relay's `delete`, added with the LAN relay, would have served the cleanup;
   the chicken-and-egg is the reason that stands).
 - **TLS on the LAN server:** a self-signed certificate adds a trust dialog on every device and protects
   nothing the AEAD and the token do not; the offer's public key already authenticates the offerer.
@@ -71,14 +71,14 @@
 - **Single delivery of the payload (`200` once, then `410`):** see Payload.
 
 ## Consequences
-- Frozen in `kb/24`: the offer prefix `disconect-pair:v2.`, `disconect/pair/v2`, the four subkey labels,
+- Frozen (`tests/test_wire_constants.py`, `tests/test_pair_vectors.py`): the offer prefix `disconect-pair:v2.`, `disconect/pair/v2`, the four subkey labels,
   the commitment label, the three HMAC messages, the transcript layout, the seven-key offer JSON order; vectors (RFC 7748 §6.1 keys, intermediates,
   both tags, SAS with a leading-zero case, the sealed payload) and negative vectors pinned on both cores;
   `x25519-dalek` + `curve25519-dalek` (BSD-3) join the core's dependencies **and the app bundle** (the app
-  links the core in-process) — notices booked in BACKLOG 02b.
+  links the core in-process) — third-party notices are still to be added.
 - The routes and status semantics (`401` wrong tag, `202` bound with the offerer's reply `N_o ‖ tag` (64 B), `410` aborted or
   expired, `404` no offer attached, `200` cached payload, exact declared lengths, the 64-byte `202`) are frozen in
-  `relay-protocol.md`; the phone's pairing (Bet 12 slice E on iOS, Bet 14) is a client of this protocol and
+  `relay-protocol.md`; the phone's pairing (on iOS and later on Android) is a client of this protocol and
   of those routes: scan → the same join → the same SAS; nothing depends on the device class. Pairing from
   the Mac app means the app runs the LAN server — a decision for the app follow-up.
 - Every paired device holds the passphrase-wrapped key file: an offline Argon2id target on each device and
@@ -87,8 +87,8 @@
   refuses an existing store, so a re-pair needs the booked `--replace` path (push the unsent records
   under the old master, then replace).
 
-## Amendment 2026-10-07 (12-G): commit-reveal of the offerer's SAS nonce — protocol v2
-**The hole (found by the ios-toolkit session's 12-F attack).** In v1 the code was `HMAC(K_sas, "sas")` and
+## Amendment 2026-10-07: commit-reveal of the offerer's SAS nonce — protocol v2
+**The hole (found by an attack review).** In v1 the code was `HMAC(K_sas, "sas")` and
 every offerer-side input to `K` was in the offer text. Whoever held the text (a photographed QR, the Copy
 button's text on a shared pasteboard) could compute offline, for any joiner key it might choose, the code the
 offerer would show: ≈10⁶ X25519 + HKDF evaluations, seconds. With a planted offer in front of the joiner as
