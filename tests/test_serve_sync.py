@@ -18,6 +18,7 @@ from disconect.ingest import sources
 from disconect.relay import config as relay_config
 from disconect.relay import sync
 from disconect.storage import keys
+from gen_core_fixtures import SYNTHETIC_DIR
 from test_import import _build_export
 from test_privacy import _seed
 from test_serve import PASS, Rig, _encrypt
@@ -534,3 +535,53 @@ def test_sync_status_chains_name_each_writer_with_counts_and_a_self_flag(encrypt
         assert sum(c["self"] for c in chains) == 1
     assert [{k: v for k, v in c.items() if k != "self"} for c in ca] == [{k: v for k, v in c.items() if k != "self"} for c in cb]
     assert [c["chain"] for c in ca if c["self"]] != [c["chain"] for c in cb if c["self"]]
+
+
+def _pull_over_a_hand_edited_cell(encrypted, db_path, tmp_path, seed_sql):
+    """Device A (the synthetic monitoring FIT of device 42 imported) pushes to a folder relay; device B's store is
+    seeded with `seed_sql` and pulls. Returns B's `sync.run` response, its events, run rows and bundle rows."""
+    _relay_json(db_path, {"folder": str(tmp_path / "relay")})
+    encrypted.result("key.unlock", passphrase=PASS)
+    drop = tmp_path / "drop"
+    drop.mkdir()
+    (drop / "a.fit").write_bytes((SYNTHETIC_DIR / "monitoring_sentinels_counters.fit.bin").read_bytes())
+    encrypted.result("import.run", path=str(drop))
+    assert encrypted.result("sync.run")["push"]["bundles"] == 1
+    other = _second_device(db_path, tmp_path)
+    b = tmp_path / "b.db"
+    (b.parent / "relay.json").write_text(json.dumps({"folder": str(tmp_path / "relay")}))
+    with storage.open_for_write(b, purpose="test") as conn:
+        conn.execute("INSERT INTO raw_records(stream, source_key, source_scope, transport, payload_kind, payload, "
+                     "payload_hash, payload_bytes, imported_at) VALUES('fit:monitoring_b','k','device','usb','fit',"
+                     "x'00','h',1,'2025-07-01T00:00:00Z')")
+        conn.execute(seed_sql)
+    response = other.send("sync.run")
+    with storage.open_for_write(b, purpose="test") as conn:
+        runs = [tuple(r) for r in conn.execute("SELECT status, error FROM import_runs ORDER BY id")]
+        bundles = [tuple(r) for r in conn.execute("SELECT direction, status FROM relay_bundles ORDER BY direction")]
+    return response, [(e["phase"], e["state"]) for e in _sync_events(other)], runs, bundles
+
+
+def test_a_pull_over_a_corrupt_clock_stamp_is_bad_params_and_books_no_run(encrypted, db_path, tmp_path):
+    """Write-path stamp row, sync.run twin (serve_sync_test.rs): the offsets load raises before `begin_run`."""
+    text = "time data '2025-06-15 00:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+    response, events, runs, bundles = _pull_over_a_hand_edited_cell(
+        encrypted, db_path, tmp_path, "INSERT INTO clock_offsets(ts_utc, offset_s) VALUES('2025-06-15 00:00:00', 0)")
+    assert response["error"] == {"code": "bad_params", "message": text}
+    assert events == [("push", "start"), ("push", "done"), ("pull", "start")]
+    # B's own push (its one seeded record) went out before the pull; nothing was pulled
+    assert (runs, bundles) == ([], [("pushed", "applied")])
+
+
+def test_a_pull_over_a_corrupt_sample_stamp_is_bad_params_and_the_pull_run_is_failed(encrypted, db_path, tmp_path):
+    """Write-path stamp row, sync.run twin (serve_sync_test.rs): a derivation cell books the pull run failed and
+    leaves the bundle `applying`."""
+    text = "time data '2025-06-15T12:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+    response, events, runs, bundles = _pull_over_a_hand_edited_cell(
+        encrypted, db_path, tmp_path,
+        "INSERT INTO metric_samples(ts_utc, metric, value, source_scope, device_id, raw_record_id) "
+        "VALUES('2025-06-15T12:00:00','stress',5,'device','42',1)")
+    assert response["error"] == {"code": "bad_params", "message": text}
+    assert events == [("push", "start"), ("push", "done"), ("pull", "start")]
+    assert runs == [("failed", "ValueError: " + text)]
+    assert bundles == [("pulled", "applying"), ("pushed", "applied")]

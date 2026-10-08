@@ -22,6 +22,7 @@ import pytest
 from disconect import cli, contract, identity, serve, storage
 from disconect.ingest import sources
 from disconect.storage import keys
+from gen_core_fixtures import SYNTHETIC_DIR
 from test_import import _build_export
 from test_privacy import FORBIDDEN_KEYS, FORBIDDEN_TEXT, SERIAL, _seed
 
@@ -930,7 +931,6 @@ def test_a_malformed_clock_offset_cell_reads_as_strptimes_text(tmp_path, cell, t
     assert response["error"] == {"code": "bad_params", "message": text}
 
 
-SYNTHETIC_FITS = pathlib.Path(__file__).parents[2] / "disconect-core" / "tests" / "fixtures" / "synthetic"
 STAMP_TEXT = "time data '2025-06-15T12:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"
 
 
@@ -950,7 +950,7 @@ def _corrupt_import_rig(tmp_path, seed_sql):
     db = tmp_path / "plain.hbdb"
     folder = tmp_path / "drop"
     folder.mkdir()
-    (folder / "a.fit").write_bytes((SYNTHETIC_FITS / "monitoring_sentinels_counters.fit.bin").read_bytes())
+    (folder / "a.fit").write_bytes((SYNTHETIC_DIR / "monitoring_sentinels_counters.fit.bin").read_bytes())
     with storage.open_for_write(db, purpose="test") as conn:
         conn.execute("INSERT INTO raw_records(stream, source_key, source_scope, transport, payload_kind, payload, "
                      "payload_hash, payload_bytes, imported_at) VALUES('fit:monitoring_b','k','device','usb','fit',"
@@ -980,7 +980,7 @@ def test_import_over_a_malformed_clock_offset_cell_is_bad_params_and_leaves_the_
      "INSERT INTO metric_samples(ts_utc, metric, value, source_scope, device_id, raw_record_id) "
      "VALUES('2025-06-15T12:00:00','stress',5,'device','42',1)",
      ([(1, "failed", 1, 1, 0, 12, "ValueError: " + STAMP_TEXT)], [2, 11, 8, 1])),
-])
+], ids=["intervals", "samples"])
 def test_import_over_an_unparseable_derivation_cell_is_bad_params_and_the_run_is_booked_failed(
         tmp_path, table, seed_sql, state):
     """Write-path stamp row (BACKLOG 478): `derive_daily_steps` / `derive_daily_from_samples` call `parse_iso_utc`
