@@ -928,3 +928,18 @@ def test_a_malformed_clock_offset_cell_reads_as_strptimes_text(tmp_path, cell, t
         conn.execute("INSERT INTO clock_offsets(ts_utc, offset_s) VALUES(?, 0)", (cell,))
     response = Rig(db).send("data.health")
     assert response["error"] == {"code": "bad_params", "message": text}
+
+
+def test_a_mean_the_float_cannot_hold_is_internal_unexpected_overflowerror(tmp_path):
+    """Lower-end `date − n` row review (2026-10-08): the window clamp took every OverflowError out of the
+    oracles, so the serve wire text for one is pinned here on both cores (serve_test.rs twin): two stored
+    daily values of 1e308 make `statistics.fmean` overflow inside `data.facts`."""
+    db = tmp_path / "plain.hbdb"
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("INSERT INTO raw_records(stream, source_key, source_scope, transport, payload_kind, payload, "
+                     "payload_hash, payload_bytes, imported_at) VALUES('fit:monitoring_b','k','device','usb','fit',"
+                     "x'00','h',1,'2025-07-01T00:00:00Z')")
+        conn.executemany("INSERT INTO daily_metrics(date, metric, value, source_scope, device_id, raw_record_id) "
+                         "VALUES(?,'steps',1e308,'device','7',1)", [("2025-06-29",), ("2025-06-30",)])
+    response = Rig(db).send("data.facts", days=7, baseline_days=28)
+    assert response["error"] == {"code": "internal", "message": "unexpected OverflowError"}

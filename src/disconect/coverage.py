@@ -46,9 +46,10 @@ def earlier(day: datetime.date, days: int) -> datetime.date:
     """``days`` days before ``day``, never before the calendar's first day (0001-01-01).
 
     A window that would start before the calendar is shortened instead of failing the read (the same rule
-    as ``fetch_window`` at the ends). Twin of the Rust ``queries::earlier``.
+    as ``fetch_window`` at the ends). Defined for ``days >= 0`` only (every caller passes a count); a negative
+    ``days`` reads as 0, so the answer is never after ``day``. Twin of the Rust ``queries::earlier``.
     """
-    return datetime.date.fromordinal(max(1, day.toordinal() - days))
+    return datetime.date.fromordinal(max(1, day.toordinal() - max(0, days)))
 
 
 def fetch_window(first_day: datetime.date, last_day: datetime.date) -> tuple[str, str]:
@@ -57,7 +58,7 @@ def fetch_window(first_day: datetime.date, last_day: datetime.date) -> tuple[str
     A local day starts up to 14 h either side of its UTC namesake, so readers fetch a wider UTC
     window and filter. At 0001-01-01 / 9999-12-31 the window is clamped instead of overflowing.
     """
-    lo = first_day - _DAY if first_day > datetime.date.min else first_day
+    lo = earlier(first_day, 1)
     ceiling = datetime.date.max - 2 * _DAY
     hi = last_day + 2 * _DAY if last_day <= ceiling else datetime.date.max
     return lo.isoformat(), hi.isoformat()

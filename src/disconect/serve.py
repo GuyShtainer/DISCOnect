@@ -298,7 +298,7 @@ def data_metric(session: Session, call: Call) -> dict:
     with session.reader() as conn:
         # strict YYYY-MM-DD like the MCP paths (kb/23: the fromisoformat allowance is retired)
         last = queries.parse_day(last_day, "last_day") if last_day is not None else datetime.date.fromisoformat(queries.local_today(conn))
-        first = coverage.earlier(last, max(1, min(days, cap)) - 1)  # shortened at the calendar's start, never internal
+        first = coverage.earlier(last, max(1, min(days, cap)) - 1)  # the window is shortened at the calendar's start, never an error
         series = queries.metric_calendar(conn, metric, scope, first.isoformat(), last.isoformat())
     return {"metric": metric, "scope": scope, "unit": contract.unit_for(metric), "days": series}
 

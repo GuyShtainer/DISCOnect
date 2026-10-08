@@ -185,7 +185,8 @@ def period_facts(conn: sqlite.Connection, window_days: int = DEFAULT_WINDOW_DAYS
                 "reason": "nothing stored yet", "rules": list(RULES)}
     end = datetime.date.fromisoformat(as_of)
     # a window or baseline that would start before the calendar is shortened (at the extreme the baseline is
-    # the calendar's first day, which the window also holds) instead of failing the read
+    # the calendar's first day, which the window also holds) instead of failing the read; a one-day baseline
+    # never forms a comparison (MIN_BASELINE_DAYS >= 2), so the overlap decides nothing
     window_start = coverage.earlier(end, window_days - 1)
     baseline_end = coverage.earlier(window_start, 1)
     baseline_start = coverage.earlier(baseline_end, baseline_days - 1)

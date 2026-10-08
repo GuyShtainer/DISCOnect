@@ -342,4 +342,6 @@ def test_a_window_that_would_start_before_the_calendar_is_shortened():
     assert coverage.earlier(jan, 5) == datetime.date.min
     assert coverage.earlier(jan, 10**9) == datetime.date.min
     assert coverage.earlier(datetime.date.max, 1) == datetime.date(9999, 12, 30)
+    assert coverage.earlier(jan, -5) == jan  # outside the domain: a negative count reads as 0, never a later day
+    assert coverage.earlier(datetime.date.max, -1) == datetime.date.max
     assert queries._window(7, "0001-01-03", 30) == ("0001-01-01", "0001-01-03")
