@@ -1,6 +1,6 @@
 # DISCOnect — target architecture (2026-10-02)
 
-*This repository holds the Python core only (CLI, MCP server, serve protocol, relay client, pairing). The Rust core and the desktop/phone shells this document also describes are developed separately and are not published here.*
+*This repository holds the Python core only (CLI, MCP server, serve protocol, relay client, pairing). The Rust core and the desktop/phone app this document also describes are published separately as [DISCOnect-app](https://github.com/GuyShtainer/DISCOnect-app).*
 
 One core, one UI, five shells; the user's PC is the brain; any remote box is blind.
 

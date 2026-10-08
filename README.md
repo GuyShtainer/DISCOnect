@@ -93,8 +93,8 @@ Every test runs on synthetic data: `tests/fit_builder.py` synthesises FIT files,
 fixture stores under `tests/fixtures/` were built by the generators beside them. No file from a
 real watch or account is in this repository. The suite reads `748 passed, 28 skipped` on a fresh
 clone (2026-10-08): the skipped tests need the Rust twin, the desktop/phone shell or the two-core
-differential harness, which are developed beside this package and are not published here
-(`tests/monorepo.py` names them), or a Node toolchain.
+differential harness, which are not in this repository (the Rust core and the app are in
+[DISCOnect-app](https://github.com/GuyShtainer/DISCOnect-app); `tests/monorepo.py` names the skips), or a Node toolchain.
 
 ## What it does
 
@@ -227,8 +227,8 @@ these rows stop.
 ## How it was built
 
 Designed and reviewed by Guy Shtainer; implemented AI-assisted with Claude Code. The Python
-core is the oracle a Rust port is held to by differential tests; that port and the desktop and
-phone shells are developed beside this package and are not published yet.
+core is the oracle a Rust port is held to by differential tests. That port and the desktop and
+phone app are published as [DISCOnect-app](https://github.com/GuyShtainer/DISCOnect-app) (AGPL-3.0-or-later).
 
 ## License
 

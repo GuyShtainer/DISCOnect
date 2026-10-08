@@ -1,6 +1,6 @@
 # Relay protocol v1 — encrypted raw-record bundles over a blind store
 
-*This repository holds the Python core only (CLI, MCP server, serve protocol, relay client, pairing). The Rust core and the desktop/phone shells this document also describes are developed separately and are not published here.*
+*This repository holds the Python core only (CLI, MCP server, serve protocol, relay client, pairing). The Rust core and the desktop/phone app this document also describes are published separately as [DISCOnect-app](https://github.com/GuyShtainer/DISCOnect-app).*
 
 Status: relay and bundles 2026-10-02; LAN relay added 2026-10-03. Implements ADR 0005 with
 ADR 0004's key model. Code: `src/disconect/relay/{bundle,folder,sync,config}.py` and

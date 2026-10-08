@@ -1,6 +1,6 @@
 # `disconect serve` — the sidecar protocol (v1)
 
-*This repository holds the Python core only (CLI, MCP server, serve protocol, relay client, pairing). The Rust core and the desktop/phone shells this document also describes are developed separately and are not published here.*
+*This repository holds the Python core only (CLI, MCP server, serve protocol, relay client, pairing). The Rust core and the desktop/phone app this document also describes are published separately as [DISCOnect-app](https://github.com/GuyShtainer/DISCOnect-app).*
 
 One long-lived process per app. JSON Lines over stdio. Written by the Rust bridge; the Python
 side is the only process that ever holds the DB key.
