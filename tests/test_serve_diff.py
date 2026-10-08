@@ -20,9 +20,9 @@ import textwrap
 
 import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "tools"))
-import serve_diff  # noqa: E402
+import monorepo
+
+serve_diff = monorepo.harness("serve_diff")
 
 import gen_serve_fixtures  # noqa: E402
 import test_privacy  # noqa: E402
@@ -258,7 +258,7 @@ def test_the_sync_leg_catches_a_core_that_differs_in_an_event_or_the_response(tm
     assert "RESULT: FAILED" in report and "sync leg: " in report and "identical 129, differing 0" not in report, what
 
 
-@pytest.mark.skipif(not RUST_DEBUG.exists(), reason="build projects/disconect-core first (cargo build)")
+@pytest.mark.skipif(not RUST_DEBUG.exists(), reason="build disconect-core first (cargo build)")
 @pytest.mark.parametrize("store, label, now", [
     (STORE, "synthetic", None),
     (STORE_V1, "synthetic-v1", None),

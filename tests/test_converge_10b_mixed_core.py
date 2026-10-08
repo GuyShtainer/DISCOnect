@@ -27,12 +27,15 @@ from disconect.relay.folder import FolderRelay
 from disconect.storage import keys
 from test_converge_10b import (_assert_reparse_quiet, _bio, _daily, _day, _export, _fitness, _hash,
                                _interrupted_export, _load, _metrics_export, _readiness_rows, _split_readiness_export, _wellness_export)
-from test_core_parity import BINARY, PASS, _rust_env
+import monorepo
+
+monorepo.require()
+from test_core_parity import BINARY, PASS, _rust_env  # noqa: E402
 from test_relay_atomic import (EARLY_STEPS, LATE_STEPS, _count, _hash_of, _history, _rec, _seen, _steps, _store_many,
                                _store_with, _unsent)
 from test_import import _uds
 
-needs_binary = pytest.mark.skipif(not BINARY.exists(), reason="build projects/disconect-core first (cargo build)")
+needs_binary = monorepo.needs_binary
 pytestmark = needs_binary
 
 

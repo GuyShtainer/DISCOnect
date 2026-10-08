@@ -16,9 +16,12 @@ from disconect import cli
 from disconect.relay.folder import FolderRelay
 from test_converge_10b import _export
 from test_converge_10b_mixed_core import (Device, Fleet, _assert_rust_reparse_quiet, _converged, _quiet)
-from test_core_parity import BINARY, _rust_env
+import monorepo
 
-needs_binary = pytest.mark.skipif(not BINARY.exists(), reason="build projects/disconect-core first (cargo build)")
+monorepo.require()
+from test_core_parity import BINARY, _rust_env  # noqa: E402
+
+needs_binary = monorepo.needs_binary
 pytestmark = needs_binary
 
 

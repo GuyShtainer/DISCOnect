@@ -3,8 +3,10 @@
 
 Synthetic mode (default): the decoder's own test scenarios, built with ``fit_builder``, written
 as ``<name>.fit.bin`` + ``<name>.expected.json`` under
-``projects/disconect-core/tests/fixtures/synthetic/`` (synthetic bytes, serial 42, no personal
-data; ``test_core_parity.py`` fails when a regenerated set differs from the committed one).
+``tests/fixtures/synthetic/`` (synthetic bytes, serial 42, no personal data; ``test_core_parity.py``
+fails when a regenerated set differs from the committed one). The Rust crate keeps its own copy under
+``disconect-core/tests/fixtures/synthetic/`` (written with ``--synthetic-dir``); the same test holds the two
+equal when the crate is beside this repository.
 
 Corpus mode: ``--corpus <folder of .fit> --out <folder>`` writes one ``<stem>.expected.json``
 per real file into a scratch folder that the Rust crate's ignored test reads
@@ -30,7 +32,7 @@ from disconect.ingest import fit_wellness  # noqa: E402
 
 UTC = datetime.timezone.utc
 T0 = datetime.datetime(2025, 6, 15, 6, 0, tzinfo=UTC)
-SYNTHETIC_DIR = pathlib.Path(__file__).resolve().parents[2] / "disconect-core" / "tests" / "fixtures" / "synthetic"
+SYNTHETIC_DIR = pathlib.Path(__file__).resolve().parent / "fixtures" / "synthetic"
 
 
 def _ts16(moment):

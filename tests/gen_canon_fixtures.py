@@ -20,7 +20,9 @@ import json
 import pathlib
 import sys
 
-CANON_DIR = pathlib.Path(__file__).resolve().parents[2] / "disconect-core" / "tests" / "fixtures" / "canon"
+import monorepo
+
+CANON_DIR = monorepo.CRATE / "tests" / "fixtures" / "canon"
 
 #: Cases built from Python objects (their input is ``json.dumps(obj, indent=1, ensure_ascii=False)``).
 OBJECT_CASES: dict[str, object] = {

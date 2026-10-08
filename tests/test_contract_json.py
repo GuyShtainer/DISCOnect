@@ -20,7 +20,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 from disconect import contract, coverage, insight, storage  # noqa: E402
 
-CONTRACT_FILE = pathlib.Path(__file__).resolve().parents[2] / "disconect-core" / "contract.json"
+import monorepo  # noqa: E402
+
+monorepo.require()
+CONTRACT_FILE = monorepo.CRATE / "contract.json"
 
 
 def _refinement_texts() -> dict[str, str]:

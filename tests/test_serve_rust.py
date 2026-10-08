@@ -12,22 +12,22 @@ Also here: the methods the Rust core answers plus the ones it has deferred are e
 import base64
 import json
 import os
-import pathlib
 import re
 import subprocess
 
-import pytest
 
 from disconect import identity, serve
 from disconect.storage import keys
 from test_serve import PASS, WRONG, _encrypt, _requests
 from test_privacy import _seed
 
-CRATE = pathlib.Path(__file__).resolve().parents[2] / "disconect-core"
-BINARY = CRATE / "target" / "debug" / "disconect-core"
+import monorepo  # noqa: E402
+
+CRATE = monorepo.CRATE
+BINARY = monorepo.BINARY
 PROBE = CRATE / "target" / "debug" / "examples" / "fd_probe"
 
-needs_binary = pytest.mark.skipif(not BINARY.exists(), reason="build projects/disconect-core first (cargo build)")
+needs_binary = monorepo.needs_binary
 
 
 def _env(tmp_path, **extra):
@@ -39,6 +39,7 @@ def _spawn(db_path, tmp_path, **env):
                             stderr=subprocess.PIPE, env=_env(tmp_path, **env), text=True)
 
 
+@monorepo.needs_monorepo
 def test_the_rust_methods_plus_the_deferred_list_are_the_oracles_methods():
     serve_rs = (CRATE / "src" / "serve.rs").read_text()
     table = serve_rs.split("pub const METHODS", 1)[1].split("];", 1)[0]
@@ -106,9 +107,10 @@ def test_the_env_passphrase_is_ignored_and_reported_by_the_rust_core(db_path, tm
     assert lines[1]["result"]["unlocked"] is False and lines[2]["error"]["code"] == "locked"
 
 
+@monorepo.needs_monorepo
 def test_the_sidecar_env_allowlist_never_passes_the_test_only_switches_on():
     """DISCONECT_NOW (clock pin) and DISCONECT_KEYCHAIN (keychain off) are for the differential harness only."""
-    sidecar = (CRATE.parent / "disconect-app" / "src-tauri" / "src" / "sidecar.rs").read_text()
+    sidecar = (monorepo.APP / "src-tauri" / "src" / "sidecar.rs").read_text()
     allowlist = re.search(r"const ENV_ALLOWLIST: &\[&str\] = &\[(.*?)\];", sidecar, re.S).group(1)
     names = set(re.findall(r'"([A-Z_]+)"', allowlist))
     assert names and "env_clear()" in sidecar, "the allowlist is a whitelist: everything else is dropped"

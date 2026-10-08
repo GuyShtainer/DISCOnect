@@ -20,6 +20,8 @@ from disconect.relay import config as relay_config
 from disconect.relay import sync
 from disconect.relay.bundle import account_for, unpack
 from disconect.relay.config import RelayEntry
+
+import monorepo
 from disconect.relay.folder import FolderRelay
 from disconect.relay.sync import SiteReport, SiteSpec, open_sites, pull_all, push_all
 from test_import import _uds
@@ -131,10 +133,10 @@ def test_write_list_round_trips_in_sorted_keys_and_refuses_two_servers(tmp_path)
     assert relay_config.read_list(path) == entries, "a refused write leaves the file"
 
 
-RUST = pathlib.Path(__file__).resolve().parents[2] / "disconect-core" / "target" / "debug" / "disconect-core"
+RUST = monorepo.BINARY
 
 
-@pytest.mark.skipif(not RUST.exists(), reason="build projects/disconect-core first (cargo build)")
+@monorepo.needs_binary
 def test_write_list_bytes_equal_a_file_the_rust_cli_wrote(tmp_path):
     env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "DISCONECT_KEYCHAIN": "fail",
            "DISCONECT_DB": str(tmp_path / "rust" / "x.db")}

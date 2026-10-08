@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-import gen_mcp_fixtures
+import monorepo
 from disconect import mcp_server, serve, storage
 from test_privacy import _seed
 from test_serve import PASS, Rig, _encrypt
@@ -138,7 +138,9 @@ def test_a_locked_store_answers_locked_until_it_is_unlocked(encrypted):
     assert encrypted.result("tools.call", name="get_sleep_detail")["result"]["date"] == "2025-06-30"
 
 
+@monorepo.needs_monorepo
 def test_the_sdk_texts_tools_call_uses_are_the_ones_in_mcp_json():
+    import gen_mcp_fixtures
     errors = json.loads(gen_mcp_fixtures.MCP_JSON.read_text(encoding="utf-8"))["errors"]
     assert mcp_server.UNKNOWN_TOOL_TEMPLATE == errors["unknown_tool"]
     assert mcp_server.CRASH_TEMPLATE == errors["crash"]

@@ -38,11 +38,11 @@ import time
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1] / "src"))
-sys.path.insert(0, str(HERE.parents[2] / "tools"))
 
+import monorepo  # noqa: E402
 from disconect import contract, identity, insight, queries, storage  # noqa: E402
 
-FIXTURE = HERE.parents[1] / "disconect-core" / "tests" / "fixtures" / "read_paths.json"
+FIXTURE = monorepo.CRATE / "tests" / "fixtures" / "read_paths.json"
 SERVE_FIXTURES = HERE / "fixtures" / "serve"
 MCP_FIXTURES = HERE / "fixtures" / "mcp"
 WIDE = HERE / "fixtures" / "read" / "wide.hbdb"

@@ -15,9 +15,10 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+import monorepo
 from disconect import pair
 
-FIXTURE = pathlib.Path(__file__).resolve().parents[2] / "disconect-core" / "tests" / "fixtures" / "test.keys.json"
+FIXTURE = monorepo.CRATE / "tests" / "fixtures" / "test.keys.json"   # the shared key vectors, committed with the crate
 OFFERER_PRIV = bytes.fromhex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
 JOINER_PRIV = bytes.fromhex("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb")
 S = bytes.fromhex("000102030405060708090a0b0c0d0e0f")
@@ -144,6 +145,7 @@ def test_leading_zero_sas_case():
     assert pair.sas_text(keys, N_O) == "047069"
 
 
+@monorepo.needs_monorepo
 def test_sealed_payload_vector_and_roundtrip():
     key_file = FIXTURE.read_bytes()
     assert hashlib.sha256(key_file).hexdigest() == FIXTURE_SHA and len(key_file) == 635

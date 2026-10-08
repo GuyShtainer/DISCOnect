@@ -9,14 +9,16 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
-import pathlib
 import re
 import statistics
 
-import gen_facts_numerics
-from disconect import insight
+import monorepo
 
-CRATE = pathlib.Path(__file__).resolve().parents[2] / "disconect-core"
+monorepo.require()
+import gen_facts_numerics  # noqa: E402
+from disconect import insight  # noqa: E402
+
+CRATE = monorepo.CRATE
 INSIGHT_RS = (CRATE / "src" / "read" / "insight.rs").read_text()
 NUMERICS_RS = (CRATE / "src" / "read" / "numerics.rs").read_text()
 

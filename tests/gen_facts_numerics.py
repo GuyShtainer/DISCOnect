@@ -24,14 +24,14 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import pathlib
 import random
 import statistics
 import struct
 import sys
 
-FIXTURE = (pathlib.Path(__file__).resolve().parents[2] / "disconect-core" / "tests" / "fixtures"
-           / "py_numerics_read.json")
+import monorepo
+
+FIXTURE = monorepo.CRATE / "tests" / "fixtures" / "py_numerics_read.json"
 SEED = 20261003
 MIN_VECTOR_VALUES = 110_000
 MIN_ROUND_VALUES = 25_000

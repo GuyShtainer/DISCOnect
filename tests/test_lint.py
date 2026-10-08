@@ -3,6 +3,8 @@
 import pathlib
 import re
 
+import monorepo
+
 SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "disconect"
 
 
@@ -51,18 +53,19 @@ def test_no_cli_option_takes_key_material():
     assert bad == [], f"key material must never travel in argv: {bad}"
 
 
+@monorepo.needs_monorepo
 def test_app_token_copy_matches_design_export():
-    """projects/disconect-app/src/tokens.css is a copy of docs/design/tokens.css; drift breaks the design system."""
-    root = SRC.parent.parent.parent.parent
-    export = root / "projects" / "disconect" / "docs" / "design" / "tokens.css"
-    copy = root / "projects" / "disconect-app" / "src" / "tokens.css"
+    """disconect-app/src/tokens.css is a copy of docs/design/tokens.css; drift breaks the design system."""
+    export = monorepo.PROJECT / "docs" / "design" / "tokens.css"
+    copy = monorepo.APP / "src" / "tokens.css"
     assert export.read_text() == copy.read_text()
 
 
+@monorepo.needs_monorepo
 def test_design_tokens_css_is_generated_from_json():
     """Every colour value in tokens.css must come from tokens.json (gen_tokens.py writes both)."""
     import json
-    root = SRC.parent.parent.parent.parent / "projects" / "disconect" / "docs" / "design"
+    root = monorepo.PROJECT / "docs" / "design"
     data = json.loads((root / "tokens.json").read_text())
     known = {v for tok in data["color"]["tokens"] for v in tok["value"].values()}
     css_hexes = set(re.findall(r"#[0-9a-f]{6}", (root / "tokens.css").read_text()))

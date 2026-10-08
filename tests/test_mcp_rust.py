@@ -16,23 +16,20 @@ runs it.
 
 from __future__ import annotations
 
-import pathlib
 import re
-import sys
 
 import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "tools"))
-import mcp_diff  # noqa: E402
-import mcp_stock_client  # noqa: E402
+import monorepo
 
+mcp_diff = monorepo.harness("mcp_diff")
+mcp_stock_client = monorepo.harness("mcp_stock_client")
 import gen_mcp_fixtures  # noqa: E402
 
-CRATE = ROOT / "projects" / "disconect-core"
-BINARY = CRATE / "target" / "debug" / "disconect-core"
+CRATE = monorepo.CRATE
+BINARY = monorepo.BINARY
 
-needs_binary = pytest.mark.skipif(not BINARY.exists(), reason="build projects/disconect-core first (cargo build)")
+needs_binary = monorepo.needs_binary
 
 
 @needs_binary

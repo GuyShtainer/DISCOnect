@@ -20,11 +20,11 @@ import textwrap
 import pydantic_core
 import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "tools"))
-import mcp_diff  # noqa: E402
-import mcp_stock_client  # noqa: E402
-import serve_diff  # noqa: E402
+import monorepo
+
+mcp_diff = monorepo.harness("mcp_diff")
+mcp_stock_client = monorepo.harness("mcp_stock_client")
+serve_diff = monorepo.harness("serve_diff")
 
 import gen_mcp_fixtures  # noqa: E402
 import test_privacy  # noqa: E402

@@ -10,7 +10,6 @@ import json
 import os
 import pathlib
 import subprocess
-import sys
 
 import pytest
 
@@ -19,14 +18,16 @@ from disconect.ingest import sources
 from disconect.relay import sync
 from disconect.relay.folder import FolderRelay
 from disconect.storage import keys
-from test_converge_10b_mixed_core import Fleet
-from test_core_parity import BINARY, PASS, _rust_env
-from test_import import UTC, _monitoring_day
+import monorepo
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
-import core_diff  # noqa: E402  (tools/ is a script directory, not a package)
+monorepo.require()
+from test_converge_10b_mixed_core import Fleet  # noqa: E402
+from test_core_parity import BINARY, PASS, _rust_env  # noqa: E402
+from test_import import UTC, _monitoring_day  # noqa: E402
 
-pytestmark = pytest.mark.skipif(not BINARY.exists(), reason="build projects/disconect-core first (cargo build)")
+core_diff = monorepo.harness("core_diff")
+
+pytestmark = monorepo.needs_binary
 
 MIDNIGHT = datetime.datetime(2025, 6, 15, 0, 0, tzinfo=UTC).timestamp()
 

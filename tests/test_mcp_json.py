@@ -11,7 +11,10 @@ from __future__ import annotations
 import json
 import re
 
-import gen_mcp_fixtures
+import monorepo
+
+monorepo.require()
+import gen_mcp_fixtures  # noqa: E402
 from disconect import identity
 
 

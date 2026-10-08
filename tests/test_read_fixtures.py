@@ -13,7 +13,10 @@ import pathlib
 import shutil
 import tempfile
 
-import gen_read_fixtures as gen
+import monorepo
+
+monorepo.require()
+import gen_read_fixtures as gen  # noqa: E402
 from disconect import storage
 
 CASES = json.loads(gen.FIXTURE.read_text())["cases"]

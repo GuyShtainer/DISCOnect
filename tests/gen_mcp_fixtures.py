@@ -33,15 +33,16 @@ import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
-import mcp_diff  # noqa: E402
-import serve_diff  # noqa: E402
+import monorepo  # noqa: E402
+
+mcp_diff = monorepo.harness("mcp_diff")
+serve_diff = monorepo.harness("serve_diff")
 
 HERE = pathlib.Path(__file__).resolve().parent
 FIXTURES = HERE / "fixtures" / "mcp"
 SERVE_FIXTURES = HERE / "fixtures" / "serve"
-MCP_JSON = pathlib.Path(__file__).resolve().parents[2] / "disconect-core" / "mcp.json"
+MCP_JSON = monorepo.CRATE / "mcp.json"
 SCRIPT = FIXTURES / "script.json"
 PRIVACY_SEED = FIXTURES / "privacy-seed.hbdb"
 WIDE = HERE / "fixtures" / "read" / "wide.hbdb"   # 14 months, tiny and huge floats, 25 activities (gen_read_fixtures)

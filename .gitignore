@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+# SQLite side files a test run can leave beside a committed fixture store
+*.hbdb-wal
+*.hbdb-shm
+*.db-wal
+*.db-shm
+# real watch data never enters the repo
+*.fit
+*.FIT
+docs/evidence/

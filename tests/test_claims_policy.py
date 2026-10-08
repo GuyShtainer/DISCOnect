@@ -15,20 +15,24 @@ import pytest
 
 from disconect import identity
 
-PROJECTS = pathlib.Path(__file__).resolve().parents[2]
-POLICY = PROJECTS / "disconect" / "CLAIMS-POLICY.md"
-APP = PROJECTS / "disconect-app"
+import monorepo
+
+POLICY = monorepo.PROJECT / "CLAIMS-POLICY.md"
+APP = monorepo.APP
 
 SCOPE = [
-    *sorted((APP / "src").glob("*.ts")),
-    APP / "index.html",
-    APP / "README.md",
-    PROJECTS / "disconect" / "src" / "disconect" / "identity.py",
-    PROJECTS / "disconect-core" / "src" / "identity.rs",
-    PROJECTS / "disconect" / "README.md",
-    # every coach module: its fixed error and badge words reach the UI through the commands
-    *sorted((APP / "src-tauri" / "src" / "coach").glob("*.rs")),
+    monorepo.PROJECT / "src" / "disconect" / "identity.py",
+    monorepo.PROJECT / "README.md",
 ]
+if monorepo.PRESENT:   # the shell and the Rust core carry authored copy too; they are linted beside this repository
+    SCOPE += [
+        *sorted((APP / "src").glob("*.ts")),
+        APP / "index.html",
+        APP / "README.md",
+        monorepo.CRATE / "src" / "identity.rs",
+        # every coach module: its fixed error and badge words reach the UI through the commands
+        *sorted((APP / "src-tauri" / "src" / "coach").glob("*.rs")),
+    ]
 
 # rule 3 (2026-10-06): a vendor's own figure is labelled in plain words + ", vendor"; no exemption from the score lists
 
@@ -130,7 +134,7 @@ def test_the_extractors_see_strings_and_not_comments():
             scratch.unlink()
 
 
-@pytest.mark.parametrize("path", SCOPE, ids=lambda p: str(p.relative_to(PROJECTS)))
+@pytest.mark.parametrize("path", SCOPE, ids=lambda p: str(p.relative_to(monorepo.PROJECT.parent)))
 def test_authored_copy_makes_no_medical_claim_and_borrows_no_score_name(path):
     assert path.exists(), f"{path} is in the lint scope but missing"
     categories, allow = parse_policy(POLICY.read_text())
@@ -139,6 +143,7 @@ def test_authored_copy_makes_no_medical_claim_and_borrows_no_score_name(path):
     assert not offenders, offenders
 
 
+@monorepo.needs_monorepo
 def test_the_scope_covers_the_coach_prompt_constant():
     prompt = (APP / "src-tauri" / "src" / "coach" / "prompt.rs").read_text()
     assert re.search(r'pub const SYSTEM_PROMPT: &str = ', prompt)
@@ -158,6 +163,7 @@ def _ts_table(name: str):
     return [(head + tail, plain) for head, tail, plain in pairs]
 
 
+@monorepo.needs_monorepo
 def test_the_ts_neutralizer_table_has_exactly_the_policy_score_lists():
     marks, names = _ts_table("SCORE_MARKS"), _ts_table("SCORE_NAMES")
     assert [k for k, _ in marks] == _policy_terms("score-marks")
@@ -169,6 +175,7 @@ def test_the_ts_neutralizer_table_has_exactly_the_policy_score_lists():
         assert not re.search(r"readiness|recovery", plain, re.I), plain
 
 
+@monorepo.needs_monorepo
 def test_the_ts_neutralizer_source_spells_no_score_name_and_no_maker_name():
     text = (APP / "src" / "identity.ts").read_text()
     # the metric labels above the neutralizer are in plain words too (rule 3), and the neutralizer may not spell a name

@@ -12,7 +12,6 @@ import json
 import os
 import pathlib
 import subprocess
-import sys
 import zipfile
 
 import pytest
@@ -21,15 +20,15 @@ from disconect import storage
 from disconect.ingest import sources
 from disconect.storage import keys, migrations
 import test_connect_metrics as metrics_tests
+import monorepo
 from test_import import _build_export, _readiness, _sleep_json, _uds
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
-import core_diff  # noqa: E402  (tools/ is a script directory, not a package)
+core_diff = monorepo.harness("core_diff")
 
 UTC = datetime.timezone.utc
 
-CRATE = pathlib.Path(__file__).resolve().parents[2] / "disconect-core"
-BINARY = CRATE / "target" / "debug" / "disconect-core"
+CRATE = monorepo.CRATE
+BINARY = monorepo.BINARY
 PASS = "parity test passphrase 2026"
 
 
@@ -54,7 +53,7 @@ def _python_counts(conn):
     return {name: conn.execute(f'SELECT count(*) FROM "{name}"').fetchone()[0] for name in names}
 
 
-needs_binary = pytest.mark.skipif(not BINARY.exists(), reason="build projects/disconect-core first (cargo build)")
+needs_binary = monorepo.needs_binary
 
 
 @needs_binary
@@ -111,8 +110,14 @@ def test_synthetic_fit_fixtures_match_the_oracle(tmp_path):
     committed = gen_core_fixtures.SYNTHETIC_DIR
     fresh = sorted(p.name for p in tmp_path.iterdir())
     assert fresh == sorted(p.name for p in committed.iterdir()), "fixture set changed: rerun gen_core_fixtures.py"
+    crate_copy = monorepo.CRATE / "tests" / "fixtures" / "synthetic"
+    assert fresh == sorted(p.name for p in crate_copy.iterdir()), "the crate's copy drifted: rerun gen_core_fixtures.py --synthetic-dir"
+    crate_copy = monorepo.CRATE / "tests" / "fixtures" / "synthetic"
+    assert fresh == sorted(p.name for p in crate_copy.iterdir()), "the crate's copy drifted: rerun gen_core_fixtures.py --synthetic-dir"
     for name in fresh:
         assert (tmp_path / name).read_bytes() == (committed / name).read_bytes(), f"{name} drifted: rerun gen_core_fixtures.py"
+        assert (tmp_path / name).read_bytes() == (crate_copy / name).read_bytes(), f"{name} drifted in the crate's copy"
+        assert (tmp_path / name).read_bytes() == (crate_copy / name).read_bytes(), f"{name} drifted in the crate's copy"
 
 
 def test_canon_fixtures_match_the_oracle(tmp_path):
@@ -249,8 +254,7 @@ def test_synthetic_export_imports_identically(tmp_path, form):
 def test_core_diff_never_accepts_a_rust_null_as_an_enum_name():
     """Opus review of slice 2: ``dict.get`` of an unknown pair is None, so P-text vs R-NULL used to
     vanish into the newer-profile allowance; the allowance is for a verified name only."""
-    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
-    import core_diff  # noqa: PLC0415 - tools/ is not a package
+    core_diff = monorepo.harness("core_diff")
 
     assert core_diff.accepted_enum_name("sport", "63", "video_gaming")
     assert not core_diff.accepted_enum_name("sport", "63", None)

@@ -18,7 +18,10 @@ import pytest
 from disconect.relay import bundle
 from disconect.storage import keys
 
-CORE = pathlib.Path(__file__).resolve().parents[2] / "disconect-core"
+import monorepo  # noqa: E402
+
+monorepo.require()
+CORE = monorepo.CRATE
 FIXTURES = CORE / "tests" / "fixtures"
 PASSPHRASE = "core-test-passphrase-2026"
 

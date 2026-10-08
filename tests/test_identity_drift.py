@@ -5,14 +5,16 @@ ADR 0001's mitigations (a cheap rename, one notice, no manufacturer marks) only 
 thing, and while the Rust manufacturer scrub is the pattern ``serve.py`` really applies.
 """
 
-import pathlib
 import re
 
 from disconect import identity
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-TS = ROOT / "disconect-app" / "src" / "identity.ts"
-RS = ROOT / "disconect-core" / "src" / "identity.rs"
+import monorepo  # noqa: E402
+
+monorepo.require()
+ROOT = monorepo.PROJECT.parent
+TS = monorepo.APP / "src" / "identity.ts"
+RS = monorepo.CRATE / "src" / "identity.rs"
 
 
 def _ts_const(name: str) -> str:
@@ -46,7 +48,7 @@ def test_the_scrub_cases_the_rust_unit_test_pins_are_the_python_answers():
 
 def test_the_mcp_server_version_is_the_rust_crates_version():
     """``serverInfo.version`` is ``identity.VERSION``; the crate (and so the Rust MCP) must report the same."""
-    cargo = (ROOT / "disconect-core" / "Cargo.toml").read_text()
+    cargo = (monorepo.CRATE / "Cargo.toml").read_text()
     assert re.search(r'^version = "([^"]+)"', cargo, re.MULTILINE).group(1) == identity.VERSION
 
 
