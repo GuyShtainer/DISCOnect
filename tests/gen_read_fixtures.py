@@ -237,8 +237,8 @@ def _cases_for(name: str, conn) -> list[dict]:
     for end in ("20250630", "2025-6-30", "2025-02-30", " 2025-06-30", "2025-06-30\n", "\ud800", "٢٠٢٥-٠٦-٣٠",
                 "２０２５-０６-３０", "not a date", "0000-01-01", "2025-13-01"):
         series(metrics=["steps"], end_date=end)
-    # Python raises OverflowError from ``end - timedelta`` (daily, days > 1 at the first day), and from the
-    # over-fetch in ``sample_day_aggregates`` (sample, one day before the start / two after the end).
+    # Python raises OverflowError from ``end - timedelta`` (daily, days > 1 at the first day). The over-fetch
+    # windows (sample cadence, one day before / two after) are clamped to the calendar and no longer raise.
     series(metrics=["steps"], end_date="9999-12-31")
     series(metrics=["steps"], end_date="9999-12-31", days=1)
     series(metrics=["hrv_status"], end_date="9999-12-31", days=400)

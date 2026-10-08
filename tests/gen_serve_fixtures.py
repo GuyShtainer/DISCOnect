@@ -767,6 +767,8 @@ def _live_entries() -> list[dict]:
         {"name": "gen: data.live compact day", "send": {"id": 12205, "method": "data.live", "params": {"day": "20250615"}}},
         {"name": "gen: data.live day not a string", "send": {"id": 12206, "method": "data.live", "params": {"day": 5}}},
         {"name": "gen: data.live day empty", "send": {"id": 12207, "method": "data.live", "params": {"day": ""}}},
+        {"name": "gen: data.live last day of the calendar", "send": {"id": 12212, "method": "data.live",
+                                                                       "params": {"day": "9999-12-31"}}},
         {"name": "gen: data.live params null", "raw": '{"id":12208,"method":"data.live","params":null}'},
         {"name": "gen: data.live params array", "raw": '{"id":12209,"method":"data.live","params":[]}'},
     ]
