@@ -907,3 +907,24 @@ def test_a_moved_legacy_folder_is_never_recreated_by_a_later_import(tmp_path):
         proc.kill()
         proc.stdout.close()
         proc.stderr.close()
+
+
+#: The three texts `strptime` gives a stored cell: no match (the cell quoted), a right-shaped impossible day
+#: (the constructor's text), and text left over after a match.
+STRPTIME_CELLS = [
+    ("2025-06-15 00:00:00", "time data '2025-06-15 00:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"),
+    ("2025-02-30T00:00:00Z", "day 30 must be in range 1..28 for month 2 in year 2025"),
+    ("2025-06-15T00:00:00Z ", "unconverted data remains:  "),
+]
+
+
+@pytest.mark.parametrize(("cell", "text"), STRPTIME_CELLS)
+def test_a_malformed_clock_offset_cell_reads_as_strptimes_text(tmp_path, cell, text):
+    """ts_utc row (BACKLOG 2026-10-08): a corrupt `clock_offsets.ts_utc` cell makes `data.health` answer
+    `bad_params` with strptime's own text; the Rust core mirrors each text (serve_test.rs twin)."""
+    db = _store_copy(tmp_path)
+    with storage.open_for_write(db, purpose="test") as conn:
+        conn.execute("DELETE FROM clock_offsets")
+        conn.execute("INSERT INTO clock_offsets(ts_utc, offset_s) VALUES(?, 0)", (cell,))
+    response = Rig(db).send("data.health")
+    assert response["error"] == {"code": "bad_params", "message": text}

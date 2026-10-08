@@ -62,3 +62,23 @@ def test_the_pin_still_reads_through_the_parser(monkeypatch):
     assert now_utc() == datetime.datetime(2026, 3, 14, 1, 59, 26, tzinfo=UTC)
     monkeypatch.setenv(NOW_ENV, "yesterday")
     assert now_utc().year >= 2026
+
+
+#: Python 3.14's texts, pinned: the Rust core's `parse_store_stamp` (time.rs) gives the same ones and the serve
+#: layer carries them as `bad_params`, so a Python release that rewords one shows up here before the differ.
+MIRRORED_TEXTS = [
+    ("2025-06-15 00:00:00", "time data '2025-06-15 00:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"),
+    ("2025-06-15T00:00:00Z ", "unconverted data remains:  "),
+    ("2025-02-30T00:00:00Z", "day 30 must be in range 1..28 for month 2 in year 2025"),
+    ("2100-02-29T00:00:00Z", "day 29 must be in range 1..28 for month 2 in year 2100"),
+    ("2025-06-15T00:00:60Z", "second must be in 0..59, not 60"),
+    ("0000-02-30T00:00:60Z", "year must be in 1..9999, not 0"),
+    ("2025-02-30T00:00:60Z", "day 30 must be in range 1..28 for month 2 in year 2025"),
+]
+
+
+@pytest.mark.parametrize(("text", "message"), MIRRORED_TEXTS)
+def test_the_error_texts_the_rust_core_mirrors(text, message):
+    with pytest.raises(ValueError) as caught:
+        parse_iso_utc(text)
+    assert str(caught.value) == message
