@@ -1,7 +1,11 @@
 # Trademarks and non-affiliation
 
-DISCOnect is an independent, open-source project. It is not affiliated with, endorsed by or
-supported by any watch manufacturer or any other company named here.
+DISCOnect is an independent, open-source personal project: the maintainer exploring, for the fun of
+it, what the data of a watch he bought and owns can do for him. It is not meant to compete with or
+replace the watch maker's own app or services, and it is not affiliated with, endorsed by or supported
+by any watch manufacturer or any other company named here. All rights in the watch, its
+firmware, its software and its services remain with their maker and its licensors; this project claims
+none of them and only reads the files the watch and the account export give their owner.
 
 - Garmin, fenix, Garmin Connect, Connect IQ, Body Battery and Firstbeat are trademarks of Garmin
   Ltd. or its subsidiaries. They appear in this project only to identify the device files and the

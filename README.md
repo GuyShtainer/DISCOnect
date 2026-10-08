@@ -7,9 +7,13 @@ MCP — with no vendor cloud in the path. This repository is the Python core: a 
 server, a JSON-over-stdio service for a desktop shell, an encrypted store, and an end-to-end
 encrypted sync between your own devices through a relay that only ever sees ciphertext.
 
-*Not affiliated with, endorsed by, or supported by Garmin Ltd. or any other company named here;
-see [TRADEMARKS.md](TRADEMARKS.md).* What the software's own words may and may not claim about
-your data is set out in [CLAIMS-POLICY.md](CLAIMS-POLICY.md), and linted.
+**A personal project, done for the fun of it.** It explores what the data of one Garmin watch — bought
+and owned by the maintainer — can do for its owner, using only the files the watch and the account
+export hand him. It is not a product of Garmin's, is not meant to compete with or replace the Garmin
+Connect app, and is not affiliated with, endorsed by or supported by Garmin Ltd. or any other company
+named here; all rights in the watch, its firmware, its software and its services remain with Garmin
+Ltd. and its licensors. See [TRADEMARKS.md](TRADEMARKS.md). What the software's own words may and may
+not claim about your data is set out in [CLAIMS-POLICY.md](CLAIMS-POLICY.md), and linted.
 
 **Status: v0, in progress.** The ingest, store, replay, facts, CLI and MCP paths were validated
 on one real account export in September 2026; the newer parts (encryption, sync, pairing, the
