@@ -1,0 +1,281 @@
+{
+ "_": "Outcomes of datetime.strptime(text, '%Y-%m-%dT%H:%M:%SZ') read off the interpreter named in `python`: [text, 'ok', instant] or [text, 'err', ValueError text]. Both cores pin every row (tests/test_time.py; disconect-core/src/time.rs).",
+ "python": "3.14.0",
+ "rows": [
+  [
+   "2025-06-15T00:00:00Z",
+   "ok",
+   "2025-06-15T00:00:00Z"
+  ],
+  [
+   "2025-6-1T0:0:0Z",
+   "ok",
+   "2025-06-01T00:00:00Z"
+  ],
+  [
+   "2025-06-15t00:00:00z",
+   "ok",
+   "2025-06-15T00:00:00Z"
+  ],
+  [
+   "2025-06- 5T00:00:00Z",
+   "ok",
+   "2025-06-05T00:00:00Z"
+  ],
+  [
+   "2025-06-15T 0:00:00Z",
+   "ok",
+   "2025-06-15T00:00:00Z"
+  ],
+  [
+   "2025-06-15T 9:00:00Z",
+   "ok",
+   "2025-06-15T09:00:00Z"
+  ],
+  [
+   "2025-06-15T1:2:3Z",
+   "ok",
+   "2025-06-15T01:02:03Z"
+  ],
+  [
+   "2025-06-15T00:00:0Z",
+   "ok",
+   "2025-06-15T00:00:00Z"
+  ],
+  [
+   "2025-1-1T1:1:1Z",
+   "ok",
+   "2025-01-01T01:01:01Z"
+  ],
+  [
+   "2025-10-3T23:59:6Z",
+   "ok",
+   "2025-10-03T23:59:06Z"
+  ],
+  [
+   "9999-12-31T23:59:59Z",
+   "ok",
+   "9999-12-31T23:59:59Z"
+  ],
+  [
+   "0001-01-01T00:00:00Z",
+   "ok",
+   "0001-01-01T00:00:00Z"
+  ],
+  [
+   "2024-02-29T00:00:00Z",
+   "ok",
+   "2024-02-29T00:00:00Z"
+  ],
+  [
+   "2000-02-29T00:00:00Z",
+   "ok",
+   "2000-02-29T00:00:00Z"
+  ],
+  [
+   "2025-06-15 00:00:00",
+   "err",
+   "time data '2025-06-15 00:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "",
+   "err",
+   "time data '' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "x",
+   "err",
+   "time data 'x' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-13-01T00:00:00Z",
+   "err",
+   "time data '2025-13-01T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-00-10T00:00:00Z",
+   "err",
+   "time data '2025-00-10T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-01-00T00:00:00Z",
+   "err",
+   "time data '2025-01-00T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-32T00:00:00Z",
+   "err",
+   "time data '2025-06-32T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06- 0T00:00:00Z",
+   "err",
+   "time data '2025-06- 0T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025- 6-15T00:00:00Z",
+   "err",
+   "time data '2025- 6-15T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T24:00:00Z",
+   "err",
+   "time data '2025-06-15T24:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T 10:00:00Z",
+   "err",
+   "time data '2025-06-15T 10:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T00: 1:00Z",
+   "err",
+   "time data '2025-06-15T00: 1:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T00:00: 1Z",
+   "err",
+   "time data '2025-06-15T00:00: 1Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T00:60:00Z",
+   "err",
+   "time data '2025-06-15T00:60:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T00:00:62Z",
+   "err",
+   "time data '2025-06-15T00:00:62Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   " 2025-06-15T00:00:00Z",
+   "err",
+   "time data ' 2025-06-15T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "\t2025-06-15T00:00:00Z",
+   "err",
+   "time data '\\t2025-06-15T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "12025-06-15T00:00:00Z",
+   "err",
+   "time data '12025-06-15T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T00:00:00+00:00",
+   "err",
+   "time data '2025-06-15T00:00:00+00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15",
+   "err",
+   "time data '2025-06-15' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T00:00:00",
+   "err",
+   "time data '2025-06-15T00:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-6-1-T00:00:00Z",
+   "err",
+   "time data '2025-6-1-T00:00:00Z' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T00:00:00Ž",
+   "err",
+   "time data '2025-06-15T00:00:00Ž' does not match format '%Y-%m-%dT%H:%M:%SZ'"
+  ],
+  [
+   "2025-06-15T00:00:00Z ",
+   "err",
+   "unconverted data remains:  "
+  ],
+  [
+   "2025-06-15T00:00:00ZZ",
+   "err",
+   "unconverted data remains: Z"
+  ],
+  [
+   "2025-06-15T00:00:0ZZ",
+   "err",
+   "unconverted data remains: Z"
+  ],
+  [
+   "2025-06-15T 0:00:00Z3",
+   "err",
+   "unconverted data remains: 3"
+  ],
+  [
+   "2025-06-15T00:00:00Z\n",
+   "err",
+   "unconverted data remains: \n"
+  ],
+  [
+   "2025-06-15T00:00:00z\r",
+   "err",
+   "unconverted data remains: \r"
+  ],
+  [
+   "2025-06-15T00:00:00Z\u0000",
+   "err",
+   "unconverted data remains: \u0000"
+  ],
+  [
+   "2025-06-15T00:00:00Z\"\\",
+   "err",
+   "unconverted data remains: \"\\"
+  ],
+  [
+   "2025-06-3T00:00:00Z1",
+   "err",
+   "unconverted data remains: 1"
+  ],
+  [
+   "2025-02-30T00:00:00Z",
+   "err",
+   "day 30 must be in range 1..28 for month 2 in year 2025"
+  ],
+  [
+   "2025-04-31T00:00:00Z",
+   "err",
+   "day 31 must be in range 1..30 for month 4 in year 2025"
+  ],
+  [
+   "2025-02-29T00:00:00Z",
+   "err",
+   "day 29 must be in range 1..28 for month 2 in year 2025"
+  ],
+  [
+   "2100-02-29T00:00:00Z",
+   "err",
+   "day 29 must be in range 1..28 for month 2 in year 2100"
+  ],
+  [
+   "2025-06-15T00:00:60Z",
+   "err",
+   "second must be in 0..59, not 60"
+  ],
+  [
+   "2025-06-15T00:00:61Z",
+   "err",
+   "second must be in 0..59, not 61"
+  ],
+  [
+   "0000-01-01T00:00:00Z",
+   "err",
+   "year must be in 1..9999, not 0"
+  ],
+  [
+   "0000-02-30T00:00:60Z",
+   "err",
+   "year must be in 1..9999, not 0"
+  ],
+  [
+   "2025-02-30T00:00:60Z",
+   "err",
+   "day 30 must be in range 1..28 for month 2 in year 2025"
+  ]
+ ]
+}

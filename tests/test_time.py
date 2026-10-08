@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import datetime
+import json
+import pathlib
 
 import pytest
 
@@ -64,21 +66,28 @@ def test_the_pin_still_reads_through_the_parser(monkeypatch):
     assert now_utc().year >= 2026
 
 
-#: Python 3.14's texts, pinned: the Rust core's `parse_store_stamp` (time.rs) gives the same ones and the serve
-#: layer carries them as `bad_params`, so a Python release that rewords one shows up here before the differ.
-MIRRORED_TEXTS = [
-    ("2025-06-15 00:00:00", "time data '2025-06-15 00:00:00' does not match format '%Y-%m-%dT%H:%M:%SZ'"),
-    ("2025-06-15T00:00:00Z ", "unconverted data remains:  "),
-    ("2025-02-30T00:00:00Z", "day 30 must be in range 1..28 for month 2 in year 2025"),
-    ("2100-02-29T00:00:00Z", "day 29 must be in range 1..28 for month 2 in year 2100"),
-    ("2025-06-15T00:00:60Z", "second must be in 0..59, not 60"),
-    ("0000-02-30T00:00:60Z", "year must be in 1..9999, not 0"),
-    ("2025-02-30T00:00:60Z", "day 30 must be in range 1..28 for month 2 in year 2025"),
-]
+#: The shared table (`tests/fixtures/strptime-stamps.json`): every row's outcome was read off the Python the
+#: fixture names, and the Rust core's `parse_store_stamp` (time.rs) pins the same rows — so a Python release that
+#: rewords a text or accepts a new shape fails here before the differ, and the fixture is regenerated on purpose.
+_TABLE = json.loads((pathlib.Path(__file__).parent / "fixtures" / "strptime-stamps.json").read_text())
 
 
-@pytest.mark.parametrize(("text", "message"), MIRRORED_TEXTS)
-def test_the_error_texts_the_rust_core_mirrors(text, message):
-    with pytest.raises(ValueError) as caught:
-        parse_iso_utc(text)
-    assert str(caught.value) == message
+@pytest.mark.parametrize(("text", "kind", "outcome"), _TABLE["rows"], ids=repr)
+def test_the_shared_table_the_rust_core_mirrors(text, kind, outcome):
+    if kind == "ok":
+        assert parse_iso_utc(text).strftime(ISO) == outcome
+    else:
+        with pytest.raises(ValueError) as caught:
+            parse_iso_utc(text)
+        assert str(caught.value) == outcome
+
+
+def test_the_shared_table_covers_every_text_and_the_spaced_hour():
+    texts = {row[2].split(" ")[0] for row in _TABLE["rows"] if row[1] == "err"}
+    assert texts == {"time", "unconverted", "day", "second", "year"}
+    assert ["2025-06-15T 0:00:00Z", "ok", "2025-06-15T00:00:00Z"] in _TABLE["rows"]  # 3.14's `%H` takes ` \d`
+
+
+def test_non_ascii_digits_are_the_one_divergence_from_the_rust_core():
+    # `\d` in Python's regex takes U+FF12 etc. and int() reads them; the Rust mirror refuses them (time.rs test)
+    assert parse_iso_utc("２０２５-06-15T00:00:00Z").year == 2025
