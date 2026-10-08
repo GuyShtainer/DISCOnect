@@ -194,6 +194,11 @@ def expand_timestamp_16(timestamp_16: int, last_full: datetime.datetime) -> date
     return last_full + datetime.timedelta(seconds=delta)
 
 
+# No real time zone is more than 26 h from UTC (UTC-12 .. UTC+14); a pair stating more is dropped
+# at decode (the reading then stays "assumed UTC", like a file without the pair). Twin: fit.rs.
+MAX_CLOCK_OFFSET_S = 26 * 3600
+
+
 class _FitDecoder:
     def __init__(self) -> None:
         self.out = Decoded(stream="fit:unknown", source_scope="device")
@@ -218,6 +223,9 @@ class _FitDecoder:
         if ts_utc is None or local is None:
             return
         offset = int((local.replace(tzinfo=UTC) - ts_utc).total_seconds())
+        if abs(offset) > MAX_CLOCK_OFFSET_S:
+            self.out.drop("clock_offset_out_of_range")
+            return
         self.out.offsets.append(ClockOffset(ts_utc, offset))
 
     # ---- per-message handlers ----

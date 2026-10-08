@@ -205,3 +205,13 @@ def test_hostile_bytes_never_escape_as_anything_but_a_decode_error():
         except fit_wellness.FitDecodeError as exc:
             assert exc.kind == "unrecognized_payload"
     assert fit_wellness.scan_clock_offsets(header + b"\xff" * 50) == []
+
+
+def test_clock_offset_beyond_26_hours_is_dropped_and_counted_at_decode(t0):
+    for delta, kept in [(93_600, True), (-93_600, True), (93_601, False), (-93_601, False),
+                        (100_000, False), (0, True)]:
+        b = FitBuilder("monitoring_b")
+        b.add("monitoring_info", timestamp=t0, local_timestamp=t0 + datetime.timedelta(seconds=delta))
+        decoded = decode_fit(b.build())          # a dropped offset is not an error
+        assert [o.offset_s for o in decoded.offsets] == ([delta] if kept else []), delta
+        assert decoded.dropped == ({} if kept else {"clock_offset_out_of_range": 1}), delta

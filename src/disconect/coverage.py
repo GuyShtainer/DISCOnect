@@ -42,6 +42,18 @@ MAX_GAPS = 20
 _DAY = datetime.timedelta(days=1)
 
 
+def fetch_window(first_day: datetime.date, last_day: datetime.date) -> tuple[str, str]:
+    """ISO ``[lo, hi)`` bounds that over-fetch one day before and two after, clamped to the calendar.
+
+    A local day starts up to 14 h either side of its UTC namesake, so readers fetch a wider UTC
+    window and filter. At 0001-01-01 / 9999-12-31 the window is clamped instead of overflowing.
+    """
+    lo = first_day - _DAY if first_day > datetime.date.min else first_day
+    ceiling = datetime.date.max - 2 * _DAY
+    hi = last_day + 2 * _DAY if last_day <= ceiling else datetime.date.max
+    return lo.isoformat(), hi.isoformat()
+
+
 class _Window:
     """Inclusive local-date window with day-index arithmetic."""
 
@@ -165,8 +177,7 @@ def _present_days(conn: sqlite.Connection, window: _Window, offsets: ClockOffset
                 present.setdefault((metric, scope), bytearray(window.days))[position] = 1
     # Samples: resolve local dates once per UTC hour bucket, not per sample. Local days can
     # begin up to 14 h before/after their UTC namesake, so over-fetch one day each side.
-    lo = (window.first - _DAY).isoformat()
-    hi = (window.last + 2 * _DAY).isoformat()
+    lo, hi = fetch_window(window.first, window.last)
     for metric, scope, hour in conn.execute(
             "SELECT metric, source_scope, substr(ts_utc, 1, 13) FROM metric_samples "
             "WHERE ts_utc >= ? AND ts_utc < ? GROUP BY 1, 2, 3", (lo, hi)):
@@ -401,8 +412,7 @@ def _worn_seconds(conn: sqlite.Connection, metric: str, scope: str, window: _Win
     most ``WORN_GAP_S``, else its own minute (``READING_S``)."""
     # a run of readings can start the day before the window and the last window day can end 14 h after
     # its UTC namesake: over-fetch as the aggregates do and let the clipping sort it out
-    lo = (window.first - _DAY).isoformat()
-    hi = (window.last + 2 * _DAY).isoformat()
+    lo, hi = fetch_window(window.first, window.last)
     seconds = [0] * window.days
     previous: int | None = None
     for (ts_utc,) in conn.execute(

@@ -68,8 +68,7 @@ def sample_day_aggregates(conn: sqlite.Connection, metric: str, start: str, end:
                           offsets: ClockOffsets, scopes: tuple[str, ...]) -> dict[str, list[dict]]:
     """Per-local-day min/mean/max/count for one sample-cadence metric, keyed by source scope."""
     # Local days can begin up to 14 h before/after their UTC namesake; over-fetch and filter.
-    lo = (datetime.date.fromisoformat(start) - datetime.timedelta(days=1)).isoformat()
-    hi = (datetime.date.fromisoformat(end) + datetime.timedelta(days=2)).isoformat()
+    lo, hi = coverage.fetch_window(datetime.date.fromisoformat(start), datetime.date.fromisoformat(end))
     buckets: dict[str, dict[str, list[float]]] = {}
     for ts_text, value, scope in conn.execute(
             "SELECT ts_utc, value, source_scope FROM metric_samples WHERE metric=? "
@@ -109,8 +108,8 @@ def intraday_samples(conn: sqlite.Connection, metric: str, date: str | None = No
                     "missing_values": contract.MISSING_VALUE_CONVENTION,
                     "time": contract.TIME_CONVENTION}
     # A local day starts up to 14 h either side of its UTC namesake; over-fetch, then filter.
-    lo = (datetime.date.fromisoformat(date) - datetime.timedelta(days=1)).isoformat()
-    hi = (datetime.date.fromisoformat(date) + datetime.timedelta(days=2)).isoformat()
+    day = datetime.date.fromisoformat(date)
+    lo, hi = coverage.fetch_window(day, day)
     by_scope: dict[str, list[dict]] = {}
     for ts_text, value, scope in conn.execute(
             "SELECT ts_utc, value, source_scope FROM metric_samples WHERE metric=? "
@@ -395,8 +394,7 @@ def live_day(conn: sqlite.Connection, day: str) -> dict:
                              "end_local": _local_minute(last, offsets), "minutes": minutes})
     # local days can begin up to 14 h before/after their UTC namesake; over-fetch and filter
     date = datetime.date.fromisoformat(day)
-    fetch_lo = (date - datetime.timedelta(days=1)).isoformat()
-    fetch_hi = (date + datetime.timedelta(days=2)).isoformat()
+    fetch_lo, fetch_hi = coverage.fetch_window(date, date)
     metrics = []
     for item in contract.METRICS:
         if (item.metric, LIVE_SCOPE) not in contract.SESSION_STREAMS_FOR:

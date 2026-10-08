@@ -284,3 +284,21 @@ def test_the_contract_names_the_scope_and_every_scope_has_a_chart_colour():
     assert set(contract.SOURCE_SCOPES) <= set(chart.SCOPE_COLORS)
     assert "live" in chart.SCOPE_LEGEND
     assert {metric for metric, _ in contract.SESSION_STREAMS_FOR} == {"heart_rate", "stress", "respiration_rate", "spo2", "energy_reserve"}
+
+
+def test_reads_at_the_calendar_ends_answer_empty_instead_of_overflowing(tmp_path):
+    """The over-fetch windows (-1 / +2 days) are clamped to 0001-01-01 .. 9999-12-31 (Rust twin: live_fold_test.rs)."""
+    db = tmp_path / "s.db"
+    with storage.open_for_write(db, "test"):
+        pass
+    with storage.open_read_only(db) as conn:
+        offsets = ClockOffsets.load(conn)
+        for edge in ("0001-01-01", "9999-12-31"):
+            day = queries.live_day(conn, edge)
+            assert day["sessions"] == [] and all(m["minutes"] == 0 for m in day["metrics"]), edge
+            assert queries.sample_day_aggregates(conn, "heart_rate", edge, edge, offsets, ("device",)) == {}, edge
+            assert queries.intraday_samples(conn, "heart_rate", edge)["series"] == [], edge
+        assert coverage.fetch_window(datetime.date.min, datetime.date.min) == ("0001-01-01", "0001-01-03")
+        assert coverage.fetch_window(datetime.date.max, datetime.date.max) == ("9999-12-30", "9999-12-31")
+        assert coverage.fetch_window(datetime.date(9999, 12, 29), datetime.date(9999, 12, 29)) == (
+            "9999-12-28", "9999-12-31")
