@@ -42,6 +42,15 @@ MAX_GAPS = 20
 _DAY = datetime.timedelta(days=1)
 
 
+def earlier(day: datetime.date, days: int) -> datetime.date:
+    """``days`` days before ``day``, never before the calendar's first day (0001-01-01).
+
+    A window that would start before the calendar is shortened instead of failing the read (the same rule
+    as ``fetch_window`` at the ends). Twin of the Rust ``queries::earlier``.
+    """
+    return datetime.date.fromordinal(max(1, day.toordinal() - days))
+
+
 def fetch_window(first_day: datetime.date, last_day: datetime.date) -> tuple[str, str]:
     """ISO ``[lo, hi)`` bounds that over-fetch one day before and two after, clamped to the calendar.
 
@@ -311,7 +320,7 @@ def ledger(conn: sqlite.Connection, last_day: str, window_days: int,
     """
     window_days = max(1, min(int(window_days), MAX_WINDOW_DAYS))
     last = datetime.date.fromisoformat(last_day)
-    analysis = _analyse(conn, (last - (window_days - 1) * _DAY).isoformat(), last.isoformat(), offsets)
+    analysis = _analyse(conn, earlier(last, window_days - 1).isoformat(), last.isoformat(), offsets)
     window = analysis.window
     rows = []
     for (metric, scope), streams in sorted(analysis.streams_for.items()):

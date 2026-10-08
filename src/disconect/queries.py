@@ -63,7 +63,7 @@ def parse_day(text: str, name: str) -> datetime.date:
 def _window(days: int, end_date: str | None, cap: int) -> tuple[str, str]:
     days = max(1, min(int(days), cap))
     end = parse_day(end_date, "end_date") if end_date else _today()
-    start = end - datetime.timedelta(days=days - 1)
+    start = coverage.earlier(end, days - 1)
     return start.isoformat(), end.isoformat()
 
 

@@ -63,7 +63,9 @@ def test_every_function_and_every_store_is_covered_and_each_error_class_occurs()
         for fn in ("metric_series", "sleep_detail", "list_activities", "period_facts"):
             assert _cases(fn, store), (fn, store)
     classes = {case["result"]["class"] for case in CASES if "error" in case["result"]}
-    assert classes == {"ValueError", "OverflowError"}
+    # OverflowError left the fixture with the lower-end ``date − n`` row (2026-10-08): every window at the
+    # calendar's ends is clamped, so a read answers; the generator still records the class if one returns
+    assert classes == {"ValueError"}
     # the Python text a ToolError carries
     texts = {case["result"]["error"] for case in CASES if case["result"].get("class") == "ValueError"}
     assert {"end_date must be YYYY-MM-DD", "date must be YYYY-MM-DD",

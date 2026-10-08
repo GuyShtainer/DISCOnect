@@ -29,7 +29,7 @@ import dataclasses
 import datetime
 import statistics
 
-from disconect import contract, queries
+from disconect import contract, coverage, queries
 from disconect.ingest.clock import ClockOffsets
 from disconect.storage import sqlite
 
@@ -184,9 +184,11 @@ def period_facts(conn: sqlite.Connection, window_days: int = DEFAULT_WINDOW_DAYS
         return {"as_of": None, "facts": [], "ignored_metrics": list(metrics or []),
                 "reason": "nothing stored yet", "rules": list(RULES)}
     end = datetime.date.fromisoformat(as_of)
-    window_start = end - datetime.timedelta(days=window_days - 1)
-    baseline_end = window_start - datetime.timedelta(days=1)
-    baseline_start = baseline_end - datetime.timedelta(days=baseline_days - 1)
+    # a window or baseline that would start before the calendar is shortened (at the extreme the baseline is
+    # the calendar's first day, which the window also holds) instead of failing the read
+    window_start = coverage.earlier(end, window_days - 1)
+    baseline_end = coverage.earlier(window_start, 1)
+    baseline_start = coverage.earlier(baseline_end, baseline_days - 1)
     bounds = {"window_from": window_start.isoformat(), "window_to": as_of,
               "baseline_from": baseline_start.isoformat(), "baseline_to": baseline_end.isoformat()}
 

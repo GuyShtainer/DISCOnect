@@ -329,3 +329,17 @@ def test_reads_at_the_calendar_ends_answer_empty_instead_of_overflowing(tmp_path
     with storage.open_read_only(db) as conn:
         for edge in ("0001-01-01", "9999-12-31"):
             assert coverage.calendar(conn, "heart_rate", "device", edge, edge) == [(edge, coverage.NOT_COVERED, None)]
+
+
+def test_a_window_that_would_start_before_the_calendar_is_shortened():
+    """Lower-end `date − n` row (BACKLOG 2026-10-08): `coverage.earlier` cuts at 0001-01-01 instead of raising
+    OverflowError, so `data.metric`, the MCP windows, the insight bounds and the coverage ledger answer at
+    the calendar's start (Rust twin: live_fold_test.rs; the served answers are pinned by the serve steps at
+    0001-01-0x and the read_paths cases)."""
+    jan = datetime.date(1, 1, 5)
+    assert coverage.earlier(jan, 0) == jan
+    assert coverage.earlier(jan, 4) == datetime.date.min
+    assert coverage.earlier(jan, 5) == datetime.date.min
+    assert coverage.earlier(jan, 10**9) == datetime.date.min
+    assert coverage.earlier(datetime.date.max, 1) == datetime.date(9999, 12, 30)
+    assert queries._window(7, "0001-01-03", 30) == ("0001-01-01", "0001-01-03")
