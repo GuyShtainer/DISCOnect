@@ -1,7 +1,7 @@
 # CLAIMS-POLICY — what DISCOnect's own words may claim
 
 Linted always: `tests/test_claims_policy.py` parses the fenced blocks below, so this file IS the lint's
-source of truth. Source: feasibility review, legal lens (c) and (g); pitch 15.
+source of truth.
 
 **Positioning.** DISCOnect is training and wellness coaching software. It describes patterns in
 the user's own history (their own days, their own baseline). It never diagnoses, treats or gives
@@ -21,11 +21,12 @@ medical advice, never compares a person with a population norm, and never names 
 4. A negation may name a banned word only as an exact sentence in the `allow` block (the lint removes
    those sentences, then matches). Prefer rewording; allow only "do not diagnose" style lines.
 
-Scope (authored strings only): the app's `src/*.ts`, `index.html` and `README.md`; the three identity
-modules; `projects/disconect/README.md`; the coach system prompt (`coach/prompt.rs`).
+Scope (authored strings only): this package's `identity.py` and `README.md`; beside this repository, the
+desktop/phone shell's `src/*.ts`, `index.html` and `README.md`, the Rust core's identity module and the coach
+system prompt (`coach/prompt.rs`).
 **Not in scope**, on purpose: `contract.py`, `get_contract`, `mcp.json` and the Rust read paths carry
-contract labels ("Body battery", "Training readiness"), BACKLOG debt (renaming breaks the parity
-fixtures); test files, docs and pitches discuss these words.
+contract labels ("Body battery", "Training readiness"), a known debt (renaming breaks the parity
+fixtures); test files and docs discuss these words.
 
 ```terms medical-verbs
 diagnos*
