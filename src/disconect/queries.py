@@ -388,8 +388,10 @@ def live_day(conn: sqlite.Connection, day: str) -> dict:
     out_sessions = []
     for first, last in sessions:
         lo, hi = first.strftime("%Y-%m-%dT%H:%M:%SZ"), last.strftime("%Y-%m-%dT%H:%M:%SZ")
+        # the fold floors a reading to its minute, so the count starts at the first reading's minute
+        minute = first.replace(second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
         minutes = conn.execute("SELECT count(DISTINCT ts_utc) FROM metric_samples WHERE source_scope=? "
-                               "AND ts_utc BETWEEN ? AND ?", (LIVE_SCOPE, lo, hi)).fetchone()[0]
+                               "AND ts_utc BETWEEN ? AND ?", (LIVE_SCOPE, minute, hi)).fetchone()[0]
         out_sessions.append({"start_utc": lo, "end_utc": hi, "start_local": _local_minute(first, offsets),
                              "end_local": _local_minute(last, offsets), "minutes": minutes})
     # local days can begin up to 14 h before/after their UTC namesake; over-fetch and filter

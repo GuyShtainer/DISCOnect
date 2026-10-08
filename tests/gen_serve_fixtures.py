@@ -268,7 +268,7 @@ def live_files(folder: pathlib.Path) -> None:
     ``live-a`` runs 2025-06-20T23:55Z..2025-06-21T00:05Z: readings on both sides of a UTC midnight, ``t`` an int
     and a float in turn. ``live-b`` runs on 2025-06-15 10:00Z.., a day that has monitoring rows for the same metrics.
     ``live-c`` is ``live-b`` again, longer (bet 9b-2: the fold's de-duplication, median and sentinel cases).
-    ``live-d`` is an evening session of a watch behind UTC (see below): its UTC date is the day after its local day.
+    ``live-d`` is an evening session of a watch behind UTC, its readings at :30 (see below): its UTC date is the day after its local day.
     """
     midnight = int(datetime.datetime(2025, 6, 21, tzinfo=datetime.timezone.utc).timestamp())
     first = [{"status": "scanning"}]
@@ -302,9 +302,10 @@ def live_files(folder: pathlib.Path) -> None:
     third.append({"t": start + 60 * 12 + 1, "metric": "stress", "value": -1})
     third.append({"t": start + 60 * 12 + 2, "metric": "spo2", "value": 0})
     third.append({"status": "stopped", "stop": "LinkClosed"})
-    # live-d: 2025-03-06T01:00Z..01:05Z, in the store's -05:00 stretch (1 March - 10 April): the UTC date is
-    # the 6th, the watch's own day is the evening of the 5th (20:00 local), so the session belongs to the 5th
-    evening = int(datetime.datetime(2025, 3, 6, 1, tzinfo=datetime.timezone.utc).timestamp())
+    # live-d: 2025-03-06T01:00:30Z..01:05:30Z, in the store's -05:00 stretch (1 March - 10 April): the UTC date is
+    # the 6th, the watch's own day is the evening of the 5th (20:00 local), so the session belongs to the 5th;
+    # the readings sit at :30 so the session's `minutes` must own its first minute (6, not 5)
+    evening = int(datetime.datetime(2025, 3, 6, 1, 0, 30, tzinfo=datetime.timezone.utc).timestamp())
     fourth = [{"status": "scanning"}]
     for step in range(6):
         fourth.append({"t": evening + 60 * step, "metric": "heart_rate", "value": 70 + step})

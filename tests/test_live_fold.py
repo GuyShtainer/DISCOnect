@@ -267,6 +267,7 @@ def test_a_reading_at_the_last_accepted_stamp_reads_back_at_a_plus_14_hour_offse
             ("9998-12-31T23:59:59Z", "9999-01-01T13:59")]
         assert [(m["metric"], m["minutes"]) for m in day["metrics"] if m["minutes"]] == [("heart_rate", 1)]
         assert len(day["sessions"]) == 1
+        assert day["sessions"][0]["minutes"] == 1  # 23:59:59 owns the folded minute 23:59
         assert health.data_health(conn)["live"]["last_day"] == "9999-01-01"
     # a store written before the bound was lowered may hold a span past it: data.live skips it instead of failing
     with storage.open_for_write(db, "test") as conn:
@@ -284,6 +285,22 @@ def test_the_contract_names_the_scope_and_every_scope_has_a_chart_colour():
     assert set(contract.SOURCE_SCOPES) <= set(chart.SCOPE_COLORS)
     assert "live" in chart.SCOPE_LEGEND
     assert {metric for metric, _ in contract.SESSION_STREAMS_FOR} == {"heart_rate", "stress", "respiration_rate", "spo2", "energy_reserve"}
+
+
+def test_a_session_owns_the_minute_of_a_first_reading_off_the_minute(tmp_path):
+    """The fold floors readings to the minute, so a session starting at :10 owns that minute: readings at
+    1750000030 and 1750000330 are 2 session minutes, as heart_rate says (Rust twin: live_fold_test.rs)."""
+    folder = tmp_path / "off"
+    folder.mkdir()
+    _lines(folder / "live-off.jsonl", [{"t": 1750000030, "metric": "heart_rate", "value": 61},
+                                       {"t": 1750000330, "metric": "heart_rate", "value": 62}])
+    db = tmp_path / "s.db"
+    _import(db, folder)
+    with storage.open_read_only(db) as conn:
+        day = queries.live_day(conn, "2025-06-15")
+        assert [(s["start_utc"], s["end_utc"], s["minutes"]) for s in day["sessions"]] == [
+            ("2025-06-15T15:07:10Z", "2025-06-15T15:12:10Z", 2)]
+        assert [(m["metric"], m["minutes"]) for m in day["metrics"] if m["minutes"]] == [("heart_rate", 2)]
 
 
 def test_reads_at_the_calendar_ends_answer_empty_instead_of_overflowing(tmp_path):

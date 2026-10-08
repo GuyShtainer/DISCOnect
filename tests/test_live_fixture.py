@@ -64,7 +64,7 @@ def test_the_committed_store_is_what_the_generator_builds_today(stores, tmp_path
 def test_the_health_report_lists_the_live_stream_and_the_live_block(stores):
     with_live, without = stores
     health = Rig(with_live).result("data.health")
-    assert health["streams"]["json:live"] == {"records": 4, "first": "2025-03-06T01:00:00Z",
+    assert health["streams"]["json:live"] == {"records": 4, "first": "2025-03-06T01:00:30Z",
                                               "last": "2025-06-21T00:05:00Z"}
     assert health["live"] == {"records": 4, "samples": 37, "first_day": "2025-03-05", "last_day": "2025-06-21"}
     plain = Rig(without).result("data.health")
