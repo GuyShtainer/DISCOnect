@@ -16,19 +16,31 @@ def _seed(db_path):
                          "VALUES(?,?,?,?,?,1)", rows)
 
 
+def _counting_load(loads: list, real_load):
+    """``ClockOffsets.load`` that notes every call in ``loads`` before loading for real."""
+    def load(cls, conn):
+        loads.append(1)
+        return real_load(conn)
+    return classmethod(load)
+
+
 def test_data_health_loads_the_clock_offsets_once(db_path, monkeypatch):
     """The live block, local_today and the coverage ledger share one load of clock_offsets (BL-9 review row;
-    the Rust core passes the one load the same way)."""
+    the Rust core passes the one load the same way), and that load is the object they use: a watch +3 h
+    at 22:00Z makes "today", the ledger window's last day, the next date."""
     from disconect.ingest.clock import ClockOffsets
-    loads = []
-    real_load = ClockOffsets.load
-    monkeypatch.setattr(ClockOffsets, "load", classmethod(lambda cls, conn: loads.append(1) or real_load(conn)))
+    loads: list = []
+    monkeypatch.setattr(ClockOffsets, "load", _counting_load(loads, ClockOffsets.load))
+    monkeypatch.setenv("DISCONECT_NOW", "2025-07-01T22:00:00Z")
     _seed(db_path)
+    with storage.open_for_write(db_path, "test") as conn:
+        conn.execute("INSERT INTO clock_offsets(ts_utc, offset_s) VALUES('2025-06-15T12:00:00Z', 10800)")
     conn = storage.open_read_only(db_path)
     report = health.data_health(conn, 30)
     conn.close()
     assert loads == [1]
-    assert report["clock_offsets_known"] == 0 and report["coverage"]["ledger"]
+    assert report["clock_offsets_known"] == 1
+    assert report["coverage"]["window"]["to"] == "2025-07-02" and report["coverage"]["ledger"]
 
 
 def test_empty_store_reports_never_imported(db_path):
