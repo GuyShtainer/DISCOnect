@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Across the two cores: a Rust device and a Python device must agree on every daily row.
 
 The scenarios of ``test_converge_10b`` re-run with some devices on the Rust binary (``import``,

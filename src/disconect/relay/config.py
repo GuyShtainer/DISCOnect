@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Which relays a device uses: ``relay.json`` beside the store, shared with the Rust core. The list form is
 ``{"relays": [{id, kind, path | url, label?, serve?}, ...]}``; the legacy forms ``{"folder": path}`` (one entry that
 serves) and ``{"lan": "http://host:port"}`` still read. This core speaks folders only: a ``lan`` entry is a site

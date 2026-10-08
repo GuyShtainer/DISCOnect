@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """The five relay/pair methods on the Python oracle: the shared check prefix, the parameter shapes, then
 ``unsupported_transport`` (this core runs no server); ``parse_listen``'s rules, with the vectors the Rust core's
 ``serve_pair_test`` uses. ``tools/serve_diff.py`` (the two-core differential harness, not in this repository) compares the two cores on the refusals they share."""

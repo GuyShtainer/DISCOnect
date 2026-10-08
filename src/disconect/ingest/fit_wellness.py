@@ -2,8 +2,8 @@
 
 Parser: fitdecode (MIT). Never Garmin's FIT SDK -- its license forbids use in
 this project. Message and field names below are the
-public FIT profile names fitdecode exposes; the mapping to metrics follows the
-verified signal catalogue in the learn skill's garmin-health-data-model.md.
+public FIT profile names fitdecode exposes; the mapping to metrics follows a signal
+catalogue verified against the maintainer's own files (not published).
 
 Rules the decoder enforces:
 
@@ -44,7 +44,7 @@ SLEEP_EVENT_CODE = "74"
 #: one sample per minute, written on sentinel frames too. Not in fitdecode's profile.
 #: Provenance (documented reverse engineering, black-box): the message number was already
 #: public knowledge; the field number and meaning were found by correlating the
-#: user's own files with his own account export (fit-lab/fit_fieldscan.py, 2026-10-02, one
+#: user's own files with his own account export (a field scan of the maintainer's own files, script not published; 2026-10-02, one
 #: fenix 8, 201 monitoring files, 21 labelled days). No source listing this field's number
 #: was opened for the decode. Observed: daily maximum equal to the vendor's daily high on
 #: 100 % of days checked, minimum equal to the low on 90 % (±2 on the rest), sums of positive /

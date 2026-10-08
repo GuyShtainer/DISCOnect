@@ -46,7 +46,7 @@ development tree, by differential tests that hold a Rust port to the same answer
 ## Not in this repository
 
 - **The Rust port** (`disconect-core`) and **the desktop and phone shells** (`disconect-app`,
-  Tauri 2). The Python core is their oracle; 30 tests here skip because they need them
+  Tauri 2). The Python core is their oracle; 28 tests here skip because they need them
   (`tests/monorepo.py`). The docs under `docs/` describe the whole design, including those parts.
 - **Anything that talks to the watch over Bluetooth.** The live-link client that writes
   `live-*.jsonl` files is a separate, unpublished experiment; this package only ingests the files.
@@ -61,12 +61,11 @@ development tree, by differential tests that hold a Rust port to the same answer
 - Naps, per-second activity records and routes are not stored, by design for now.
 - `sqlcipher3` must build or ship a wheel for your platform; on an unsupported platform the
   install fails before anything runs.
-- The history in this repository starts on 2026-10-03, when the package took its present name;
-  the earlier history lives in the private development tree.
 
 ## How this snapshot was made
 
 The package is developed inside a private monorepo beside the Rust port and the shells. This
-repository is a `git subtree split` of the package directory, with the tests made to run
-standalone, the internal planning notes removed, and the trademark and licensing files added.
-Commits are authored by the maintainer under his GitHub no-reply address.
+repository starts at one snapshot commit of that package directory, with the tests made to run
+standalone, the internal planning notes left behind, and the trademark and licensing files added;
+the development history stays in the private tree. Commits are authored by the maintainer under
+his GitHub no-reply address.

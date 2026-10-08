@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """A device with several relays (the Python twin of ``disconect-core/tests/relay_list_test.rs``). A push lands
 on every site, an emptied site is healed from the store, a pull is the union of the listings with a fall-through to
 the next site, and ``open_sites`` reports what it could not open. Synthetic data only, scratch stores."""

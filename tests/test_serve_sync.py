@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """``sync.status`` and ``sync.run`` over the serve protocol, on the Python oracle:
 the checks in order, the progress events, counts-only results, the slot shared with ``import.run``,
 and the refusal of a LAN relay (``unsupported_transport``). The Rust core is compared with these

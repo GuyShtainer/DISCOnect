@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "disconect"
 version = "0.1.0.dev0"
-description = "Local-first, cloud-free health data store for Garmin watches: watch-file ingest, SQLite, MCP tools."
+description = "Local-first, cloud-free store for the health data your watch writes (works with Garmin watches; not affiliated). Raw files -> SQLite with provenance -> per-metric baselines; CLI + MCP server. v0, in progress."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "AGPL-3.0-or-later" }

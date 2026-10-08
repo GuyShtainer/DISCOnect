@@ -50,7 +50,7 @@ More of the CLI:
 
 Every test runs on synthetic data: `tests/fit_builder.py` synthesises FIT files, and the committed
 fixture stores under `tests/fixtures/` were built by the generators beside them. No file from a
-real watch or account is in this repository. The suite reads `748 passed, 30 skipped` on a fresh
+real watch or account is in this repository. The suite reads `748 passed, 28 skipped` on a fresh
 clone (2026-10-08): the skipped tests need the Rust twin, the desktop/phone shell or the two-core
 differential harness, which are developed beside this package and are not published here
 (`tests/monorepo.py` names them), or a Node toolchain.
@@ -167,7 +167,8 @@ docs/                  architecture, serve and relay protocols, the ADRs the cod
 
 Design lineage: the contract module, raw-payload retention, `COALESCE(device_id,'')` unique
 keys, per-stream provenance, the OS-held write lock, verified snapshots and the
-`get_data_health` tool are adapted from ZeppBridge (MIT), the Amazfit sibling project.
+`get_data_health` tool are adapted from ZeppBridge (MIT, Copyright (c) 2026 ZeppBridge contributors), the
+Amazfit sibling project.
 
 ## Energy reserve: read from the watch, checked against the cloud
 
@@ -189,6 +190,6 @@ phone shells are developed beside this package and are not published yet.
 
 ## License
 
-AGPL-3.0-or-later ([LICENSE](LICENSE)). The software never depends on Garmin's FIT SDK: FIT files
+Copyright (C) 2026 Guy Shtainer. AGPL-3.0-or-later ([LICENSE](LICENSE)). The software never depends on Garmin's FIT SDK: FIT files
 are parsed with `fitdecode` (MIT). Third-party marks and the non-affiliation statement:
 [TRADEMARKS.md](TRADEMARKS.md).

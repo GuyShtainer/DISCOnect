@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """The relay's conflict write is one transaction, and a storage error is an error.
 
 A conflict winner used to be written in three commits (decision, loser delete, winner insert); a storage
