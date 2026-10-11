@@ -224,6 +224,58 @@ of the maintainer's own watch files with his own account export on one watch; se
 docstring in `ingest/fit_wellness.py`. Nothing here is an estimate: when the watch files stop,
 these rows stop.
 
+## What comes next
+
+Planned work, taken from the project's backlog on 2026-10-11. Order and dates are not promises; a
+personal project moves when its maintainer has time. Items marked *in progress* have code on the
+way; the rest are shaped but not started.
+
+**Activities** *(in progress)*
+- Share a recorded activity: a share card, and export of its track as GPX or as a FIT file, with
+  the option to keep or trim the ends.
+- A map of the track in the activity detail (Google by default, Apple as the alternative), with
+  the location egress reviewed before it ships.
+
+**Your own history**
+- Patterns through time: a rule engine over your own stored days that asks questions, with the
+  coach allowed to fill in the answers, and a daily log of how you felt beside the metrics.
+- A starter set of estimators (the declarative `disconect-estimator/v1` grammar is already
+  evaluated by both cores; the shipped defaults are still to be chosen).
+- A daily balance figure derived from your own baselines, only after a legal read of the
+  estimator patents that cover this area.
+- Confidence bands on comparisons, shown as a band rather than words.
+
+**What a third party learns**
+- A local page that shows what could be inferred from the data you hold and the kind of ad it
+  would attract, computed on your machine, never stored, with zero egress.
+
+**Importing and the store**
+- Keep the bytes of a FIT file that failed to decode, so that `reparse` with a newer decoder can
+  recover exactly the files that need it.
+- A per-file failure read, so the Import screen can list which files failed and why.
+- A cable sync button wired to the USB pull (today the pull is a separate script).
+- Pull progress with counts on a phone's first pull of a large store.
+
+**Sync, pairing and keys**
+- Re-pair a device after a key rotation, and re-pair automatically when the Mac's LAN address
+  changes.
+- Relay settings from the app: add, forget and pick the folder of a relay without the CLI.
+- Networked relay adapters (S3- and GCS-style object stores) beside the folder relay.
+- Automatic cleanup of a rotated relay prefix once a second device has confirmed the rotation.
+- Passphrase setup, locked and recovery screens in the app; a Settings screen that covers the key model.
+
+**Platforms and distribution**
+- Windows 10 and Linux desktop builds (Windows needs its own MTP path for the cable pull).
+- A notarised Mac build and a DMG; an iPhone build through TestFlight instead of sideloading.
+- Android is not started.
+- Watch faces and activity apps for the watch, generated from templates and sideloaded over the
+  cable, after a read of the watch SDK's licence.
+
+**Parked, reopened on request**
+- A web app for self-hosters (a LAN listener for phone and desktop browsers): the phone app
+  covers the need today.
+- Telemetry through a watch app, and a bridge for a spare Android phone.
+
 ## How it was built
 
 Designed and reviewed by Guy Shtainer; implemented AI-assisted with Claude Code. The Python
